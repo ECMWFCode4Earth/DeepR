@@ -1,0 +1,18 @@
+{
+  "template": "https://github.com/ecmwf-projects/cookiecutter-conda-package",
+  "commit": "a5d6e8a6678af8f61a69af97a78852d0c595fedc",
+  "checkout": null,
+  "context": {
+    "cookiecutter": {
+      "project_name": "DeepR",
+      "project_slug": "deepr",
+      "project_short_description": "DeepR: Deep Reanalysis",
+      "copyright_holder": "European Union",
+      "copyright_year": "2023",
+      "mypy_strict": "False",
+      "integration_tests": "False",
+      "_template": "https://github.com/ecmwf-projects/cookiecutter-conda-package"
+    }
+  },
+  "directory": null
+}
