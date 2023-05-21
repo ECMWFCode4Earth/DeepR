@@ -1,6 +1,8 @@
 PROJECT := deepr
 CONDA := conda
+MAMBA := mamba
 CONDAFLAGS :=
+MAMBAFLAGS :=
 COV_REPORT := html
 
 default: qa unit-tests type-check
@@ -17,6 +19,10 @@ type-check:
 conda-env-update:
 	$(CONDA) env update $(CONDAFLAGS) -f ci/environment-ci.yml
 	$(CONDA) env update $(CONDAFLAGS) -f environment.yml
+
+mamba-env-update:
+	$(MAMBA) env update $(MAMBAFLAGS) -f ci/environment-ci.yml
+	$(MAMBA) env update $(MAMBAFLAGS) -f environment.yml
 
 docker-build:
 	docker build -t $(PROJECT) .
