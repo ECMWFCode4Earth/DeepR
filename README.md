@@ -16,6 +16,7 @@ conda activate DEVELOP
 ```
 
 A data directory for the testing data must be created:
+
 ```
 cd tests
 mkdir data
@@ -25,6 +26,7 @@ mkdir labels
 ```
 
 Once the directories have been created, testing data can be downloaded:
+
 ```
 cd tests
 cd features
