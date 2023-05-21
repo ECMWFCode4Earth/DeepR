@@ -1,13 +1,10 @@
-# DeepR
+# DeepR: Deep Reanalysis.
 
-DeepR: Deep Reanalysis
+Global reanalysis downscaling to regional scales by means of deep learning techniques.
 
-## Quick Start
+## Description
 
-```python
->>> import deepr
-
-```
+![project-photo-description.png](docs%2F_static%2Fproject-photo-description.png)
 
 ## Workflow for developers/contributors
 
@@ -17,6 +14,21 @@ For best experience create a new conda environment (e.g. DEVELOP) with Python 3.
 conda create -n DEVELOP -c conda-forge python=3.10
 conda activate DEVELOP
 ```
+
+A data directory for the testing data must be created:
+```
+cd tests
+mkdir data
+cd data
+mkdir features
+mkdir labels
+cd features
+wget https://storage.ecmwf.europeanweather.cloud/Code4Earth/t2m_era5_201801_025deg.nc
+cd ..
+cd labels
+wget https://storage.ecmwf.europeanweather.cloud/Code4Earth/t2m_cerra_201801_005deg.nc
+```
+
 
 Before pushing to GitHub, run the following commands:
 
