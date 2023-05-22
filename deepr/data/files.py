@@ -77,7 +77,10 @@ class DataFile:
         str
             The complete file path.
         """
-        filename = f"{self.variable}_{self.dataset}_{self.temporal_coverage}_{self.spatial_resolution}.nc"
+        filename = (
+            f"{self.variable}_{self.dataset}_"
+            f"{self.temporal_coverage}_{self.spatial_resolution}.nc"
+        )
         return os.path.join(self.base_dir, filename)
 
     def exist(self) -> bool:
