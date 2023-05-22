@@ -1,9 +1,9 @@
+import torch
 import xarray
+from torch.utils.data import Dataset
 
-from deepr.data.files import DataFile, DataFileCollection
 
-
-class DataGenerator:
+class DataGenerator(Dataset):
     def __init__(self, features_files, label_files, batch_size):
         """
         Initialize the DataGenerator class.
@@ -21,9 +21,61 @@ class DataGenerator:
         self.label_files = label_files
         self.batch_size = batch_size
         self.num_samples = self.get_num_samples()
-        self.num_batches = self.num_samples // batch_size
         self.label_ds = None
-        self.feature_ds = None
+        self.features_ds = None
+
+    def __len__(self):
+        """
+        Get the number of samples in the dataset.
+
+        Returns
+        -------
+        int
+            Number of samples in the dataset.
+        """
+        return self.num_samples
+
+    def __getitem__(self, index):
+        """
+        Retrieve a batch of data given an index.
+
+        Parameters
+        ----------
+        index : int
+            Index of the batch.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the batch of feature and label data.
+
+        Raises
+        ------
+        IndexError
+            If the index is out of range.
+        """
+        if self.label_ds is None and self.features_ds is None:
+            file_idx, _ = self.get_indices(index)
+            label_file = self.label_files.collection[file_idx]
+            features_files = self.feature_files.find_data(**{"date": label_file.date})
+            self.features_ds, self.label_ds = self.load_data(
+                label_file=label_file, features_files=features_files
+            )
+
+        file_idx, sample_idx = self.get_indices(index)
+
+        features_ds_batch = self.features_ds.isel(time=sample_idx)
+        label_ds_batch = self.label_ds.isel(time=sample_idx)
+
+        if sample_idx >= self.label_ds.dims["time"]:
+            self.label_ds = None
+            self.features_ds = None
+
+        batch = (
+            torch.as_tensor(features_ds_batch.to_array().to_numpy()),
+            torch.as_tensor(label_ds_batch.to_array().to_numpy()),
+        )
+        return batch
 
     def get_num_samples(self):
         """
@@ -41,66 +93,38 @@ class DataGenerator:
             label_ds.close()
         return num_samples
 
-    def __iter__(self):
-        self.count = 0
-        self.sample_idx = 0
-        self.file_idx = 0
-        return self
-
-    def __len__(self):
+    def get_indices(self, index):
         """
-        Get the number of samples in the dataset.
+        Calculate the file index and sample index based on the given overall index.
+
+        Parameters
+        ----------
+        index : int
+            Overall index of a sample in the dataset.
 
         Returns
         -------
-        int
-            Number of samples in the dataset.
-        """
-        return self.num_samples
-
-    def __next__(self):
-        """
-        Iterate over each batch
+        tuple
+            A tuple containing the file index and sample index.
 
         Raises
         ------
-        StopIteration
-            When all batches are extracted
+        IndexError
+            If the index is out of range.
         """
-        if self.count == self.num_batches:
-            raise StopIteration
-
-        if self.label_ds is None and self.feature_ds is None:
-            label_file = self.label_files.collection[self.file_idx]
-            features_files = self.feature_files.find_data(
-                kwargs={"date": label_file.date}
-            )
-            self.features_ds, self.label_ds = self.load_data(
-                label_file=label_file,
-                features_files=features_files
-            )
-
-        features_ds_batch = self.feature_ds.isel(
-            time=slice(self.sample_idx, self.sample_idx + self.batch_size)
-        )
-        label_ds_batch = self.label_ds.isel(
-            time=slice(self.sample_idx, self.sample_idx + self.batch_size)
-        )
-        self.sample_idx += self.batch_size
-
-        if self.sample_idx + self.batch_size >= self.label_ds.dims["time"]:
-            self.sample_idx = 0
-            self.label_ds = None
-            self.feature_ds = None
-            self.file_idx += 1
-
-        self.count += 1
-
-        batch = features_ds_batch, label_ds_batch
-        return batch
+        file_idx = 0
+        sample_idx = index
+        for label_file in self.label_files.collection:
+            num_samples = xarray.open_dataset(label_file.to_path()).dims["time"]
+            if sample_idx < num_samples:
+                break
+            else:
+                sample_idx -= num_samples
+                file_idx += 1
+        return file_idx, sample_idx
 
     @staticmethod
-    def load_data(features_files: DataFileCollection, label_file: DataFile):
+    def load_data(features_files, label_file):
         """
         Load the data from the given label file and feature files.
 
@@ -131,5 +155,3 @@ class DataGenerator:
             features_datasets.append(features_ds)
         features_ds = xarray.merge(features_datasets)
         return features_ds, label_ds
-
-

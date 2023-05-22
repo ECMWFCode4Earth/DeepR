@@ -117,7 +117,7 @@ class DataFileCollection:
         found_data: Data
             The first data object that matches the specified attributes.
         """
-        found_data = None
+        found_data = []
         for data in self.collection:
             match = True
             for key, value in kwargs.items():
@@ -125,9 +125,12 @@ class DataFileCollection:
                     match = False
                     break
             if match:
-                found_data = data
-                break
-        return found_data
+                found_data.append(data)
+
+        if len(found_data) == 0:
+            return None
+        else:
+            return DataFileCollection(collection=found_data)
 
     def sort_data(self, attribute: str):
         """
