@@ -60,7 +60,7 @@ class DataGenerator:
 
     def __next__(self):
         """
-        Iterate over each batch
+        Iterate over each batch.
 
         Raises
         ------
@@ -76,8 +76,7 @@ class DataGenerator:
                 kwargs={"date": label_file.date}
             )
             self.features_ds, self.label_ds = self.load_data(
-                label_file=label_file,
-                features_files=features_files
+                label_file=label_file, features_files=features_files
             )
 
         features_ds_batch = self.feature_ds.isel(
@@ -131,5 +130,3 @@ class DataGenerator:
             features_datasets.append(features_ds)
         features_ds = xarray.merge(features_datasets)
         return features_ds, label_ds
-
-
