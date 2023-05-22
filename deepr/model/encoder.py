@@ -18,7 +18,7 @@ class Encoder(nn.Module):
         z_channels: int
     ):
         """
-        Initializes a encoder network for image generation.
+        Initialize an encoder network for image generation.
 
         Parameters
         ----------

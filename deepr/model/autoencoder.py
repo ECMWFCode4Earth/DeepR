@@ -10,8 +10,11 @@ class Autoencoder(nn.Module):
     def __init__(
         self, encoder: Encoder, decoder: Decoder, emb_channels: int, z_channels: int
     ):
-        """Initializes an autoencoder model with the given encoder, decoder, embedding
-        channels, and z channels.
+        """
+        Initialize an autoencoder model given some parameters.
+
+        The parameters provided are:
+        encoder, decoder, embedding channels, and z channels.
 
         Parameters
         ----------

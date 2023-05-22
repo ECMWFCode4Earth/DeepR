@@ -1,3 +1,4 @@
+from labml import experiment
 from torch.utils.data import DataLoader
 
 from deepr.data.configuration import DataConfiguration
@@ -5,8 +6,7 @@ from deepr.data.generator import DataGenerator
 from deepr.model.configs import Configs
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-from labml import experiment
-        
+
 logger = get_logger(__name__)
 
 
@@ -33,11 +33,11 @@ class MainPipeline:
         """
         experiment.create(name="diffuse", writers={"tensorboard", "screen", "labml"})
         logger.info("Prepare DataLoader object for modeling")
-        data_loader = self.prepare_dataloader()
+        dataset, data_loader = self.prepare_dataloader()
 
         configs = Configs()
         configs.init()
-        experiment.configs(configs, {"dataset": data_loader})
+        experiment.configs(configs, {"dataset": dataset, "data_loader": data_loader})
         experiment.add_pytorch_models({"eps_model": configs.eps_model})
 
         with experiment.start():
@@ -64,7 +64,7 @@ class MainPipeline:
             dataset=data_generator,
             batch_size=data_configuration.common_configuration["batch_size"],
         )
-        return data_loader
+        return data_generator, data_loader
 
 
 if __name__ == "__main__":

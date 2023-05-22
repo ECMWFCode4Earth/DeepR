@@ -3,14 +3,15 @@ from typing import Optional, Tuple
 import torch
 import torch.nn.functional as F
 import torch.utils.data
-from deepr.model.utils import gather
 from torch import nn
+
+from deepr.model.utils import gather
 
 
 class DenoiseDiffusion:
     def __init__(self, eps_model: nn.Module, n_steps: int, device: torch.device):
         """
-        Initializes the Denoise Diffusion Model with the provided parameters.
+        Initialize the Denoise Diffusion Model with the provided parameters.
 
         Args:
         ----

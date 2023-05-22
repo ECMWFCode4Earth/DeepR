@@ -47,11 +47,9 @@ Before pushing to GitHub, run the following commands:
 1. Run the static type checker: `make type-check`
 1. Build the documentation (see [Sphinx tutorial](https://www.sphinx-doc.org/en/master/tutorial/)): `make docs-build`
 
-
 ## Methodology
 
-The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks. 
-
+The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
 
 ## References
 

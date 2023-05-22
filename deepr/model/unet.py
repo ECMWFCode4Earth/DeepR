@@ -5,8 +5,8 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from deepr.model.transformers import SpatialTransformer
 from deepr.model.resnet import ResnetBlock
+from deepr.model.transformers import SpatialTransformer
 from deepr.model.utils import DownSample, UpSample
 
 
@@ -88,8 +88,8 @@ class UNetModel(nn.Module):
                     layers.append(
                         SpatialTransformer(channels, n_heads, tf_layers, d_cond)
                     )
-                # Add them to the input half of the U-Net and keep track of the number of channels of
-                # its output
+                # Add them to the input half of the U-Net and keep track of the number
+                # of channels of its output
                 self.input_blocks.append(TimestepEmbedSequential(*layers))
                 input_block_channels.append(channels)
             # Down sample at all levels except last

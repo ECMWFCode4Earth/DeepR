@@ -18,7 +18,7 @@ class Decoder(nn.Module):
         z_channels: int
     ):
         """
-        Initializes a Multi-Resolution Attention Network.
+        Initialize a Multi-Resolution Attention Network.
 
         Parameters
         ----------

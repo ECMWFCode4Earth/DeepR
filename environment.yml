@@ -16,5 +16,8 @@ dependencies:
 - netcdf4
 # Deep learning and machine learning libraries
 - pytorch
+# Validation libraries
+- matplotlib
+- seaborn
 # Libraries for utilities
 - pyyaml
