@@ -2,9 +2,11 @@ from torch.utils.data import DataLoader
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
+from deepr.model.configs import Configs
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-
+from labml import experiment
+        
 logger = get_logger(__name__)
 
 
@@ -29,11 +31,17 @@ class MainPipeline:
         DataGenerator
             The initialized DataGenerator object.
         """
+        experiment.create(name="diffuse", writers={"tensorboard", "screen", "labml"})
         logger.info("Prepare DataLoader object for modeling")
         data_loader = self.prepare_dataloader()
-        for batch in data_loader:
-            features, labels = batch
-        return data_loader
+
+        configs = Configs()
+        configs.init()
+        experiment.configs(configs, {"dataset": data_loader})
+        experiment.add_pytorch_models({"eps_model": configs.eps_model})
+
+        with experiment.start():
+            configs.run()
 
     def prepare_dataloader(self):
         """
@@ -50,10 +58,7 @@ class MainPipeline:
         logger.info("Get label from data_configuration dictionary")
         label_collection = data_configuration.get_label()
         logger.info("Define the DataGenerator object")
-        data_generator = DataGenerator(
-            features_collection,
-            label_collection,
-        )
+        data_generator = DataGenerator(features_collection, label_collection)
         logger.info("Define the DataLoader object")
         data_loader = DataLoader(
             dataset=data_generator,

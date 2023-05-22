@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn as nn
 
-from deepr.model.attention import SpatialTransformer
+from deepr.model.transformers import SpatialTransformer
 from deepr.model.resnet import ResnetBlock
 from deepr.model.utils import DownSample, UpSample
 

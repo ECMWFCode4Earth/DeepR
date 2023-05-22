@@ -2,10 +2,9 @@ from typing import List
 
 import torch
 import torch.utils.data
-from labml import experiment, monit, option, tracker
+from labml import experiment, monit, tracker
 from labml.configs import BaseConfigs
 
-from deepr.data.generator import DataGenerator
 from deepr.model.ddpm import DenoiseDiffusion
 from deepr.model.unet import UNetModel
 
@@ -83,9 +82,3 @@ class Configs(BaseConfigs):
             self.sample()
             tracker.new_line()
             experiment.save_checkpoint()
-
-
-@option(Configs.dataset, "reanalysis-SR-tas")
-def celeb_dataset(c: Configs):
-    """Create CelebA dataset."""
-    return DataGenerator("files/ERA5", "files/CERRA")
