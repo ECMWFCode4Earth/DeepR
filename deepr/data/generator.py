@@ -151,12 +151,12 @@ class DataGenerator(Dataset):
         label_ds = label_ds.sel(
             latitude=slice(
                 label_file.spatial_coverage["latitude"][0],
-                label_file.spatial_coverage["latitude"][1]
+                label_file.spatial_coverage["latitude"][1],
             ),
             longitude=slice(
                 label_file.spatial_coverage["longitude"][0],
-                label_file.spatial_coverage["longitude"][1]
-            )
+                label_file.spatial_coverage["longitude"][1],
+            ),
         )
         features_datasets = []
         for features_file in features_files.collection:
@@ -164,12 +164,12 @@ class DataGenerator(Dataset):
             features_ds = features_ds.sel(
                 latitude=slice(
                     features_file.spatial_coverage["latitude"][0],
-                    features_file.spatial_coverage["latitude"][1]
+                    features_file.spatial_coverage["latitude"][1],
                 ),
                 longitude=slice(
                     features_file.spatial_coverage["longitude"][0],
-                    features_file.spatial_coverage["longitude"][1]
-                )
+                    features_file.spatial_coverage["longitude"][1],
+                ),
             )
             features_datasets.append(features_ds)
         features_ds = xarray.merge(features_datasets)
