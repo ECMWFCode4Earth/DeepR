@@ -2,26 +2,25 @@ from typing import List
 
 import torch
 import torch.utils.data
-import torchvision
-from labml import experiment, lab, monit, tracker
-from labml.configs import BaseConfigs, option
-from PIL import Image
+from labml import experiment, monit, option, tracker
+from labml.configs import BaseConfigs
 
+from deepr.data.generator import DataGenerator
 from deepr.model.ddpm import DenoiseDiffusion
-from deepr.model.unet import UNet
+from deepr.model.unet import UNetModel
 
 
 class Configs(BaseConfigs):
     device: torch.device
-    eps_model: UNet
+    eps_model: UNetModel
     diffusion: DenoiseDiffusion
-    image_channels: int = 3
+    image_channels: int = 1
     image_size: int = 32
     n_channels: int = 64
     channel_multipliers: List[int] = [1, 2, 2, 4]
     is_attention: List[int] = [False, False, False, True]
     n_steps: int = 1_000
-    batch_size: int = 64
+    batch_size: int = 16
     n_samples: int = 16
     learning_rate: float = 2e-5
     epochs: int = 1_000
@@ -30,7 +29,7 @@ class Configs(BaseConfigs):
     optimizer: torch.optim.Adam
 
     def init(self):
-        self.eps_model = UNet(
+        self.eps_model = UNetModel(
             image_channels=self.image_channels,
             n_channels=self.n_channels,
             ch_mults=self.channel_multipliers,
@@ -59,7 +58,7 @@ class Configs(BaseConfigs):
                 device=self.device,
             )
 
-            # Remove noise for $T$ steps
+            # Remove noise for T steps
             for t_ in monit.iterate("Sample", self.n_steps):
                 t = self.n_steps - t_ - 1
                 x = self.diffusion.p_sample(
@@ -72,7 +71,6 @@ class Configs(BaseConfigs):
         for data in monit.iterate("Train", self.data_loader):
             tracker.add_global_step()
             data = data.to(self.device)
-
             self.optimizer.zero_grad()
             loss = self.diffusion.loss(data)
             loss.backward()
@@ -87,36 +85,7 @@ class Configs(BaseConfigs):
             experiment.save_checkpoint()
 
 
-class CelebADataset(torch.utils.data.Dataset):
-    """### CelebA HQ dataset."""
-
-    def __init__(self, image_size: int):
-        super().__init__()
-
-        # CelebA images folder
-        folder = lab.get_data_path() / "celebA"
-        # List of files
-        self._files = [p for p in folder.glob("**/*.jpg")]
-
-        # Transformations to resize the image and convert to tensor
-        self._transform = torchvision.transforms.Compose(
-            [
-                torchvision.transforms.Resize(image_size),
-                torchvision.transforms.ToTensor(),
-            ]
-        )
-
-    def __len__(self):
-        """Size of the dataset."""
-        return len(self._files)
-
-    def __getitem__(self, index: int):
-        """Get an image."""
-        img = Image.open(self._files[index])
-        return self._transform(img)
-
-
-@option(Configs.dataset, "CelebA")
+@option(Configs.dataset, "reanalysis-SR-tas")
 def celeb_dataset(c: Configs):
     """Create CelebA dataset."""
-    return CelebADataset(c.image_size)
+    return DataGenerator("files/ERA5", "files/CERRA")

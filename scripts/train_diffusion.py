@@ -4,15 +4,14 @@ from deepr.model.configs import Configs
 
 
 def main():
-    experiment.create(name="diffuse", writers={"screen"})
+    experiment.create(name="diffuse", writers={"screen", "lambl"})
 
     configs = Configs()
+    configs.init()
 
     experiment.configs(
-        configs, {"dataset": "CelebA", "image_channels": 3, "epochs": 100}
+        configs, {"dataset": "reanalysis-SR-tas", "image_channels": 1, "epochs": 100}
     )
-
-    configs.init()
     experiment.add_pytorch_models({"eps_model": configs.eps_model})
 
     with experiment.start():
