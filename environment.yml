@@ -2,11 +2,19 @@
 channels:
 - conda-forge
 - nodefaults
+
 # EXAMPLE:
 # dependencies:
 # - package1
 # - package2
 # DO NOT EDIT ABOVE THIS LINE, ADD DEPENDENCIES BELOW AS SHOWN IN THE EXAMPLE
+
 dependencies:
+# Libraries to manipulate data
+- dask
 - xarray
 - netcdf4
+# Deep learning and machine learning libraries
+- tensorflow
+# Libraries for utilities
+- pyyaml

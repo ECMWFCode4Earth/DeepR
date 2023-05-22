@@ -29,6 +29,7 @@ Once the directories have been created, testing data can be downloaded:
 
 ```
 cd tests
+cd data
 cd features
 wget https://storage.ecmwf.europeanweather.cloud/Code4Earth/t2m_era5_201801_025deg.nc
 cd ..
