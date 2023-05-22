@@ -2,7 +2,7 @@ import os
 
 import pytest
 
-from deepr.data.files import DataPath
+from deepr.data.files import DataFile
 
 
 @pytest.fixture
@@ -11,17 +11,17 @@ def base_dir():
 
 
 @pytest.fixture
-def data_path(base_dir):
-    return DataPath(base_dir, "t2m", "era5", "201801", "025deg")
+def data_file(base_dir):
+    return DataFile(base_dir, "t2m", "era5", "201801", "025deg")
 
 
-def test_data_path_attributes(data_path, base_dir):
+def test_data_path_attributes(data_file, base_dir):
     """
     Test the attributes of the DataPath instance.
 
     Parameters
     ----------
-    data_path : DataPath
+    data_file : DataFile
         The DataPath instance to test.
     base_dir : str
         The expected base directory.
@@ -30,20 +30,20 @@ def test_data_path_attributes(data_path, base_dir):
     -------
     None
     """
-    assert data_path.base_dir == base_dir
-    assert data_path.variable == "t2m"
-    assert data_path.dataset == "era5"
-    assert data_path.date == "201801"
-    assert data_path.resolution == "025deg"
+    assert data_file.base_dir == base_dir
+    assert data_file.variable == "t2m"
+    assert data_file.dataset == "era5"
+    assert data_file.date == "201801"
+    assert data_file.resolution == "025deg"
 
 
-def test_data_path_to_path(data_path, base_dir):
+def test_data_path_to_path(data_file, base_dir):
     """
     Test the to_path method of the DataPath instance.
 
     Parameters
     ----------
-    data_path : DataPath
+    data_file : DataFile
         The DataPath instance to test.
     base_dir : str
         The expected base directory.
@@ -53,16 +53,16 @@ def test_data_path_to_path(data_path, base_dir):
     None
     """
     expected_path = os.path.join(base_dir, "t2m_era5_201801_025deg.nc")
-    assert data_path.to_path() == expected_path
+    assert data_file.to_path() == expected_path
 
 
-def test_data_path_from_path(data_path, base_dir):
+def test_data_path_from_path(data_file, base_dir):
     """
     Test the from_path class method of the DataPath class.
 
     Parameters
     ----------
-    data_path : DataPath
+    data_file : DataFile
         The DataPath instance for comparison.
     base_dir : str
         The expected base directory.
@@ -72,7 +72,7 @@ def test_data_path_from_path(data_path, base_dir):
     None
     """
     file_path = os.path.join(base_dir, "t2m_era5_201801_025deg.nc")
-    new_data_path = DataPath.from_path(file_path)
+    new_data_path = DataFile.from_path(file_path)
     assert new_data_path.base_dir == base_dir
     assert new_data_path.variable == "t2m"
     assert new_data_path.dataset == "era5"

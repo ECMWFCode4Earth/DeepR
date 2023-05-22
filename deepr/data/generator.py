@@ -1,12 +1,10 @@
-import os
-
-import numpy as np
-import xarray as xr
-from tensorflow.keras.utils import Sequence
+import torch
+import xarray
+from torch.utils.data import Dataset
 
 
-class DataGenerator(Sequence):
-    def __init__(self, features_dir, labels_dir, batch_size, shuffle=True):
+class DataGenerator(Dataset):
+    def __init__(self, features_files, label_files):
         """
         Initialize the DataGenerator class.
 
@@ -16,22 +14,10 @@ class DataGenerator(Sequence):
             Directory path where the feature files are stored.
         labels_dir : str
             Directory path where the label files are stored.
-        batch_size : int
-            Number of samples per batch.
-        shuffle : bool, optional
-            Whether to shuffle the samples, by default True.
         """
-        self.features_dir = features_dir
-        self.labels_dir = labels_dir
-        self.batch_size = batch_size
-        self.shuffle = shuffle
-        self.feature_files = sorted(os.listdir(features_dir))
-        self.label_files = sorted(os.listdir(labels_dir))
-        self.num_files = len(self.feature_files)
+        self.feature_files = sorted(features_files)
+        self.label_files = sorted(label_files)
         self.num_samples = self.get_num_samples()
-        self.indexes = np.arange(self.num_samples)
-        if shuffle:
-            np.random.shuffle(self.indexes)
 
     def get_num_samples(self):
         """
@@ -44,111 +30,83 @@ class DataGenerator(Sequence):
         """
         num_samples = 0
         for feature_file in self.feature_files:
-            features_ds = xr.open_dataset(os.path.join(self.features_dir, feature_file))
+            features_ds = xarray.open_dataset(feature_file)
             num_samples += features_ds.dims["time"]
             features_ds.close()
         return num_samples
 
     def __len__(self):
         """
-        Get the number of batches in the dataset.
+        Get the number of samples in the dataset.
 
         Returns
         -------
         int
-            Number of batches in the dataset.
+            Number of samples in the dataset.
         """
-        return int(np.ceil(self.num_samples / self.batch_size))
+        return self.num_samples
 
     def __getitem__(self, index):
         """
-        Generate a batch of data given the batch index.
+        Get a sample from the dataset given its index.
 
         Parameters
         ----------
         index : int
-            Index of the batch.
+            Index of the sample.
 
         Returns
         -------
         tuple
-            Tuple containing the batch of features and labels.
+            Tuple containing the feature and label tensors.
         """
-        start_index = index * self.batch_size
-        end_index = min((index + 1) * self.batch_size, self.num_samples)
-        batch_indexes = self.indexes[start_index:end_index]
-        batch_feature_files, batch_sample_indexes = self.get_files_and_sample_indexes(
-            batch_indexes
-        )
-        batch_features, batch_labels = self.load_data(
-            batch_feature_files, batch_sample_indexes
-        )
-        return batch_features, batch_labels
+        feature_file, sample_index = self.get_file_and_sample_index(index)
+        features, labels = self.load_data(feature_file, sample_index)
+        return torch.from_numpy(features), torch.from_numpy(labels)
 
-    def get_files_and_sample_indexes(self, batch_indexes):
+    def get_file_and_sample_index(self, index):
         """
-        Get the feature files and corresponding sample indexes for a batch.
+        Get the feature file and corresponding sample index for a given index.
 
         Parameters
         ----------
-        batch_indexes : list
-            List of indexes for the samples in the batch.
+        index : int
+            Index of the sample.
 
         Returns
         -------
         tuple
-            Tuple containing the feature files and sample indexes.
+            Tuple containing the feature file and sample index.
         """
-        file_indexes = []
-        sample_indexes = []
-        for index in batch_indexes:
-            for file_index, feature_file in enumerate(self.feature_files):
-                features_ds = xr.open_dataset(
-                    os.path.join(self.features_dir, feature_file)
-                )
-                num_samples = features_ds.dims["time"]
-                if index < num_samples:
-                    file_indexes.append(file_index)
-                    sample_indexes.append(index)
-                    features_ds.close()
-                    break
-                index -= num_samples
+        for file_index, feature_file in enumerate(self.feature_files):
+            features_ds = xarray.open_dataset(feature_file)
+            num_samples = features_ds.dims["time"]
+            if index < num_samples:
                 features_ds.close()
-        batch_feature_files = [self.feature_files[i] for i in file_indexes]
-        batch_sample_indexes = sample_indexes
-        return batch_feature_files, batch_sample_indexes
+                return feature_file, index
+            index -= num_samples
+            features_ds.close()
 
-    def load_data(self, feature_files, sample_indexes):
+    def load_data(self, feature_file, sample_index):
         """
-        Load the data for a batch of samples.
+        Load the data for a given sample.
 
         Parameters
         ----------
-        feature_files : list
-            List of feature files for the samples in the batch.
-        sample_indexes : list
-            List of sample indexes in the feature files.
+        feature_file : str
+            Feature file for the sample.
+        sample_index : int
+            Sample index in the feature file.
 
         Returns
         -------
         tuple
-            Tuple containing the batch of features and labels.
+            Tuple containing the feature and label arrays.
         """
-        batch_features, batch_labels = [], []
-        for feature_file, sample_index in zip(feature_files, sample_indexes):
-            features_ds = xr.open_dataset(os.path.join(self.features_dir, feature_file))
-            labels_ds = xr.open_dataset(
-                os.path.join(self.labels_dir, feature_file)
-            )  # Assuming same file for features and labels
-            features = features_ds["t2m"].isel(time=sample_index).values
-            labels = labels_ds["t2m"].isel(time=sample_index).values
-            batch_features.append(features)
-            batch_labels.append(labels)
-            features_ds.close()
-            labels_ds.close()
-        return np.array(batch_features), np.array(batch_labels)
-
-    def on_epoch_end(self):
-        """Perform any necessary actions at the end of each epoch."""
-        if self.shuffle:
-            np.random.shuffle(self.indexes)
+        features_ds = xarray.open_dataset(feature_file)
+        labels_ds = xarray.open_dataset(feature_file)
+        features = features_ds["t2m"].isel(time=sample_index).values
+        labels = labels_ds["t2m"].isel(time=sample_index).values
+        features_ds.close()
+        labels_ds.close()
+        return features, labels

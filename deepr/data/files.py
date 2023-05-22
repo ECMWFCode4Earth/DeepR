@@ -1,7 +1,8 @@
 import os
+from typing import List
 
 
-class DataPath:
+class DataFile:
     """
     Class for generating and manipulating data paths based on a specific structure.
 
@@ -49,7 +50,7 @@ class DataPath:
 
         Returns
         -------
-        DataPath
+        DataFile
             The DataPath instance.
         """
         base_dir, filename = os.path.split(file_path)
@@ -67,3 +68,74 @@ class DataPath:
         """
         filename = f"{self.variable}_{self.dataset}_{self.date}_{self.resolution}.nc"
         return os.path.join(self.base_dir, filename)
+
+    def exist(self) -> bool:
+        """
+        Indicate whether the file returned by to_path method already exists.
+
+        Returns
+        -------
+        bool
+            True or False indicating if the file returned by to_path exists.
+        """
+        return os.path.exists(self.to_path())
+
+
+class DataFileCollection:
+    def __init__(self, collection: List[DataFile] = None):
+        self.collection = collection
+
+    def __len__(self):
+        """Get the length of the collection list."""
+        return len(self.collection)
+
+    def append_data(self, data: DataFile):
+        """
+        Append a new data object to the data list.
+
+        Parameters
+        ----------
+        data: Data
+            The data object to be appended.
+        """
+        if isinstance(data, DataFile):
+            self.collection.append(data)
+        else:
+            raise ValueError("The input object is not a Data object.")
+
+    def find_data(self, **kwargs):
+        """
+        Find a DataFile object in the data list that matches the specified attributes.
+
+        Parameters
+        ----------
+        **kwargs: dict
+            A dictionary with attributes to match the data objects.
+
+        Returns
+        -------
+        found_data: Data
+            The first data object that matches the specified attributes.
+        """
+        found_data = None
+        for data in self.collection:
+            match = True
+            for key, value in kwargs.items():
+                if not hasattr(data, key) or getattr(data, key) != value:
+                    match = False
+                    break
+            if match:
+                found_data = data
+                break
+        return found_data
+
+    def sort_data(self, attribute: str):
+        """
+        Sort the collection list by the specified attribute of the DataFile objects.
+
+        Parameters
+        ----------
+        attribute : str
+            The attribute name to sort the DataFile objects by.
+        """
+        self.collection.sort(key=lambda x: getattr(x, attribute))

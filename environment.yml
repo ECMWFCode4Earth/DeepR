@@ -15,6 +15,6 @@ dependencies:
 - xarray
 - netcdf4
 # Deep learning and machine learning libraries
-- tensorflow
+- pytorch
 # Libraries for utilities
 - pyyaml
