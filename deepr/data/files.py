@@ -139,3 +139,15 @@ class DataFileCollection:
             The attribute name to sort the DataFile objects by.
         """
         self.collection.sort(key=lambda x: getattr(x, attribute))
+
+    def get_variable_list(self) -> List[str]:
+        """
+        Get the list of variables in the data collection.
+
+        Returns
+        -------
+        variables : list
+            The list of variables that are available in the data collection
+        """
+        variables = {data_file.variable for data_file in self.collection}
+        return list(variables)
