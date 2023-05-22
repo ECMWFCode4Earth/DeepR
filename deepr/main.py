@@ -53,7 +53,6 @@ class MainPipeline:
         data_generator = DataGenerator(
             features_collection,
             label_collection,
-            data_configuration.common_configuration["batch_size"],
         )
         logger.info("Define the DataLoader object")
         data_loader = DataLoader(

@@ -4,7 +4,7 @@ from torch.utils.data import Dataset
 
 
 class DataGenerator(Dataset):
-    def __init__(self, features_files, label_files, batch_size):
+    def __init__(self, features_files, label_files):
         """
         Initialize the DataGenerator class.
 
@@ -14,12 +14,9 @@ class DataGenerator(Dataset):
             Collection of feature DataFile objects.
         label_files : DataFileCollection
             Collection of label DataFile objects.
-        batch_size : int
-            Number of samples per batch.
         """
         self.feature_files = features_files
         self.label_files = label_files
-        self.batch_size = batch_size
         self.num_samples = self.get_num_samples()
         self.label_ds = None
         self.features_ds = None
