@@ -33,8 +33,8 @@ def test_data_path_attributes(data_file, base_dir):
     assert data_file.base_dir == base_dir
     assert data_file.variable == "t2m"
     assert data_file.dataset == "era5"
-    assert data_file.date == "201801"
-    assert data_file.resolution == "025deg"
+    assert data_file.temporal_coverage == "201801"
+    assert data_file.spatial_resolution == "025deg"
 
 
 def test_data_path_to_path(data_file, base_dir):
@@ -76,5 +76,5 @@ def test_data_path_from_path(data_file, base_dir):
     assert new_data_path.base_dir == base_dir
     assert new_data_path.variable == "t2m"
     assert new_data_path.dataset == "era5"
-    assert new_data_path.date == "201801"
-    assert new_data_path.resolution == "025deg"
+    assert new_data_path.temporal_coverage == "201801"
+    assert new_data_path.spatial_resolution == "025deg"

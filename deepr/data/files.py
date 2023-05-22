@@ -15,7 +15,15 @@ class DataFile:
         resolution (str): The resolution of the data.
     """
 
-    def __init__(self, base_dir, variable, dataset, date, resolution):
+    def __init__(
+        self,
+        base_dir: str,
+        variable: str,
+        dataset: str,
+        temporal_coverage: str,
+        spatial_resolution: str,
+        spatial_coverage: dict,
+    ):
         """
         Initialize a DataPath instance.
 
@@ -27,16 +35,19 @@ class DataFile:
             The variable name.
         dataset : str
             The dataset name.
-        date : str
-            The date of the data.
-        resolution : str
-            The resolution of the data.
+        temporal_coverage : str
+            The temporal coverage of the data.
+        spatial_resolution : str
+            The temporal resolution of the data.
+        spatial_coverage: dict
+            The spatial coverage of the data to be selected.
         """
         self.base_dir = base_dir
         self.variable = variable
         self.dataset = dataset
-        self.date = date
-        self.resolution = resolution
+        self.temporal_coverage = temporal_coverage
+        self.spatial_resolution = spatial_resolution
+        self.spatial_coverage = spatial_coverage
 
     @classmethod
     def from_path(cls, file_path):
@@ -66,7 +77,7 @@ class DataFile:
         str
             The complete file path.
         """
-        filename = f"{self.variable}_{self.dataset}_{self.date}_{self.resolution}.nc"
+        filename = f"{self.variable}_{self.dataset}_{self.temporal_coverage}_{self.spatial_resolution}.nc"
         return os.path.join(self.base_dir, filename)
 
     def exist(self) -> bool:

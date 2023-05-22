@@ -54,7 +54,9 @@ class DataGenerator(Dataset):
         if self.label_ds is None and self.features_ds is None:
             file_idx, _ = self.get_indices(index)
             label_file = self.label_files.collection[file_idx]
-            features_files = self.feature_files.find_data(**{"date": label_file.date})
+            features_files = self.feature_files.find_data(
+                **{"temporal_coverage": label_file.temporal_coverage}
+            )
             self.features_ds, self.label_ds = self.load_data(
                 label_file=label_file, features_files=features_files
             )
@@ -146,9 +148,29 @@ class DataGenerator(Dataset):
         The feature datasets are merged into a single dataset using xarray.merge().
         """
         label_ds = xarray.open_dataset(label_file.to_path())
+        label_ds = label_ds.sel(
+            latitude=slice(
+                label_file.spatial_coverage["latitude"][0],
+                label_file.spatial_coverage["latitude"][1]
+            ),
+            longitude=slice(
+                label_file.spatial_coverage["longitude"][0],
+                label_file.spatial_coverage["longitude"][1]
+            )
+        )
         features_datasets = []
         for features_file in features_files.collection:
             features_ds = xarray.open_dataset(features_file.to_path())
+            features_ds = features_ds.sel(
+                latitude=slice(
+                    features_file.spatial_coverage["latitude"][0],
+                    features_file.spatial_coverage["latitude"][1]
+                ),
+                longitude=slice(
+                    features_file.spatial_coverage["longitude"][0],
+                    features_file.spatial_coverage["longitude"][1]
+                )
+            )
             features_datasets.append(features_ds)
         features_ds = xarray.merge(features_datasets)
         return features_ds, label_ds

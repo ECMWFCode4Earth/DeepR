@@ -67,8 +67,11 @@ class DataConfiguration:
                     base_dir=self.features_configuration["data_dir"],
                     variable=variable,
                     dataset=self.features_configuration["data_name"],
-                    date=features_date,
-                    resolution=self.features_configuration["spatial_resolution"],
+                    temporal_coverage=features_date,
+                    spatial_resolution=self.features_configuration[
+                        "spatial_resolution"
+                    ],
+                    spatial_coverage=self.features_configuration["spatial_coverage"],
                 )
                 if features_file.exist():
                     features_files.append_data(features_file)
@@ -106,8 +109,9 @@ class DataConfiguration:
                 base_dir=self.label_configuration["data_dir"],
                 variable=self.label_configuration["variable"],
                 dataset=self.label_configuration["data_name"],
-                date=label_date,
-                resolution=self.label_configuration["spatial_resolution"],
+                temporal_coverage=label_date,
+                spatial_resolution=self.label_configuration["spatial_resolution"],
+                spatial_coverage=self.label_configuration["spatial_coverage"],
             )
             if label_file.exist():
                 label_files.append_data(label_file)
