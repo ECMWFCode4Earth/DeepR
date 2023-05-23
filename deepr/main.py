@@ -1,5 +1,5 @@
 from labml import experiment
-from torch.utils.data import Dataset, DataLoader
+from torch.utils.data import Dataset
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
@@ -54,11 +54,11 @@ class MainPipeline:
         data_generator = DataGenerator(features_collection, label_collection)
         return data_generator
 
-
     def train_model(self, dataset: Dataset):
         configs = Configs()
         config_param = {
-            **{"dataset": dataset}, **self.configuration["training_configuration"]
+            **{"dataset": dataset},
+            **self.configuration["training_configuration"],
         }
         experiment.configs(configs, config_param)
         configs.init()
@@ -66,6 +66,7 @@ class MainPipeline:
 
         with experiment.start():
             configs.run()
+
 
 if __name__ == "__main__":
     MainPipeline(

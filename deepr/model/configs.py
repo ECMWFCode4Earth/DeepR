@@ -34,7 +34,7 @@ class Configs(BaseConfigs):
             n_channels=self.n_channels,
             ch_mults=self.channel_multipliers,
             is_attn=self.is_attention,
-            n_blocks=self.n_blocks
+            n_blocks=self.n_blocks,
         ).to(self.device)
 
         self.diffusion = DenoiseDiffusion(
