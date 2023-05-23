@@ -1,6 +1,32 @@
+import math
+
 import torch
-import torch.nn.functional as F
 from torch import nn
+
+from deepr.model.activations import Swish
+
+
+class TimeEmbedding(nn.Module):
+    """Create sinusoidal position embeddings."""
+
+    def __init__(self, n_channels: int):
+        super().__init__()
+        self.n_channels = n_channels
+        self.lin1 = nn.Linear(self.n_channels // 4, self.n_channels)
+        self.act = Swish()
+        self.lin2 = nn.Linear(self.n_channels, self.n_channels)
+
+    def forward(self, t: torch.Tensor):
+        half_dim = self.n_channels // 8
+        emb = math.log(10_000) / (half_dim - 1)
+        emb = torch.exp(torch.arange(half_dim, device=t.device) * -emb)
+        emb = t[:, None] * emb[None, :]
+        emb = torch.cat((emb.sin(), emb.cos()), dim=1)
+
+        # Transform with the MLP
+        emb = self.act(self.lin1(emb))
+        emb = self.lin2(emb)
+        return emb
 
 
 class GaussianDistribution:
@@ -14,26 +40,25 @@ class GaussianDistribution:
         return self.mean + self.std * torch.randn_like(self.std)
 
 
-class UpSample(nn.Module):
-    def __init__(self, channels: int):
+class Upsample(nn.Module):
+    def __init__(self, n_channels):
         super().__init__()
-        self.conv = nn.Conv2d(channels, channels, 3, padding=1)
+        self.conv = nn.ConvTranspose2d(n_channels, n_channels, (4, 4), (2, 2), (1, 1))
 
-    def forward(self, x: torch.Tensor):
-        x = F.interpolate(x, scale_factor=2.0, mode="nearest")
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        # `t` is not used, but it's kept in the arguments because for the attention
+        # layer function signature to match with `ResidualBlock`.
+        _ = t
         return self.conv(x)
 
 
-class DownSample(nn.Module):
-    """## Down-sampling layer."""
-
-    def __init__(self, channels: int):
-        """:param channels: is the number of channels"""
+class Downsample(nn.Module):
+    def __init__(self, n_channels):
         super().__init__()
-        self.conv = nn.Conv2d(channels, channels, 3, stride=2, padding=0)
+        self.conv = nn.Conv2d(n_channels, n_channels, (3, 3), (2, 2), (1, 1))
 
-    def forward(self, x: torch.Tensor):
-        x = F.pad(x, (0, 1, 0, 1), mode="constant", value=0)
+    def forward(self, x: torch.Tensor, t: torch.Tensor):
+        _ = t
         return self.conv(x)
 
 

@@ -1,52 +1,43 @@
 from typing import Optional
 
 import torch
-import torch.nn.functional as F
 from torch import nn
-
-from deepr.model.utils import normalization
 
 
 class AttentionBlock(nn.Module):
-    def __init__(self, channels: int):
+    def __init__(
+        self, n_channels: int, n_heads: int = 1, d_k: int = None, n_groups: int = 32
+    ):
         super().__init__()
-        # Group normalization
-        self.norm = normalization(channels)
 
-        # Query, key and value mappings
-        self.q = nn.Conv2d(channels, channels, 1)
-        self.k = nn.Conv2d(channels, channels, 1)
-        self.v = nn.Conv2d(channels, channels, 1)
+        if d_k is None:
+            d_k = n_channels
+        self.norm = nn.GroupNorm(n_groups, n_channels)
+        self.projection = nn.Linear(n_channels, n_heads * d_k * 3)
+        self.output = nn.Linear(n_heads * d_k, n_channels)
+        self.scale = d_k**-0.5
+        self.n_heads = n_heads
+        self.d_k = d_k
 
-        self.proj_out = nn.Conv2d(channels, channels, 1)
+    def forward(self, x: torch.Tensor, t: Optional[torch.Tensor] = None):
+        # `t` is not used, but it's kept in the arguments because for the attention
+        # layer function signature to match with `ResidualBlock`.
+        _ = t
+        batch_size, n_channels, height, width = x.shape
+        x = x.view(batch_size, n_channels, -1).permute(0, 2, 1)
+        # Get query, key, and values
+        qkv = self.projection(x).view(batch_size, -1, self.n_heads, 3 * self.d_k)
+        q, k, v = torch.chunk(qkv, 3, dim=-1)
+        attn = torch.einsum("bihd,bjhd->bijh", q, k) * self.scale
+        attn = attn.softmax(dim=2)
+        res = torch.einsum("bijh,bjhd->bihd", attn, v)
+        res = res.view(batch_size, -1, self.n_heads * self.d_k)
+        res = self.output(res)
+        res += x
 
-        # Attention scaling factor
-        self.scale = channels**-0.5
+        res = res.permute(0, 2, 1).view(batch_size, n_channels, height, width)
 
-    def forward(self, x: torch.Tensor):
-        # Normalize `x`
-        x_norm = self.norm(x)
-
-        # Get query, key and vector embeddings
-        q = self.q(x_norm)
-        k = self.k(x_norm)
-        v = self.v(x_norm)
-
-        # Reshape to query, key and vector embeedings
-        b, c, h, w = q.shape
-        q = q.view(b, c, h * w)
-        k = k.view(b, c, h * w)
-        v = v.view(b, c, h * w)
-
-        attn = torch.einsum("bci,bcj->bij", q, k) * self.scale
-        attn = F.softmax(attn, dim=2)
-        out = torch.einsum("bij,bcj->bci", attn, v)
-
-        # Reshape back to `[batch_size, channels, height, width]`
-        out = out.view(b, c, h, w)
-        out = self.proj_out(out)
-
-        return x + out
+        return res
 
 
 class CrossAttention(nn.Module):

@@ -1,5 +1,5 @@
 from labml import experiment
-from torch.utils.data import DataLoader
+from torch.utils.data import Dataset, DataLoader
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
@@ -33,17 +33,10 @@ class MainPipeline:
         """
         experiment.create(name="diffuse", writers={"tensorboard", "screen", "labml"})
         logger.info("Prepare DataLoader object for modeling")
-        dataset, data_loader = self.prepare_dataloader()
+        dataset = self.get_dataset()
+        self.train_model(dataset)
 
-        configs = Configs()
-        configs.init()
-        experiment.configs(configs, {"dataset": dataset, "data_loader": data_loader})
-        experiment.add_pytorch_models({"eps_model": configs.eps_model})
-
-        with experiment.start():
-            configs.run()
-
-    def prepare_dataloader(self):
+    def get_dataset(self):
         """
         Initialize the data_loader for the pipeline.
 
@@ -59,13 +52,22 @@ class MainPipeline:
         label_collection = data_configuration.get_label()
         logger.info("Define the DataGenerator object")
         data_generator = DataGenerator(features_collection, label_collection)
-        logger.info("Define the DataLoader object")
-        data_loader = DataLoader(
-            dataset=data_generator,
-            batch_size=data_configuration.common_configuration["batch_size"],
-        )
-        return data_generator, data_loader
+        return data_generator
 
+
+    def train_model(self, dataset: Dataset):
+        configs = Configs()
+        config_param = {
+            **{"dataset": dataset}, **self.configuration["training_configuration"]
+        }
+        experiment.configs(configs, config_param)
+        configs.init()
+        experiment.add_pytorch_models({"eps_model": configs.eps_model})
+
+        with experiment.start():
+            configs.run()
 
 if __name__ == "__main__":
-    MainPipeline("../resources/configuration.yml").run_pipeline()
+    MainPipeline(
+        "/home/santacruzm/Git/DeepR/resources/configuration.yml"
+    ).run_pipeline()

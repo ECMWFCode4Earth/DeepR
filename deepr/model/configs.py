@@ -6,16 +6,17 @@ from labml import experiment, monit, tracker
 from labml.configs import BaseConfigs
 
 from deepr.model.ddpm import DenoiseDiffusion
-from deepr.model.unet import UNetModel
+from deepr.model.unet import UNet
 
 
 class Configs(BaseConfigs):
     device: torch.device
-    eps_model: UNetModel
+    eps_model: UNet
     diffusion: DenoiseDiffusion
     image_channels: int = 1
     image_size: int = 32
-    n_channels: int = 64
+    n_channels: int = 12
+    n_blocks: int = 2
     channel_multipliers: List[int] = [1, 2, 2, 4]
     is_attention: List[int] = [False, False, False, True]
     n_steps: int = 1_000
@@ -28,11 +29,12 @@ class Configs(BaseConfigs):
     optimizer: torch.optim.Adam
 
     def init(self):
-        self.eps_model = UNetModel(
+        self.eps_model = UNet(
             image_channels=self.image_channels,
             n_channels=self.n_channels,
             ch_mults=self.channel_multipliers,
             is_attn=self.is_attention,
+            n_blocks=self.n_blocks
         ).to(self.device)
 
         self.diffusion = DenoiseDiffusion(
@@ -67,11 +69,12 @@ class Configs(BaseConfigs):
             tracker.save("sample", x)
 
     def train(self):
-        for data in monit.iterate("Train", self.data_loader):
+        for era5, cerra in monit.iterate("Train", self.data_loader):
             tracker.add_global_step()
-            data = data.to(self.device)
+            era5 = era5.to(self.device)
+            cerra = cerra.to(self.device)
             self.optimizer.zero_grad()
-            loss = self.diffusion.loss(data)
+            loss = self.diffusion.loss(cerra)
             loss.backward()
             self.optimizer.step()
             tracker.save("loss", loss)

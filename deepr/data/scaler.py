@@ -1,6 +1,6 @@
-import xarray
-
 from typing import Tuple
+
+import xarray
 
 from deepr.data.files import DataFileCollection
 
@@ -58,4 +58,3 @@ class XarrayStandardScaler:
         ds_scaled = ds - self.average
         ds_scaled = ds_scaled / self.standard_deviation
         return ds_scaled
-
