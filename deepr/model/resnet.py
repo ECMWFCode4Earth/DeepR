@@ -5,7 +5,10 @@ from deepr.model.activations import Swish
 
 
 class ResidualBlock(nn.Module):
-    """A residual block has two convolution layers with group normalization.
+    """
+    Residual block.
+
+    A residual block has two convolution layers with group normalization.
     Each resolution is processed with two residual blocks.
     """
 

@@ -66,9 +66,3 @@ class MainPipeline:
 
         with experiment.start():
             configs.run()
-
-
-if __name__ == "__main__":
-    MainPipeline(
-        "/home/santacruzm/Git/DeepR/resources/configuration.yml"
-    ).run_pipeline()

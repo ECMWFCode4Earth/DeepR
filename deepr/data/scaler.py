@@ -8,7 +8,7 @@ from deepr.data.files import DataFileCollection
 class XarrayStandardScaler:
     def __init__(self, files: DataFileCollection):
         """
-        Initializes the XarrayStandardScaler object.
+        Initialize the XarrayStandardScaler object.
 
         Parameters
         ----------
@@ -38,7 +38,7 @@ class XarrayStandardScaler:
 
     def apply_scaler(self, ds: xarray.Dataset) -> xarray.Dataset:
         """
-        Applies the standard scaling to the input dataset.
+        Apply the standard scaling to the input dataset.
 
         Parameters
         ----------

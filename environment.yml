@@ -3,12 +3,6 @@ channels:
 - conda-forge
 - nodefaults
 
-# EXAMPLE:
-# dependencies:
-# - package1
-# - package2
-# DO NOT EDIT ABOVE THIS LINE, ADD DEPENDENCIES BELOW AS SHOWN IN THE EXAMPLE
-
 dependencies:
 # Libraries to manipulate data
 - dask
@@ -21,3 +15,7 @@ dependencies:
 - seaborn
 # Libraries for utilities
 - pyyaml
+
+# Libraries that can only be installed with pip
+- pip:
+  - labml
