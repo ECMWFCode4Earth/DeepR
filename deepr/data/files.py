@@ -22,7 +22,7 @@ class DataFile:
         dataset: str,
         temporal_coverage: str,
         spatial_resolution: str,
-        spatial_coverage: dict,
+        spatial_coverage: dict = None,
     ):
         """
         Initialize a DataPath instance.

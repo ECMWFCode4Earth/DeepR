@@ -12,7 +12,7 @@ def base_dir():
 
 @pytest.fixture
 def data_file(base_dir):
-    return DataFile(base_dir, "t2m", "era5", "201801", "025deg")
+    return DataFile(base_dir, "t2m", "era5", "201801", "025deg", None)
 
 
 def test_data_path_attributes(data_file, base_dir):
