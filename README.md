@@ -51,6 +51,8 @@ Before pushing to GitHub, run the following commands:
 
 The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
 
+NOTE: Spatial tensors fed to Diffusion model must have shapes of length multiple of 4.
+
 ## References
 
 - [Annotated Deep Learning Paper implementations](https://github.com/labmlai/annotated_deep_learning_paper_implementations)

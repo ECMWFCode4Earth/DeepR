@@ -13,6 +13,20 @@ class DownBlock(nn.Module):
     def __init__(
         self, in_channels: int, out_channels: int, time_channels: int, has_attn: bool
     ):
+        """Initializes a new instance of the class. These are used in the first half of
+        U-Net at each resolution.
+
+        Parameters
+        ----------
+        in_channels : int
+            The number of input channels.
+        out_channels : int
+            The number of output channels.
+        time_channels : int
+            The number of time channels.
+        has_attn : bool
+            A flag indicating whether to use attention block or not.
+        """
         super().__init__()
         self.res = ResidualBlock(in_channels, out_channels, time_channels)
         if has_attn:
@@ -30,6 +44,20 @@ class UpBlock(nn.Module):
     def __init__(
         self, in_channels: int, out_channels: int, time_channels: int, has_attn: bool
     ):
+        """Initializes a new instance of the class. These are used in the second half of
+        U-Net at each resolution.
+
+        Parameters
+        ----------
+        in_channels : int
+            The number of input channels.
+        out_channels : int
+            The number of output channels.
+        time_channels : int
+            The number of time channels.
+        has_attn : bool
+            A flag indicating whether to use attention block or not.
+        """
         super().__init__()
         # The input has `in_channels + out_channels` because we concatenate the output
         # of the same resolution from the first half of the U-Net

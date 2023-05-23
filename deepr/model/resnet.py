@@ -17,9 +17,27 @@ class ResidualBlock(nn.Module):
         in_channels: int,
         out_channels: int,
         time_channels: int,
-        n_groups: int = 32,
+        n_groups: int = 8,
         dropout: float = 0.1,
     ):
+        """Initializes a Convolutional Neural Network block with Group Normalization,
+        Swish activation, and Convolutional layers. The block takes input channel
+        values, output channel values, time channels, number of groups (n_groups), and
+        dropout rate as parameters.
+
+        Parameters
+        ----------
+        in_channels: int
+            Number of input channels.
+        out_channels: int
+            Number of output channels.
+        time_channels: int
+            Number of time channels.
+        n_groups: int, optional (default=32)
+            Number of groups.
+        dropout: float, optional (default=0.1)
+            Dropout rate.
+        """
         super().__init__()
         # Group normalization and the first convolution layer
         self.norm1 = nn.GroupNorm(n_groups, in_channels)
@@ -49,6 +67,19 @@ class ResidualBlock(nn.Module):
         self.dropout = nn.Dropout(dropout)
 
     def forward(self, x: torch.Tensor, t: torch.Tensor):
+        """Forward pass.
+
+        Parameters
+        ----------
+            x : torch.Tensor
+                input vector with shape [batch_size, in_channels, height, width]
+            t : torch.Tensor
+                time vector [batch_size, time_channels]
+
+        Returns
+        -------
+            torch.Tensor: vector with shape [batch_size, out_channels, height, width]
+        """
         h = self.conv1(self.act1(self.norm1(x)))
         h += self.time_emb(self.time_act(t))[:, :, None, None]
         h = self.conv2(self.dropout(self.act2(self.norm2(h))))

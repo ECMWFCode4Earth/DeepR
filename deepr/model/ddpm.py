@@ -58,6 +58,7 @@ class DenoiseDiffusion:
 
     def loss(self, x0: torch.Tensor, noise: Optional[torch.Tensor] = None):
         batch_size = x0.shape[0]
+        # Get random t for each sample in the batch
         t = torch.randint(
             0, self.n_steps, (batch_size,), device=x0.device, dtype=torch.long
         )
@@ -65,6 +66,7 @@ class DenoiseDiffusion:
         if noise is None:
             noise = torch.randn_like(x0)
 
+        # Sample noise based on each t
         xt = self.q_sample(x0, t, eps=noise)
         eps_theta = self.eps_model(xt, t)
 
