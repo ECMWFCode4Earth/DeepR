@@ -13,8 +13,9 @@ class DownBlock(nn.Module):
     def __init__(
         self, in_channels: int, out_channels: int, time_channels: int, has_attn: bool
     ):
-        """Initializes a new instance of the class. These are used in the first half of
-        U-Net at each resolution.
+        """Downsampling block class.
+
+        These are used in the first half of U-Net at each resolution.
 
         Parameters
         ----------
@@ -44,8 +45,9 @@ class UpBlock(nn.Module):
     def __init__(
         self, in_channels: int, out_channels: int, time_channels: int, has_attn: bool
     ):
-        """Initializes a new instance of the class. These are used in the second half of
-        U-Net at each resolution.
+        """Upsampling block class.
+
+        These are used in the second half of U-Net at each resolution.
 
         Parameters
         ----------

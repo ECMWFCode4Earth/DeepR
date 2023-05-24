@@ -20,10 +20,10 @@ class ResidualBlock(nn.Module):
         n_groups: int = 8,
         dropout: float = 0.1,
     ):
-        """Initializes a Convolutional Neural Network block with Group Normalization,
-        Swish activation, and Convolutional layers. The block takes input channel
-        values, output channel values, time channels, number of groups (n_groups), and
-        dropout rate as parameters.
+        """CNN block with Group Normalization, Swish activation, and Conv. layers.
+
+        The block takes input channel values, output channel values, time channels,
+        number of groups (n_groups), and dropout rate as parameters.
 
         Parameters
         ----------
