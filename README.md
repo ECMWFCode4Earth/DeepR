@@ -51,6 +51,40 @@ Before pushing to GitHub, run the following commands:
 
 The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
 
+### Data specifications
+
+Test with the entire spatial coverage:
+
+Features: (240, 150) ------- Label: (800, 500)
+
+```
+data_configuration:
+  features_configuration:
+    spatial_coverage:
+      longitude: [ -20.5, 39.25 ]
+      latitude: [ 66.25, 29 ]
+  label_configuration:
+    spatial_coverage:
+      longitude: [ -10, 29.95]
+      latitude: [ 60, 35.05 ]
+```
+
+Test with a subset of the spatial coverage to perform small tests:
+
+Features: (32, 20)------- Label: (32, 20)
+
+```
+data_configuration:
+  features_configuration:
+    spatial_coverage:
+      longitude: [ 6.0, 13.75 ]
+      latitude: [ 50, 45.25 ]
+  label_configuration:
+    spatial_coverage:
+      longitude: [ 9.2, 10.75]
+      latitude: [ 48, 37.05 ]
+```
+
 NOTE: Spatial tensors fed to Diffusion model must have shapes of length multiple of 4.
 
 ## References
