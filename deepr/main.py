@@ -1,13 +1,42 @@
-from labml import experiment
+from torch import nn
 from torch.utils.data import Dataset
 
+from deepr.configs import DiffusionTrainingConfiguration
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
-from deepr.model.configs import Configs
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
 
 logger = get_logger(__name__)
+
+
+def get_neural_network(class_name: str, kwargs: dict):
+    """Get neural network.
+
+    Given a class name and a dictionary of keyword arguments, returns an instance of a
+    neural network. Current options are: "UNet".
+
+    Arguments
+    ---------
+        class_name : str
+            The name of the neural network class to use.
+        kwargs : dict
+            Dictionary of keyword arguments to pass to the neural network constructor.
+
+    Returns
+    -------
+        An instance of a neural network.
+
+    Raises:
+    ------
+        NotImplementedError: If the specified neural network class is not implemented.
+    """
+    if class_name.lower() == "unet":
+        from deepr.model.unet import UNet
+
+        return UNet(**kwargs)
+    else:
+        raise NotImplementedError(f"{class_name} is not implemented")
 
 
 class MainPipeline:
@@ -21,20 +50,6 @@ class MainPipeline:
             Path to the configuration file.
         """
         self.configuration = read_yaml_file(configuration_file)
-
-    def run_pipeline(self):
-        """
-        Run the pipeline and return the data generator.
-
-        Returns
-        -------
-        DataGenerator
-            The initialized DataGenerator object.
-        """
-        experiment.create(name="diffuse", writers={"tensorboard", "screen", "labml"})
-        logger.info("Prepare DataLoader object for modeling")
-        dataset = self.get_dataset()
-        self.train_model(dataset)
 
     def get_dataset(self):
         """
@@ -54,15 +69,44 @@ class MainPipeline:
         data_generator = DataGenerator(features_collection, label_collection)
         return data_generator
 
-    def train_model(self, dataset: Dataset):
-        configs = Configs()
-        config_param = {
-            **{"dataset": dataset},
-            **self.configuration["training_configuration"],
-        }
-        experiment.configs(configs, config_param)
-        configs.init()
-        experiment.add_pytorch_models({"eps_model": configs.eps_model})
+    def train_diffusion(self, dataset: Dataset) -> nn.Module:
+        configs = self.configuration["training_configuration"]["model_configuration"]
+        eps_model = get_neural_network(**configs.pop("eps_model"))
+        train_conf = DiffusionTrainingConfiguration(eps_model, dataset, **configs)
+        return train_conf.run()
 
-        with experiment.start():
-            configs.run()
+    def train_end2end_nn(self, dataset: Dataset) -> nn.Module:
+        raise NotImplementedError("Not implemented yet")
+
+    def train_model(self, dataset: Dataset) -> nn.Module:
+        model_type = self.configuration["training_configuration"]["type"]
+        if model_type == "diffusion":
+            return self.train_diffusion(dataset)
+        elif model_type == "end2end":
+            return self.train_end2end_nn(dataset)
+        else:
+            raise NotImplementedError(
+                f"The training procedure {model_type} is not supported."
+            )
+
+    def evaluate_model(self, model: nn.Module):
+        raise NotImplementedError("Not implemented yet")
+
+    def run_pipeline(self):
+        """
+        Run the pipeline and return the data generator.
+
+        Returns
+        -------
+        DataGenerator
+            The initialized DataGenerator object.
+        """
+        logger.info("Prepare DataLoader object for modeling")
+        dataset = self.get_dataset()
+        model = self.train_model(dataset)
+        self.evaluate(model)
+
+
+if __name__ == "__main__":
+    main_pipeline = MainPipeline("./resources/configuration.yml")
+    main_pipeline.run_pipeline()

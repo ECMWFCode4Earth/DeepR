@@ -15,7 +15,3 @@ dependencies:
 - seaborn
 # Libraries for utilities
 - pyyaml
-
-# Libraries that can only be installed with pip
-- pip:
-  - labml

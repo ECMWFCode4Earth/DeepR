@@ -96,12 +96,12 @@ class UNet(nn.Module):
         self,
         image_channels: int = 1,
         n_channels: int = 16,
-        ch_mults: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
-        is_attn: Union[Tuple[bool, ...], List[int]] = (False, False, True, True),
+        channel_multipliers: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
+        is_attention: Union[Tuple[bool, ...], List[int]] = (False, False, True, True),
         n_blocks: int = 2,
     ):
         super().__init__()
-        n_resolutions = len(ch_mults)
+        n_resolutions = len(channel_multipliers)
         self.image_proj = nn.Conv2d(
             image_channels, n_channels, kernel_size=(3, 3), padding=(1, 1)
         )
@@ -111,10 +111,12 @@ class UNet(nn.Module):
         down = []
         out_channels = in_channels = n_channels
         for i in range(n_resolutions):
-            out_channels = in_channels * ch_mults[i]
+            out_channels = in_channels * channel_multipliers[i]
             for _ in range(n_blocks):
                 down.append(
-                    DownBlock(in_channels, out_channels, n_channels * 4, is_attn[i])
+                    DownBlock(
+                        in_channels, out_channels, n_channels * 4, is_attention[i]
+                    )
                 )
                 in_channels = out_channels
             # Down sample at all resolutions except the last
@@ -136,11 +138,13 @@ class UNet(nn.Module):
             out_channels = in_channels
             for _ in range(n_blocks):
                 up.append(
-                    UpBlock(in_channels, out_channels, n_channels * 4, is_attn[i])
+                    UpBlock(in_channels, out_channels, n_channels * 4, is_attention[i])
                 )
             # Final block to reduce the number of channels
-            out_channels = in_channels // ch_mults[i]
-            up.append(UpBlock(in_channels, out_channels, n_channels * 4, is_attn[i]))
+            out_channels = in_channels // channel_multipliers[i]
+            up.append(
+                UpBlock(in_channels, out_channels, n_channels * 4, is_attention[i])
+            )
             in_channels = out_channels
             # Up sample at all resolutions except last
             if i > 0:
