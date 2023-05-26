@@ -5,7 +5,7 @@ import torch.utils.data
 from labml import experiment, monit, tracker
 from labml.configs import BaseConfigs
 
-from deepr.model.ddpm import DenoiseDiffusion
+from deepr.model.diffusion import DenoiseDiffusion
 from deepr.model.unet import UNet
 
 

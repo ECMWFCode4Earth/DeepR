@@ -47,17 +47,15 @@ Before pushing to GitHub, run the following commands:
 1. Run the static type checker: `make type-check`
 1. Build the documentation (see [Sphinx tutorial](https://www.sphinx-doc.org/en/master/tutorial/)): `make docs-build`
 
-## Methodology
-
-The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
+## Data
 
 ### Data specifications
 
-Test with the entire spatial coverage:
+The spatial coverage of the datasets provided is described below:
 
 Features: (240, 150) ------- Label: (800, 500)
 
-```
+```complete-spatial-coverage.yml
 data_configuration:
   features_configuration:
     spatial_coverage:
@@ -69,11 +67,11 @@ data_configuration:
       latitude: [ 60, 35.05 ]
 ```
 
-Test with a subset of the spatial coverage to perform small tests:
+During the development stage, a subset of the data is used to validate the implementation of the model:
 
 Features: (32, 20)------- Label: (32, 20)
 
-```
+```reduce-spatial-coverage.yml
 data_configuration:
   features_configuration:
     spatial_coverage:
@@ -84,6 +82,20 @@ data_configuration:
       longitude: [ 9.2, 10.75]
       latitude: [ 48, 37.05 ]
 ```
+
+## Methodology
+
+The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
+
+The objectives of this challenge focus on:
+
+- Explore the capabilities of Deep Diffusion models to represent high resolution reanalysis datasets.
+
+- Evaluate the impact of including several covariables in the model.
+
+  - Conditioning on time stamps
+  - Conditioning on meteorological covariables
+  - Conditioning on in-site observations
 
 NOTE: Spatial tensors fed to Diffusion model must have shapes of length multiple of 4.
 

@@ -25,6 +25,8 @@ class DenoiseDiffusion:
         sample an arbitrary step.
     n_steps : int
         number of steps of the diffusion process
+    sigma2 : torch.Tensor
+        The variance of the reverse process. In DDPM, it is equal to beta
     """
 
     def __init__(self, eps_model: nn.Module, n_steps: int, device: torch.device):
@@ -123,7 +125,7 @@ class DenoiseDiffusion:
         alpha = gather(self.alpha, t)
         eps_coef = (1 - alpha) / (1 - alpha_bar) ** 0.5
         mean = 1 / (alpha**0.5) * (xt - eps_coef * eps_theta)
-        var = gather(self.beta, t)
+        var = gather(self.sigma2, t)
         eps = torch.randn(xt.shape, device=xt.device)
         return mean + (var**0.5) * eps
 
