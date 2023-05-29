@@ -13,5 +13,6 @@ dependencies:
 # Validation libraries
 - matplotlib
 - seaborn
+- xskillscore
 # Libraries for utilities
 - pyyaml
