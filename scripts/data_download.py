@@ -1,6 +1,23 @@
-import requests
 import os
 from datetime import datetime
+
+import pandas
+import requests
+
+output_directory = "/predictia-nas2/Data/DeepR/labels/"
+variable = "t2m"
+project = "cerra"
+spatial_resolution = "005deg"
+
+start_date = datetime(1985, 1, 1)
+end_date = datetime(2020, 12, 31)
+dates = pandas.date_range(start_date, end_date, freq="MS")
+
+print(
+    f"Downloading data to {output_directory} for variable {variable}, "
+    f"project {project}, spatial resolution {spatial_resolution} from "
+    f"{start_date} to {end_date}"
+)
 
 
 def download_data(
@@ -57,41 +74,27 @@ def download_data(
             "Supported ranges are between 1985 and 2018, or between 2019 and 2021."
         )
 
-    url = f"https://storage.ecmwf.europeanweather.cloud/Code4Earth/" \
-          f"netCDF_{project}_{date_range}/" \
-          f"{variable}_{project}_{date.strftime('%Y%m')}_{spatial_resolution}.nc"
+    url = (
+        f"https://storage.ecmwf.europeanweather.cloud/Code4Earth/"
+        f"netCDF_{project}_{date_range}/"
+        f"{variable}_{project}_{date.strftime('%Y%m')}_{spatial_resolution}.nc"
+    )
     filename = f"{variable}_{project}_{date.strftime('%Y%m')}_{spatial_resolution}.nc"
     output_path = os.path.join(output_directory, filename)
 
-    response = requests.get(url)
-    if response.status_code == 200:
-        with open(output_path, "wb") as file:
-            file.write(response.content)
-        print(f"Data downloaded successfully to: {output_path}")
+    if os.path.exists(output_path):
+        print(f"File {output_path} already exists!")
     else:
-        print(f"Failed to download data. Status code: {response.status_code}")
+        response = requests.get(url)
+        if response.status_code == 200:
+            with open(output_path, "wb") as file:
+                file.write(response.content)
+            print(f"Data downloaded successfully to: {output_path}")
+        else:
+            print(f"Failed to download data. Status code: {response.status_code}")
 
 
-if __name__ == '__main__':
-    import pandas
-    output_directory = "/predictia-nas2/Data/DeepR/"
-    variable = "t2m"
-    project = "era5"
-    spatial_resolution = "025deg"
-
-    start_date = datetime(1985, 1, 1)
-    end_date = datetime(2021, 12, 31)
-    dates = pandas.date_range(start_date, end_date, freq="MS")
-
-    current_date = start_date
-    print(
-        f"Downloading data to {output_directory} for variable {variable}, "
-        f"project {project}, spatial resolution {spatial_resolution} from "
-        f"{start_date} to {end_date}"
-    )
-    for date in dates:
-        print(f"Downloading data for date: {date}")
-        date_str = date.strftime("%Y%m")
-        download_data(variable, date_str, project, spatial_resolution, output_directory)
-
-
+for date in dates:
+    print(f"Downloading data for date: {date}")
+    date_str = date.strftime("%Y%m")
+    download_data(variable, date_str, project, spatial_resolution, output_directory)

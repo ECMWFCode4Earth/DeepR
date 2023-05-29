@@ -15,7 +15,7 @@ class AttentionBlock(nn.Module):
         self.norm = nn.GroupNorm(n_groups, n_channels)
         self.projection = nn.Linear(n_channels, n_heads * d_k * 3)
         self.output = nn.Linear(n_heads * d_k, n_channels)
-        self.scale = d_k ** -0.5
+        self.scale = d_k**-0.5
         self.n_heads = n_heads
         self.d_k = d_k
 
@@ -60,7 +60,7 @@ class CrossAttention(nn.Module):
         self.d_head = d_head
 
         # Attention scaling factor
-        self.scale = d_head ** -0.5
+        self.scale = d_head**-0.5
 
         # Query, key and value mappings
         d_attn = d_head * n_heads

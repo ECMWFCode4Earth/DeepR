@@ -1,8 +1,7 @@
-import xarray
-
 import cartopy.crs as ccrs
 import cartopy.feature as cf
 import matplotlib.pyplot as plt
+import xarray
 
 
 def analysis(file: str = "../../tests/data/labels/t2m_cerra_201801_005deg.nc"):
@@ -11,7 +10,7 @@ def analysis(file: str = "../../tests/data/labels/t2m_cerra_201801_005deg.nc"):
     projection = ccrs.Robinson()
     crs = ccrs.PlateCarree()
 
-    fig = plt.figure(figsize=(8, 8))
+    plt.figure(figsize=(8, 8))
     ax = plt.axes(projection=projection, frameon=True)
     gl = ax.gridlines(
         crs=crs,
