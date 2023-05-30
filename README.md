@@ -29,12 +29,9 @@ Once the directories have been created, testing data can be downloaded:
 
 ```
 cd tests
-cd data
-cd features
-wget https://storage.ecmwf.europeanweather.cloud/Code4Earth/t2m_era5_201801_025deg.nc
-cd ..
-cd labels
-wget https://storage.ecmwf.europeanweather.cloud/Code4Earth/t2m_cerra_201801_005deg.nc
+wget -O data.zip https://cloud.predictia.es/s/zen8PGwJbi7mTCB/download
+unzip data.zip
+rm data.zip
 ```
 
 Before pushing to GitHub, run the following commands:
