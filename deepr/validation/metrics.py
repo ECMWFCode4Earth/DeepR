@@ -1,4 +1,3 @@
-import numpy as np
 import xarray as xr
 import xskillscore as xs
 
@@ -42,9 +41,7 @@ class Metrics:
         }
 
         for metric_name, metric_function in deterministic_metrics.items():
-            ds_metric = metric_function(
-                self.observations, self.predictions, dim="time"
-            )
+            ds_metric = metric_function(self.observations, self.predictions, dim="time")
             ds_metric = ds_metric.rename_vars({"variable": metric_name})
             metrics_datasets.append(ds_metric)
 

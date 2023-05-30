@@ -10,9 +10,11 @@ dependencies:
 - netcdf4
 # Deep learning and machine learning libraries
 - pytorch
-# Validation libraries
+# Visualization libraries
+- cartopy
 - matplotlib
 - seaborn
+# Metrics libraries
 - xskillscore
 # Libraries for utilities
 - pyyaml
