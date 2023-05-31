@@ -94,7 +94,7 @@ The objectives of this challenge focus on:
   - Conditioning on meteorological covariables
   - Conditioning on in-site observations
 
-NOTE: Spatial tensors fed to Diffusion model must have shapes of length multiple of 4.
+NOTE: Spatial tensors fed to Diffusion model must have shapes of length multiple of $2^{(# resolutions) - 1}$ where the number of resolutions in our U-Net implementation is specified by the length of the arguments: 'channel_multipliers' and 'is_attention', which should match.
 
 ## References
 
