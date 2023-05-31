@@ -77,7 +77,7 @@ data_configuration:
   label_configuration:
     spatial_coverage:
       longitude: [ 9.2, 10.75]
-      latitude: [ 48, 37.05 ]
+      latitude: [ 48, 47.05 ]
 ```
 
 ## Methodology
