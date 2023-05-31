@@ -104,7 +104,7 @@ class MainPipeline:
         logger.info("Prepare DataLoader object for modeling")
         dataset = self.get_dataset()
         model = self.train_model(dataset)
-        self.evaluate(model)
+        self.evaluate_model(model)
 
 
 if __name__ == "__main__":
