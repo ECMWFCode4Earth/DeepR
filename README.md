@@ -99,16 +99,16 @@ The objectives of this challenge focus on:
 Explanation of Diffusion processes...
 
 
-Here, DL is considered to model the $\eps_t$ sampled at each step given $x_{t+1}$ and conditioned on the LR image. 
+Here, DL is considered to model the $\epsilon_t$ sampled at each step given $x_{t+1}$ and conditioned on the LR image. 
 
 #### Training
 
-During training, for each batch of data, we sample random timesteps $t$ and noise $\eps_{t}$ and derive the corresponding values $x_t$. Then, we train our DL model to minimize the following loss function:
+During training, for each batch of data, we sample random timesteps $t$ and noise $\epsilon_{t}$ and derive the corresponding values $x_t$. Then, we train our DL model to minimize the following loss function:
 
-$$ \mathcal{L} (x) = || $\eps_{t}$ - \Phi \left(x_{t+1}, t \right) ||^2$$
+$$ \mathcal{L} (x) = || $\epsilon_{t}$ - \Phi \left(x_{t+1}, t \right) ||^2$$
 
 which is the mean squared error (MSE) between:
-- the noise, $\eps_{t}$, added at timestep $t$
+- the noise, $\epsilon_{t}$, added at timestep $t$
 
 - the prediction of the DL model, $\Phi$, taking as input the timestep $t$ and the noisy matrix $x_{t+1}$.
 
@@ -126,22 +126,22 @@ In particular, a tailored U-Net architecture with 2D convolutions, residual conn
 ![U-Net Architecture Diagram](docs/_media/eps-U-Net%20diagram.svg)
 
 
-The parameteres of these model implemented in 'deepr/model/unet.py' are:
+The parameteres of these model implemented in [deepr/model/unet.py](deepr/model/unet.py) are:
 
-- 'image_channels': It is the number of channels of the high resolution imagen we want to generate, that matches with the number of channels of the output from the U-Net. Default value is `1`, as we plan to sample one variable at a time.
+- `image_channels`: It is the number of channels of the high resolution imagen we want to generate, that matches with the number of channels of the output from the U-Net. Default value is `1`, as we plan to sample one variable at a time.
 
-- 'n_channels': It is the number of output channels of the initial Convolution. Defaults to `16`.
+- `n_channels`: It is the number of output channels of the initial Convolution. Defaults to `16`.
 
-- 'channel_multipliers': It is the multiplying factor over the channels applied at each down/upsampling level of the U-Net. Defaults to `[1, 2, 2, 4]`.
+- `channel_multipliers`: It is the multiplying factor over the channels applied at each down/upsampling level of the U-Net. Defaults to `[1, 2, 2, 4]`.
 
-- 'is_attention': It represents the use of Attention over each down/upsampling level of the U-Net. Defaults to `[False, False, True, True]`.
+- `is_attention`: It represents the use of Attention over each down/upsampling level of the U-Net. Defaults to `[False, False, True, True]`.
 
-- 'n_blocks': The number of residual blocks considered in each level. Defaults to `2`.
+- `n_blocks`: The number of residual blocks considered in each level. Defaults to `2`.
 
-- 'conditioned_on_input': The number of channels of the conditions considered.
+- `conditioned_on_input`: The number of channels of the conditions considered.
 
-NOTE I: The length of 'channel_multipliers' and 'is_attention' should match as it sets the number of resolutions of our U-Net architecture.
-NOTE II: Spatial tensors fed to Diffusion model must have shapes of length multiple of $2^{(\# resolutions) - 1}$.
+NOTE I: The length of `channel_multipliers` and `is_attention` should match as it sets the number of resolutions of our U-Net architecture.
+NOTE II: Spatial tensors fed to Diffusion model must have shapes of length multiple of $2^{\text{num resolutions} - 1}$.
 
 
 #### Downsampling
