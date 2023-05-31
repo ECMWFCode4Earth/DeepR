@@ -1,9 +1,9 @@
 from torch import nn
 from torch.utils.data import Dataset
 
-from deepr.configs import DiffusionTrainingConfiguration
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
+from deepr.model.configs import DiffusionTrainingConfiguration
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
 
