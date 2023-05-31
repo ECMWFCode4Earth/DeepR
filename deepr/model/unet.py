@@ -99,11 +99,39 @@ class UNet(nn.Module):
         channel_multipliers: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
         is_attention: Union[Tuple[bool, ...], List[int]] = (False, False, True, True),
         n_blocks: int = 2,
+        conditioned_on_input: Union[bool, int] = False,
     ):
+        """
+        U-Net.
+
+        NOTE: The spatial shapes of the input must be divisible by 2^{n_resolutions - 1}
+        where the number of resolutions is specified by the length of the
+        'channel_multipliers' and 'is_attention' arguments.
+
+        Parameters
+        ----------
+            image_channels : int
+                number of channels in the output image
+            n_channels : int
+                number of channels in the first layer of the model
+            channel_multipliers : Union[Tuple[int, ...], List[int]]
+                the channel multiplier for each resolution level of the U-Net
+            is_attention : Union[Tuple[bool, ...], List[int]]
+                whether to use attention mechanism at each resolution level of the U-Net
+            n_blocks : int
+                number of residual blocks at each resolution level of the U-Net
+            conditioned_on_input : Union[bool, int]
+                whether to use conditioning on other inputs, or the number of conditions
+        """
         super().__init__()
         n_resolutions = len(channel_multipliers)
+
+        # Project input + conditions
         self.image_proj = nn.Conv2d(
-            image_channels, n_channels, kernel_size=(3, 3), padding=(1, 1)
+            image_channels + int(conditioned_on_input),
+            n_channels,
+            kernel_size=(3, 3),
+            padding=(1, 1),
         )
         self.time_emb = TimeEmbedding(n_channels * 4)
 
@@ -112,6 +140,8 @@ class UNet(nn.Module):
         out_channels = in_channels = n_channels
         for i in range(n_resolutions):
             out_channels = in_channels * channel_multipliers[i]
+
+            # Resnet Blocks
             for _ in range(n_blocks):
                 down.append(
                     DownBlock(

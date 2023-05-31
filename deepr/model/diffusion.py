@@ -8,7 +8,7 @@ from torch import nn
 from deepr.model.utils import gather
 
 
-class DenoiseDiffusion:
+class SuperResolutionDenoiseDiffusion:
     """Denoising Diffuision Probabilistic Model.
 
     Attributes
@@ -50,6 +50,14 @@ class DenoiseDiffusion:
         self.alpha = 1.0 - self.beta
         self.alpha_bar = torch.cumprod(self.alpha, dim=0)
         self.n_steps = n_steps
+        self.sigma2 = self.beta
+
+    def merge_net_inputs(self, coarse_image: torch.Tensor, xt: torch.Tensor):
+        # Take the coarse image as new channel
+        if xt.shape == coarse_image.shape:
+            return torch.cat((xt, coarse_image), dim=1)
+        else:
+            raise NotImplementedError("Not Implemented")
 
     def q_xt_x0(
         self, x0: torch.Tensor, t: torch.Tensor
@@ -104,8 +112,8 @@ class DenoiseDiffusion:
         mean, var = self.q_xt_x0(x0, t)
         return mean + (var**0.5) * eps
 
-    def p_sample(self, xt: torch.Tensor, t: torch.Tensor):
-        """p(xt-1|xt).
+    def p_sample(self, coarse_im: torch.Tensor, xt: torch.Tensor, t: torch.Tensor):
+        """p(xt-1|xt, coarse_im).
 
         This method samples xt-1 from xt, using the current NN predictions of the noise.
 
@@ -120,7 +128,8 @@ class DenoiseDiffusion:
         -------
             torch.Tensor: the matrix corresponding to xt-1 according to the current NN.
         """
-        eps_theta = self.eps_model(xt, t)
+        unet_input = self.merge_net_inputs(coarse_im, xt)
+        eps_theta = self.eps_model(unet_input, t)
         alpha_bar = gather(self.alpha_bar, t)
         alpha = gather(self.alpha, t)
         eps_coef = (1 - alpha) / (1 - alpha_bar) ** 0.5
@@ -129,12 +138,19 @@ class DenoiseDiffusion:
         eps = torch.randn(xt.shape, device=xt.device)
         return mean + (var**0.5) * eps
 
-    def loss(self, x0: torch.Tensor, noise: Optional[torch.Tensor] = None):
+    def loss(
+        self,
+        coarse_im: torch.Tensor,
+        x0: torch.Tensor,
+        noise: Optional[torch.Tensor] = None,
+    ):
         """Compute the simplified Loss for training the Diffusion Probabilistic Model.
 
         Arguments
         ---------
-            xt : torch.Tensor
+            coarse_im : torch.Tensor
+                Input coarse image to condition all diffusion process on it.
+            x0 : torch.Tensor
                 Matrix from initial data distribution.
             noise : Optional[torch.Tensor], optional
                 Noise added during the process. Defaults to None.
@@ -155,6 +171,8 @@ class DenoiseDiffusion:
 
         # Sample noise based on each t
         xt = self.q_sample(x0, t, eps=noise)
-        eps_theta = self.eps_model(xt, t)
+
+        unet_input = self.merge_net_inputs(coarse_im, xt)
+        eps_theta = self.eps_model(unet_input, t)
 
         return F.mse_loss(noise, eps_theta)

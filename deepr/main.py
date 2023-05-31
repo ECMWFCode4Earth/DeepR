@@ -108,5 +108,5 @@ class MainPipeline:
 
 
 if __name__ == "__main__":
-    main_pipeline = MainPipeline("../resources/configuration.yml")
+    main_pipeline = MainPipeline("./resources/configuration.yml")
     main_pipeline.run_pipeline()
