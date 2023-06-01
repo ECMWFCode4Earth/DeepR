@@ -44,7 +44,7 @@ autoapi_options = [
     "members",
     "inherited-members",
     "undoc-members",
-    #"show-inheritance",
+    # "show-inheritance",
     "show-module-summary",
     "imported-members",
 ]
