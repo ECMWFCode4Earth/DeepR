@@ -10,6 +10,7 @@ dependencies:
 - netcdf4
 # Deep learning and machine learning libraries
 - pytorch
+- tensorboard
 # Visualization libraries
 - cartopy
 - matplotlib
@@ -18,3 +19,4 @@ dependencies:
 - xskillscore
 # Libraries for utilities
 - pyyaml
+- tqdm
