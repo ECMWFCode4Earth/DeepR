@@ -148,7 +148,6 @@ The class [Downsample](deepr/model/utils.py#LL55) ...
 
 The class [Upsample](deepr/model/utils.py#LL43) ...
 
-
 #### Down Block
 
 #### Up Block
