@@ -108,7 +108,7 @@ class DiffusionTrainingConfiguration:
             self.optimizer.step()  # type: ignore
         self.writer.add_scalar("loss", sum(losses) / len(losses), epoch)
 
-    def run(self):
+    def run(self) -> SuperResolutionDenoiseDiffusion:
         """
         Training workflow.
 
@@ -126,3 +126,4 @@ class DiffusionTrainingConfiguration:
             self.writer.flush()
         self.writer.close()
         logger.info("FINISHED: The SuperResolution Diffusion model is trained.")
+        return self.diffusion

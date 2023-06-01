@@ -1,15 +1,16 @@
+from pathlib import Path
 from typing import Any, Dict
 
 import yaml
 
 
-def read_yaml_file(yaml_file_path: str) -> Dict:
+def read_yaml_file(yaml_file_path: Path) -> Dict:
     """
     Read a YAML file and return its contents as a dictionary.
 
     Parameters
     ----------
-    yaml_file_path : str
+    yaml_file_path : Path
         The path of the YAML file to be read.
 
     Returns
