@@ -54,6 +54,7 @@ class MainPipeline:
         configuration_file : Path
             Path to the configuration file.
         """
+        logger.info(f"Reading experiment configuration from file {configuration_file}.")
         self.configuration = read_yaml_file(configuration_file)
 
     def get_dataset(self) -> Dataset:
@@ -65,12 +66,13 @@ class MainPipeline:
         data_generator : Dataset
             The initialized DataGenerator object.
         """
+        logger.debug("Loading configuration...")
         data_configuration = DataConfiguration(self.configuration["data_configuration"])
-        logger.info("Get features from data_configuration dictionary")
+        logger.debug("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
-        logger.info("Get label from data_configuration dictionary")
+        logger.debug("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
-        logger.info("Define the DataGenerator object")
+        logger.debug("Define the DataGenerator object.")
         data_generator = DataGenerator(features_collection, label_collection)
         return data_generator
 
@@ -87,6 +89,7 @@ class MainPipeline:
         model : nn.Module
             The trained model.
         """
+        logger.info("Train Deep Diffusion model for Super Resolution task.")
         configs = self.configuration["training_configuration"]["model_configuration"]
         eps_model = get_neural_network(**configs.pop("eps_model"))
         train_conf = DiffusionTrainingConfiguration(eps_model, dataset, **configs)
@@ -148,7 +151,6 @@ class MainPipeline:
 
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""
-        logger.info("Prepare DataLoader object for modeling")
         dataset = self.get_dataset()
         model = self.train_model(dataset)
         self.evaluate_model(model, dataset)

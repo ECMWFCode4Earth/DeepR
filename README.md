@@ -120,7 +120,7 @@ During inference, we can sample random noise and run the reverse process conditi
 
 In particular, a tailored U-Net architecture with 2D convolutions, residual connections and attetion layers is used.
 
-![U-Net Architecture Diagram](docs/_static_/eps-U-Net%20diagram.svg)
+![U-Net Architecture Diagram](docs/_static/eps-U-Net%20diagram.svg)
 
 The parameteres of these model implemented in [deepr/model/unet.py](deepr/model/unet.py) are:
 
@@ -142,7 +142,12 @@ The parameteres of these model implemented in [deepr/model/unet.py](deepr/model/
 
 #### Downsampling
 
+The class [Downsample](deepr/model/utils.py#LL55) ...
+
 #### Upsampling
+
+The class [Upsample](deepr/model/utils.py#LL43) ...
+
 
 #### Down Block
 
