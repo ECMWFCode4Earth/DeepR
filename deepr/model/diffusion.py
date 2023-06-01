@@ -9,24 +9,24 @@ from deepr.model.utils import gather
 
 
 class SuperResolutionDenoiseDiffusion:
-    """Denoising Diffuision Probabilistic Model.
+    r"""Denoising Diffuision Probabilistic Model for Super Resolution (SR).
 
     Attributes
     ----------
     eps_model : nn.Module
-        neural network to predict the noise added in the forward process
+        Neural network to predict the noise added in the forward process.
     beta : torch.Tensor
-        variance of the Isotropic Gaussian distribution used to sample the noise in the
+        Variance of the Isotropic Gaussian distribution used to sample the noise in the
         forward process.
     alpha : torch.Tensor
         1 - beta. These values are useful to sample an arbitrary step in closed form.
     alpha_bar: torch.Tensor
-        cumulative product of alpha. 1 - alpha_bar is the variance of the noise to
+        Cumulative product of :math:`\alpha`. 1 - alpha_bar is the variance of the noise to
         sample an arbitrary step.
     n_steps : int
-        number of steps of the diffusion process
+        Number of steps of the diffusion process.
     sigma2 : torch.Tensor
-        The variance of the reverse process. In DDPM, it is equal to beta
+        Variance of the reverse process. In DDPM, it is equal to :math:`\beta`.
     """
 
     def __init__(self, eps_model: nn.Module, n_steps: int, device: torch.device):
@@ -62,22 +62,24 @@ class SuperResolutionDenoiseDiffusion:
     def q_xt_x0(
         self, x0: torch.Tensor, t: torch.Tensor
     ) -> Tuple[torch.Tensor, torch.Tensor]:
-        """Auxiliary function.
+        r"""Auxiliary function.
 
-        This method computes the mean and variance of Gaussian Distribution to sample xt
-        from x0.
+        This method computes the mean and variance of Gaussian Distribution to sample
+        :math:`x_t` from :math:`x_0`.
 
         Arguments
         ---------
             x0 : torch.Tensor
                 Matrix from initial data distribution.
             t : torch.Tensor
-                time step at which to sample xt.
+                Timestep at which to sample :math:`x_t`.
 
         Returns
         -------
-            torch.Tensor : the mean of the distribution = x0 * sqrt(alpha_bar[t])
-            torch.Tensor : the variance of the distribution = 1 - alpha_bar[t]
+            mean : torch.Tensor
+                Mean of the distribution = :math:`x0 * \\sqrt{\\overline{\alpha_t}}}`.
+            var : torch.Tensor
+                Variance of the distribution = :math:`1 - \\overline{\alpha_t}}`.
         """
         mean = gather(self.alpha_bar, t) ** 0.5 * x0
         var = 1 - gather(self.alpha_bar, t)
@@ -87,24 +89,25 @@ class SuperResolutionDenoiseDiffusion:
     def q_sample(
         self, x0: torch.Tensor, t: torch.Tensor, eps: Optional[torch.Tensor] = None
     ):
-        """q(xt|x0).
+        r"""q(xt|x0).
 
-        This method samples xt from x0, using the closed form of q(xt|x0) ~ N(m, vI)
-        with m = x0 * sqrt(alpha_bar[t]) and v = 1 - alpha_bar[t].
+        This method samples :math:`x_t` from :math:`x_0`, using the closed form of q(xt|x0) ~ N(m, vI)
+        with :math:`m = x_0 * \\sqrt{\\overline{\alpha_t}}}` and :math:`v = 1 - \\overline{\alpha_t}}`.
 
         Arguments
         ---------
             x0 : torch.Tensor
                 Matrix from initial data distribution.
             t : torch.Tensor
-                time step at which to sample xt.
+                Timestep at which to sample :math:`x_t`.
             eps : Optional[torch.Tensor], optional
                 Noise to be added. Defaults to None, meaining that the noise is sample
                 here.
 
         Returns
         -------
-            torch.Tensor: the matrix corresponding to xt
+            xt : torch.Tensor
+                Matrix corresponding to :math:`x_t`.
         """
         if eps is None:
             eps = torch.randn_like(x0)
@@ -113,20 +116,22 @@ class SuperResolutionDenoiseDiffusion:
         return mean + (var**0.5) * eps
 
     def p_sample(self, coarse_im: torch.Tensor, xt: torch.Tensor, t: torch.Tensor):
-        """p(xt-1|xt, coarse_im).
+        """:math:`p`(:math:`x_{t-1}`|:math:`x_{t}`, coarse_im).
 
-        This method samples xt-1 from xt, using the current NN predictions of the noise.
+        This method samples :math:`x_{t-1}` from :math:`x_{t}`, using the current NN
+        predictions of the noise.
 
         Arguments
         ---------
             xt : torch.Tensor
                 Matrix from initial data distribution.
             t : torch.Tensor
-                time step at which to sample xt.
+                time step at which to sample :math:`x_{t}`.
 
         Returns
         -------
-            torch.Tensor: the matrix corresponding to xt-1 according to the current NN.
+            xt_1 : torch.Tensor
+                Matrix corresponding to :math:`x_{t-1}` according to the current NN.
         """
         unet_input = self.merge_net_inputs(coarse_im, xt)
         eps_theta = self.eps_model(unet_input, t)
@@ -157,8 +162,9 @@ class SuperResolutionDenoiseDiffusion:
 
         Returns
         -------
-            torch.Tensor: mean squared error between the noised added in the forward
-                process and the noise predicted by the neural network.
+            mse: torch.Tensor
+                Mean squared error between the noised added in the forward process and
+                the noise predicted by the neural network.
         """
         batch_size = x0.shape[0]
         # Get random t for each sample in the batch

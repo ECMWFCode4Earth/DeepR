@@ -57,8 +57,6 @@ class ResidualBlock(nn.Module):
         # we have to project the shortcut connection
         if in_channels != out_channels:
             self.shortcut = nn.Conv2d(in_channels, out_channels, kernel_size=(1, 1))
-        else:
-            self.shortcut = nn.Identity()
 
         # Linear layer for time embeddings
         self.time_emb = nn.Linear(time_channels, out_channels)
@@ -83,4 +81,6 @@ class ResidualBlock(nn.Module):
         h = self.conv1(self.act1(self.norm1(x)))
         h += self.time_emb(self.time_act(t))[:, :, None, None]
         h = self.conv2(self.dropout(self.act2(self.norm2(h))))
-        return h + self.shortcut(x)
+        if hasattr(self, "shortcut"):
+            h += self.shortcut(x)
+        return h

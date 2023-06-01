@@ -10,6 +10,20 @@ from deepr.model.utils import Downsample, TimeEmbedding, Upsample
 
 
 class DownBlock(nn.Module):
+    """Down Block class.
+
+    It represents a block in the first half of U-Net where the input features are being
+    encoded.
+
+    Attributes
+    ----------
+    res : ResidualBlock
+        A residual block.
+    final_layer : Type[nn.Module]
+        The final layer after the Residual Block. If has_attn is True, it is
+        `deepr.model.attention.AttentionBlock`. Otherwise it is `nn.Identity`.
+    """
+
     def __init__(
         self, in_channels: int, out_channels: int, time_channels: int, has_attn: bool
     ):
@@ -30,18 +44,29 @@ class DownBlock(nn.Module):
         """
         super().__init__()
         self.res = ResidualBlock(in_channels, out_channels, time_channels)
-        if has_attn:
-            self.attn = AttentionBlock(out_channels)
-        else:
-            self.attn = nn.Identity()
+        self.final_layer = AttentionBlock(out_channels) if has_attn else nn.Identity()
 
     def forward(self, x: torch.Tensor, t: torch.Tensor):
         x = self.res(x, t)
-        x = self.attn(x)
+        x = self.final_layer(x)
         return x
 
 
 class UpBlock(nn.Module):
+    """Up Block class.
+
+    It represents a block in the second half of U-Net where the input features are being
+    decoded.
+
+    Attributes
+    ----------
+    res : ResidualBlock
+        A residual block.
+    final_layer : Type[nn.Module]
+        The final layer after the Residual Block. If has_attn is True, it is
+        `deepr.model.attention.AttentionBlock`. Otherwise it is `nn.Identity`.
+    """
+
     def __init__(
         self, in_channels: int, out_channels: int, time_channels: int, has_attn: bool
     ):
@@ -66,14 +91,11 @@ class UpBlock(nn.Module):
         self.res = ResidualBlock(
             in_channels + out_channels, out_channels, time_channels
         )
-        if has_attn:
-            self.attn = AttentionBlock(out_channels)
-        else:
-            self.attn = nn.Identity()
+        self.final_layer = AttentionBlock(out_channels) if has_attn else nn.Identity()
 
     def forward(self, x: torch.Tensor, t: torch.Tensor):
         x = self.res(x, t)
-        x = self.attn(x)
+        x = self.final_layer(x)
         return x
 
 
@@ -97,7 +119,7 @@ class UNet(nn.Module):
         image_channels: int = 1,
         n_channels: int = 16,
         channel_multipliers: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
-        is_attention: Union[Tuple[bool, ...], List[int]] = (False, False, True, True),
+        is_attention: Union[Tuple[bool, ...], List[bool]] = (False, False, True, True),
         n_blocks: int = 2,
         conditioned_on_input: Union[bool, int] = False,
     ):
@@ -136,7 +158,7 @@ class UNet(nn.Module):
         self.time_emb = TimeEmbedding(n_channels * 4)
 
         # First half of U-Net - decreasing resolution
-        down = []
+        down: List[nn.Module] = []
         out_channels = in_channels = n_channels
         for i in range(n_resolutions):
             out_channels = in_channels * channel_multipliers[i]
@@ -162,7 +184,7 @@ class UNet(nn.Module):
         )
 
         # Second half of U-Net - increasing resolution
-        up = []
+        up: List[nn.Module] = []
         in_channels = out_channels
         for i in reversed(range(n_resolutions)):
             out_channels = in_channels

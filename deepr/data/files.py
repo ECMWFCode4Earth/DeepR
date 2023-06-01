@@ -1,5 +1,5 @@
 import os
-from typing import List
+from typing import List, Optional
 
 
 class DataFile:
@@ -22,7 +22,7 @@ class DataFile:
         dataset: str,
         temporal_coverage: str,
         spatial_resolution: str,
-        spatial_coverage: dict = None,
+        spatial_coverage: Optional[dict] = None,
     ):
         """
         Initialize a DataPath instance.
@@ -39,7 +39,7 @@ class DataFile:
             The temporal coverage of the data.
         spatial_resolution : str
             The temporal resolution of the data.
-        spatial_coverage: dict
+        spatial_coverage: Optional[dict]
             The spatial coverage of the data to be selected.
         """
         self.base_dir = base_dir
@@ -96,7 +96,7 @@ class DataFile:
 
 
 class DataFileCollection:
-    def __init__(self, collection: List[DataFile] = None):
+    def __init__(self, collection: List[DataFile]):
         self.collection = collection
 
     def __len__(self):

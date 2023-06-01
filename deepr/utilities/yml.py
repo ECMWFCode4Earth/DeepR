@@ -1,7 +1,9 @@
+from typing import Any, Dict
+
 import yaml
 
 
-def read_yaml_file(yaml_file_path: str) -> dict:
+def read_yaml_file(yaml_file_path: str) -> Dict:
     """
     Read a YAML file and return its contents as a dictionary.
 
@@ -29,7 +31,7 @@ def read_yaml_file(yaml_file_path: str) -> dict:
     return configuration
 
 
-def replace_none(dictionary: dict) -> dict:
+def replace_none(dictionary: Dict) -> Dict[Any, Any]:
     """
     Recursively replace 'None' string values in a dictionary with None type.
 
@@ -46,18 +48,18 @@ def replace_none(dictionary: dict) -> dict:
     new_dictionary = {}
     for key, value in dictionary.items():
         if isinstance(value, dict):
-            new_dictionary[key] = replace_none(value)
+            new_value = replace_none(value)
         elif isinstance(value, list):
             new_list = []
             for element in value:
                 if isinstance(element, dict):
-                    new_element = replace_none(element)
+                    new_list.append(replace_none(element))
                 else:
-                    new_element = element
-                new_list.append(new_element)
-            new_dictionary[key] = new_list
+                    new_list.append(element)
+            new_value = new_list  # type: ignore
         elif value == "None":
-            new_dictionary[key] = None
+            new_value = None
         else:
-            new_dictionary[key] = value
+            new_value = value
+        new_dictionary[key] = new_value
     return new_dictionary

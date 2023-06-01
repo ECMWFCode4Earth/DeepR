@@ -6,7 +6,11 @@ from torch import nn
 
 class AttentionBlock(nn.Module):
     def __init__(
-        self, n_channels: int, n_heads: int = 1, d_k: int = None, n_groups: int = 32
+        self,
+        n_channels: int,
+        n_heads: int = 1,
+        d_k: Optional[int] = None,
+        n_groups: int = 32,
     ):
         super().__init__()
 

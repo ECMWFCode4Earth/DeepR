@@ -1,5 +1,6 @@
 import logging
 from dataclasses import dataclass, field
+from typing import Type, Union
 
 import torch
 from torch.utils.tensorboard import SummaryWriter
@@ -20,8 +21,8 @@ class DiffusionTrainingConfiguration:
     n_samples: int = 16
     learning_rate: float = 2e-5
     epochs: int = 100
-    optimizer: torch.optim.Optimizer = torch.optim.Adam
-    device: torch.device = ""
+    optimizer: Type[torch.optim.Optimizer] = torch.optim.Adam
+    device: Union[torch.device, str] = ""
     diffusion: SuperResolutionDenoiseDiffusion = field(init=False)
     data_loader: torch.utils.data.DataLoader = field(init=False)
 
@@ -49,8 +50,8 @@ class DiffusionTrainingConfiguration:
 
     def sample(self, epoch: int):
         """
-        Sample from the diffusion model. 
-         
+        Sample from the diffusion model.
+
         Arguments
         ---------
             epoch: int
@@ -100,18 +101,18 @@ class DiffusionTrainingConfiguration:
         for era5, cerra in self.data_loader:
             era5 = era5.to(self.device)
             cerra = cerra.to(self.device)
-            self.optimizer.zero_grad()
+            self.optimizer.zero_grad()  # type: ignore
             loss = self.diffusion.loss(era5, cerra)
             loss.backward()
             losses.append(loss.item())
-            self.optimizer.step()
+            self.optimizer.step()  # type: ignore
         self.writer.add_scalar("loss", sum(losses) / len(losses), epoch)
 
     def run(self):
         """
         Training workflow.
-        
-        Iterates over the dataset, training the diffusion model and sampling from it 
+
+        Iterates over the dataset, training the diffusion model and sampling from it
         each 5 epochs until its end.
         """
         logger.info(

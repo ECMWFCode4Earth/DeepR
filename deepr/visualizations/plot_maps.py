@@ -1,4 +1,5 @@
 import logging
+from typing import Optional
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -11,10 +12,18 @@ def get_figure_model_samples(
     coarse_image: torch.Tensor,
     fine_image: torch.Tensor,
     prediction: torch.Tensor,
-    filename: str = None,
+    filename: Optional[str] = None,
 ):
-    vmax = max(coarse_image.max(), fine_image.max(), prediction.max())
-    vmin = max(coarse_image.min(), fine_image.min(), prediction.min())
+    vmax = max(
+        float(torch.max(coarse_image)),
+        float(torch.max(fine_image)),
+        float(torch.max(prediction)),
+    )
+    vmin = min(
+        float(torch.min(coarse_image)),
+        float(torch.min(fine_image)),
+        float(torch.min(prediction)),
+    )
 
     n_samples = int(coarse_image.shape[0])
 

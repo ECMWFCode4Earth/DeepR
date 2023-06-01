@@ -23,6 +23,9 @@ readme = "README.md"
 branch = true
 
 [tool.mypy]
+explicit_package_bases = true
+follow_imports = "normal"
+ignore_missing_imports = true
 strict = false
 
 [tool.ruff]

@@ -56,7 +56,7 @@ def download_data(
     ValueError
         If the input date is outside the supported ranges.
     """
-    date = datetime.strptime(date, "%Y%m")
+    date_time = datetime.strptime(date, "%Y%m")
 
     start_date1 = datetime(1985, 1, 1)
     end_date1 = datetime(2018, 12, 31)
@@ -64,9 +64,9 @@ def download_data(
     start_date2 = datetime(2019, 1, 1)
     end_date2 = datetime(2021, 12, 31)
 
-    if start_date1 <= date <= end_date1:
+    if start_date1 <= date_time <= end_date1:
         date_range = "1985_2018"
-    elif start_date2 <= date <= end_date2:
+    elif start_date2 <= date_time <= end_date2:
         date_range = "2019_2021"
     else:
         raise ValueError(
@@ -74,18 +74,15 @@ def download_data(
             "Supported ranges are between 1985 and 2018, or between 2019 and 2021."
         )
 
-    url = (
-        f"https://storage.ecmwf.europeanweather.cloud/Code4Earth/"
-        f"netCDF_{project}_{date_range}/"
-        f"{variable}_{project}_{date.strftime('%Y%m')}_{spatial_resolution}.nc"
-    )
-    filename = f"{variable}_{project}_{date.strftime('%Y%m')}_{spatial_resolution}.nc"
+    cloud_url = "https://storage.ecmwf.europeanweather.cloud/Code4Earth"
+    project_dir = f"netCDF_{project}_{date_range}"
+    filename = f"{variable}_{project}_{date}_{spatial_resolution}.nc"
     output_path = os.path.join(output_directory, filename)
 
     if os.path.exists(output_path):
         print(f"File {output_path} already exists!")
     else:
-        response = requests.get(url)
+        response = requests.get(f"{cloud_url}/{project_dir}/{filename}")
         if response.status_code == 200:
             with open(output_path, "wb") as file:
                 file.write(response.content)

@@ -1,4 +1,4 @@
-import datetime
+from datetime import datetime
 from typing import Dict, List
 
 import pandas
@@ -21,7 +21,7 @@ class DataConfiguration:
         self.label_configuration = data_configuration["label_configuration"]
         self.common_configuration = data_configuration["common_configuration"]
 
-    def get_dates(self) -> List:
+    def get_dates(self) -> List[str]:
         """
         Get the dates based on the temporal coverage and frequency.
 
@@ -36,8 +36,7 @@ class DataConfiguration:
             end=temporal_coverage["end"],
             freq=temporal_coverage["frequency"],
         )
-        dates = [datetime.datetime.strftime(date, "%Y%m") for date in dates]
-        return dates
+        return [datetime.strftime(date, "%Y%m") for date in dates]
 
     def get_features(self) -> DataFileCollection:
         """
