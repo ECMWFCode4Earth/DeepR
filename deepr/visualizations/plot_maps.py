@@ -4,7 +4,7 @@ import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-logger = logging.getLoger(__name__)
+logger = logging.getLogger(__name__)
 
 
 def get_figure_model_samples(

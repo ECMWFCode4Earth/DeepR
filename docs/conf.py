@@ -15,7 +15,7 @@ sys.path.insert(0, os.path.abspath("../"))
 
 # -- Project information -----------------------------------------------------
 
-project = "deepr"
+project = "DeepR"
 copyright = "2023, European Union"
 author = "European Union"
 version = deepr.__version__
@@ -30,6 +30,7 @@ extensions = [
     "autoapi.extension",
     "myst_parser",
     "sphinx.ext.autodoc",
+    "sphinx.ext.mathjax",
     "sphinx.ext.napoleon",
 ]
 
@@ -43,7 +44,7 @@ autoapi_options = [
     "members",
     "inherited-members",
     "undoc-members",
-    "show-inheritance",
+    #"show-inheritance",
     "show-module-summary",
     "imported-members",
 ]

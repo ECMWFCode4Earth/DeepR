@@ -48,6 +48,14 @@ class DiffusionTrainingConfiguration:
         )
 
     def sample(self, epoch: int):
+        """
+        Sample from the diffusion model. 
+         
+        Arguments
+        ---------
+            epoch: int
+                The current epoch.
+        """
         for era5, cerra in self.data_loader:
             output_shape = tuple(cerra.shape[-3:])
             n_samples = min(self.n_samples, self.batch_size)
@@ -62,16 +70,17 @@ class DiffusionTrainingConfiguration:
                         coarse_images, x, x.new_full((n_samples,), t, dtype=torch.long)
                     )
 
+                fig = plot_maps.get_figure_model_samples(
+                    coarse_images, cerra[:n_samples, ...], x
+                )
+                self.writer.add_figure("Samples", fig, epoch)
+
                 if epoch == 0:  # Only first epoch
                     inputs = self.diffusion.merge_net_inputs(coarse_images, x)
                     self.writer.add_graph(
                         self.eps_model, [inputs, torch.ones(inputs.shape[0])]
                     )
-                if epoch % 5 == 0:  # Each 5 epochs
-                    fig = plot_maps.get_figure_model_samples(
-                        coarse_images, cerra[:n_samples, ...], x
-                    )
-                    self.writer.add_figure("Samples", fig, epoch)
+
             return None
 
     def train(self, epoch: int):
@@ -84,7 +93,8 @@ class DiffusionTrainingConfiguration:
 
         Arguments
         ---------
-            int: training epoch
+            epoc: int
+                The current epoch.
         """
         losses = []
         for era5, cerra in self.data_loader:
@@ -98,13 +108,20 @@ class DiffusionTrainingConfiguration:
         self.writer.add_scalar("loss", sum(losses) / len(losses), epoch)
 
     def run(self):
+        """
+        Training workflow.
+        
+        Iterates over the dataset, training the diffusion model and sampling from it 
+        each 5 epochs until its end.
+        """
         logger.info(
             f"STARTING: SuperResolution Diffusion model is training ... "
             f"({self.epochs} epochs)."
         )
         for epoch in trange(self.epochs):
             self.train(epoch)
-            self.sample(epoch)
+            if epoch % 5 == 0:
+                self.sample(epoch)
             self.writer.flush()
         self.writer.close()
         logger.info("FINISHED: The SuperResolution Diffusion model is trained.")

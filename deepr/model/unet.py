@@ -111,17 +111,17 @@ class UNet(nn.Module):
         Parameters
         ----------
             image_channels : int
-                number of channels in the output image
+                Number of channels in the output image.
             n_channels : int
-                number of channels in the first layer of the model
+                Number of channels in the first layer of the model.
             channel_multipliers : Union[Tuple[int, ...], List[int]]
-                the channel multiplier for each resolution level of the U-Net
+                The channel multiplier for each resolution level of the U-Net.
             is_attention : Union[Tuple[bool, ...], List[int]]
-                whether to use attention mechanism at each resolution level of the U-Net
+                Whether to use attention mechanism at each resolution level of the U-Net.
             n_blocks : int
-                number of residual blocks at each resolution level of the U-Net
+                Number of residual blocks at each resolution level of the U-Net.
             conditioned_on_input : Union[bool, int]
-                whether to use conditioning on other inputs, or the number of conditions
+                Whether to use conditioning on other inputs, or the number of conditions.
         """
         super().__init__()
         n_resolutions = len(channel_multipliers)

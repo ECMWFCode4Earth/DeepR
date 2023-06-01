@@ -33,9 +33,9 @@ class ResidualBlock(nn.Module):
             Number of output channels.
         time_channels: int
             Number of time channels.
-        n_groups: int, optional (default=32)
+        n_groups: int, optional (default=`32`)
             Number of groups.
-        dropout: float, optional (default=0.1)
+        dropout: float, optional (default=`0.1`)
             Dropout rate.
         """
         super().__init__()
@@ -72,13 +72,13 @@ class ResidualBlock(nn.Module):
         Parameters
         ----------
             x : torch.Tensor
-                input vector with shape [batch_size, in_channels, height, width]
+                Input vector with shape `[batch_size, in_channels, height, width]`.
             t : torch.Tensor
-                time vector [batch_size, time_channels]
+                Time vector `[batch_size, time_channels]`.
 
         Returns
         -------
-            torch.Tensor: vector with shape [batch_size, out_channels, height, width]
+            torch.Tensor: vector with shape `[batch_size, out_channels, height, width]`.
         """
         h = self.conv1(self.act1(self.norm1(x)))
         h += self.time_emb(self.time_act(t))[:, :, None, None]
