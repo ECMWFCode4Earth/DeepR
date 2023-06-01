@@ -184,7 +184,7 @@ jobs:
     - name: Check wheels
       run: |
         cd dist || exit
-        $CONDA/bin/python -m pip install deepr*.whl || exit
+        $CONDA/bin/python -m pip install DeepR*.whl || exit
         $CONDA/bin/python -m twine check * || exit
         $CONDA/bin/python -c "import deepr"
     - name: Publish a Python distribution to PyPI
