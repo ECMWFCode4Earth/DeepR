@@ -17,6 +17,8 @@ class XarrayStandardScaler:
         """
         self.files = files
         self.average, self.standard_deviation = self.get_parameters()
+        self.average.load()
+        self.standard_deviation.load()
 
     def get_parameters(self) -> Tuple[xarray.Dataset, xarray.Dataset]:
         """

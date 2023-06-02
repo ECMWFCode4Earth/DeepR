@@ -2,9 +2,18 @@ import torch
 import xarray
 from torch.utils.data import Dataset
 
+from deepr.data.configuration import DataFileCollection
+from deepr.data.scaler import XarrayStandardScaler
+
 
 class DataGenerator(Dataset):
-    def __init__(self, features_files, label_files):
+    def __init__(
+            self,
+            features_files: DataFileCollection,
+            label_files: DataFileCollection,
+            features_scaler: XarrayStandardScaler,
+            label_scaler: XarrayStandardScaler
+    ):
         """
         Initialize the DataGenerator class.
 
@@ -14,9 +23,15 @@ class DataGenerator(Dataset):
             Collection of feature DataFile objects.
         label_files : DataFileCollection
             Collection of label DataFile objects.
+        features_scaler: XarrayStandardScaler
+            Scaler object with which to apply the standardization
+        label_scaler: XarrayStandardScaler
+            Scaler object with which to apply the standardization
         """
         self.feature_files = features_files
         self.label_files = label_files
+        self.features_scaler = features_scaler
+        self.label_scaler = label_scaler
         self.num_samples = self.get_num_samples()
         self.label_ds = None
         self.features_ds = None
@@ -64,7 +79,11 @@ class DataGenerator(Dataset):
         file_idx, sample_idx = self.get_indices(index)
 
         features_ds_batch = self.features_ds.isel(time=sample_idx)
+        if self.features_scaler:
+            features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
         label_ds_batch = self.label_ds.isel(time=sample_idx)
+        if self.label_scaler:
+            label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
 
         if sample_idx >= self.label_ds.dims["time"]:
             self.label_ds = None

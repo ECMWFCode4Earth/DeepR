@@ -6,6 +6,7 @@ from torch.utils.data import Dataset
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
+from deepr.data.scaler import XarrayStandardScaler
 from deepr.model.configs import DiffusionTrainingConfiguration
 from deepr.model.diffusion import SuperResolutionDenoiseDiffusion
 from deepr.utilities.logger import get_logger
@@ -70,10 +71,17 @@ class MainPipeline:
         data_configuration = DataConfiguration(self.configuration["data_configuration"])
         logger.debug("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
+        features_scaler = XarrayStandardScaler(features_collection)
         logger.debug("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
+        label_scaler = XarrayStandardScaler(label_collection)
         logger.debug("Define the DataGenerator object.")
-        data_generator = DataGenerator(features_collection, label_collection)
+        data_generator = DataGenerator(
+            features_collection,
+            label_collection,
+            features_scaler,
+            label_scaler
+        )
         return data_generator
 
     def train_diffusion(self, dataset: Dataset) -> SuperResolutionDenoiseDiffusion:

@@ -60,7 +60,7 @@ class DiffusionTrainingConfiguration:
         for era5, cerra in self.data_loader:
             output_shape = tuple(cerra.shape[-3:])
             n_samples = min(self.n_samples, self.batch_size)
-            coarse_images = era5[:n_samples, ...]
+            coarse_images = era5[:n_samples, ...].to(self.device)
             with torch.no_grad():
                 x = torch.randn([n_samples, *output_shape], device=self.device)
 
@@ -72,14 +72,14 @@ class DiffusionTrainingConfiguration:
                     )
 
                 fig = plot_maps.get_figure_model_samples(
-                    coarse_images, cerra[:n_samples, ...], x
+                    coarse_images.cpu(), cerra[:n_samples, ...].cpu(), x.cpu()
                 )
                 self.writer.add_figure("Samples", fig, epoch)
 
                 if epoch == 0:  # Only first epoch
                     inputs = self.diffusion.merge_net_inputs(coarse_images, x)
                     self.writer.add_graph(
-                        self.eps_model, [inputs, torch.ones(inputs.shape[0])]
+                        self.eps_model, [inputs, torch.ones(inputs.shape[0]).to(self.device)]
                     )
 
             return None
