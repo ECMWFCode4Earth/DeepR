@@ -31,13 +31,14 @@ def train_diffusion(
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         log_with="tensorboard",
-        logging_dir=os.path.join(config.output_dir, "logs"),
+        project_dir=os.path.join(config.output_dir, "logs"),
     )
 
     model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, lr_scheduler
     )
 
+    accelerator.init_trackers("probando", config=config.__dict__)
     global_step = 0
     # Now you train the model
     for epoch in range(config.num_epochs):

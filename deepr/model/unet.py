@@ -212,9 +212,36 @@ class UNet(nn.Module):
             in_channels, image_channels, kernel_size=(3, 3), padding=(1, 1)
         )
 
-    def forward(self, x: torch.Tensor, t: torch.Tensor):
-        t = self.time_emb(t)
-        x = self.image_proj(x)
+    def forward(
+        self, 
+        sample: torch.Tensor, 
+        timestep: torch.Tensor, 
+        return_dict: bool = True
+    ):
+        """
+        Forward pass.
+        
+        Applies the forward pass of the U-Net model on the given input tensor, `sample`,
+        and timestep, `timestep`.
+
+        Arguments
+        ---------
+            sample : torch.Tensor
+                The input tensor of the shape (batch_size, num_channels, height, width).
+            timestep : torch.Tensor
+                The timestep tensor of the shape (batch_size,) representing the timestep
+                of each sample.
+            return_dict : bool
+                Whether or not to return a [`~models.unet_2d.UNet2DOutput`] instead of a
+                plain tuple.
+
+        Returns
+        -------
+            noise: torch.Tensor
+                The output tensor of the shape (batch_size, num_classes, height, width).
+        """
+        t = self.time_emb(timestep)
+        x = self.image_proj(sample)
 
         h = [x]
         # First half of U-Net
@@ -233,4 +260,10 @@ class UNet(nn.Module):
                 x = torch.cat((x, s), dim=1)
                 x = m(x, t)
 
-        return self.final(self.act(self.norm(x)))
+        out = self.final(self.act(self.norm(x)))
+        
+        if not return_dict:
+            return (out,)
+        
+        return {"sample": out}
+
