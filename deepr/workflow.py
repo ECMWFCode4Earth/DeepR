@@ -119,7 +119,7 @@ class MainPipeline:
         scheduler = get_hf_scheduler(
             **train_configs["model_configuration"].pop("scheduler")
         )
-        train_cfg = TrainingConfig()  # **train_configs["training_parameters"])
+        train_cfg = TrainingConfig(**train_configs["training_parameters"])
         train_diffusion(train_cfg, eps_model, scheduler, dataset)
 
     def train_end2end_nn(self, dataset: Dataset) -> nn.Module:

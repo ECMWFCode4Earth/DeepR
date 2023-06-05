@@ -1,5 +1,5 @@
 import logging
-from dataclasses import dataclass
+from pydantic.dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
