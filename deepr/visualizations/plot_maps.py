@@ -24,40 +24,45 @@ def get_figure_model_samples(
         float(torch.min(fine_image)),
         float(torch.min(prediction)),
     )
+    v_kwargs = {"vmax": vmax, "vmin": vmin}
 
     n_samples = int(coarse_image.shape[0])
 
-    if n_samples != int(fine_image.shape[0]) or n_samples != int(prediction.shape[0]):
+    if n_samples != int(fine_image.shape[0]):
         raise ValueError("Inconsistent number of samples between images.")
+    elif int(prediction.shape[0]) % n_samples != 0:
+        raise ValueError("Inconsistent number of samples between predictions.")
+    else:
+        n_realizations = prediction.shape[0] // n_samples
 
-    figsize = (15, 5 * n_samples)
-    fig, axs = plt.subplots(n_samples, 3, figsize=figsize)
+    figsize = (7.7 * n_realizations, 4.8 * n_samples)
+    fig, axs = plt.subplots(n_realizations + 2, n_samples, figsize=figsize)
     plt.tight_layout()
     if n_samples == 1:
         axs = axs[np.newaxis, ...]
     for i in range(n_samples):
-        axs[i, 0].imshow(
-            coarse_image[i, 0].numpy()[..., np.newaxis], vmax=vmax, vmin=vmin
-        )
-        axs[i, 1].imshow(
-            fine_image[i, 0].numpy()[..., np.newaxis], vmax=vmax, vmin=vmin
-        )
-        im = axs[i, 2].imshow(
-            prediction[i, 0].numpy()[..., np.newaxis], vmax=vmax, vmin=vmin
-        )
+        axs[0, i].imshow(coarse_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
+        axs[1, i].imshow(fine_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
+        for r in range(n_realizations):
+            im = axs[2 + r, i].imshow(
+                prediction[i + r * n_samples, 0].numpy()[..., np.newaxis], **v_kwargs
+            )
 
-        axs[i, 0].get_xaxis().set_visible(False)
-        axs[i, 0].get_yaxis().set_visible(False)
-        axs[i, 1].get_xaxis().set_visible(False)
-        axs[i, 1].get_yaxis().set_visible(False)
-        axs[i, 2].get_xaxis().set_visible(False)
-        axs[i, 2].get_yaxis().set_visible(False)
+        axs[0, i].get_xaxis().set_ticks([])
+        axs[0, i].get_yaxis().set_ticks([])
+        axs[1, i].get_xaxis().set_ticks([])
+        axs[1, i].get_yaxis().set_ticks([])
+
+        for r in range(n_realizations):
+            axs[2 + r, i].get_xaxis().set_ticks([])
+            axs[2 + r, i].get_yaxis().set_ticks([])
 
         # Titles
         if i == 0:
-            axs[i, 0].set_title("ERA5 (Low-res)")
-            axs[i, 1].set_title("CERRA (High-res)")
-            axs[i, 2].set_title("Prediction (High-res)")
+            axs[0, i].set_ylabel("ERA5 (Low-res)", fontsize=14)
+            axs[1, i].set_ylabel("CERRA (High-res)", fontsize=14)
+            for r in range(n_realizations):
+                axs[2 + r, i].set_ylabel("Prediction (High-res)", fontsize=14)
 
     if n_samples == 1:
         fig.subplots_adjust(bottom=0.05)
