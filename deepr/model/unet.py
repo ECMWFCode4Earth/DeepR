@@ -182,7 +182,7 @@ class UNet(ModelMixin, ConfigMixin):
             sample.shape[0], dtype=timesteps.dtype, device=timesteps.device
         )
 
-        t_emb = self.time_emb(timesteps).to(dtype=self.dtype)
+        t_emb = self.time_proj(timesteps).to(dtype=self.dtype)
         t = self.time_embedding(t_emb)
 
         x = self.image_proj(sample)
