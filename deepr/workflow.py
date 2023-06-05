@@ -1,14 +1,14 @@
 from pathlib import Path
-from typing import Union
 
+import diffusers
 from torch import nn
 from torch.utils.data import Dataset
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
 from deepr.data.scaler import XarrayStandardScaler
-from deepr.model.configs import DiffusionTrainingConfiguration
-from deepr.model.diffusion import SuperResolutionDenoiseDiffusion
+from deepr.model.configs import TrainingConfig
+from deepr.model.trainer import train_diffusion
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
 
@@ -40,9 +40,16 @@ def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
     if class_name.lower() == "unet":
         from deepr.model.unet import UNet
 
+        if "sample_size" in kwargs:
+            kwargs["sample_size"] = tuple(kwargs["sample_size"])
         return UNet(**kwargs)
     else:
         raise NotImplementedError(f"{class_name} is not implemented")
+
+
+def get_hf_scheduler(class_name: str, kwargs: dict) -> diffusers.SchedulerMixin:
+    logger.info(f"Loading scheduler {class_name}.")
+    return getattr(diffusers, class_name)(**kwargs)
 
 
 class MainPipeline:
@@ -91,7 +98,7 @@ class MainPipeline:
         )
         return data_generator
 
-    def train_diffusion(self, dataset: Dataset) -> SuperResolutionDenoiseDiffusion:
+    def train_diffusion(self, dataset: Dataset):
         """Train a Deep Diffusion model with the given dataset.
 
         Arguments
@@ -105,10 +112,15 @@ class MainPipeline:
             The trained model.
         """
         logger.info("Train Deep Diffusion model for Super Resolution task.")
-        configs = self.configuration["training_configuration"]["model_configuration"]
-        eps_model = get_neural_network(**configs.pop("eps_model"))
-        train_conf = DiffusionTrainingConfiguration(eps_model, dataset, **configs)
-        return train_conf.run()
+        train_configs = self.configuration["training_configuration"]
+        eps_model = get_neural_network(
+            **train_configs["model_configuration"].pop("eps_model")
+        )
+        scheduler = get_hf_scheduler(
+            **train_configs["model_configuration"].pop("scheduler")
+        )
+        train_cfg = TrainingConfig()  # **train_configs["training_parameters"])
+        train_diffusion(train_cfg, eps_model, scheduler, dataset)
 
     def train_end2end_nn(self, dataset: Dataset) -> nn.Module:
         """Train a end-to-end neural network with the given dataset.
@@ -125,9 +137,7 @@ class MainPipeline:
         """
         raise NotImplementedError("Not implemented yet")
 
-    def train_model(
-        self, dataset: Dataset
-    ) -> Union[SuperResolutionDenoiseDiffusion, nn.Module]:
+    def train_model(self, dataset: Dataset):
         """Train a Super Resolution (SR) model with the given dataset.
 
         Arguments
@@ -142,30 +152,15 @@ class MainPipeline:
         """
         model_type = self.configuration["training_configuration"]["type"]
         if model_type == "diffusion":
-            return self.train_diffusion(dataset)
+            self.train_diffusion(dataset)
         elif model_type == "end2end":
-            return self.train_end2end_nn(dataset)
+            self.train_end2end_nn(dataset)
         else:
             raise NotImplementedError(
                 f"The training procedure {model_type} is not supported."
             )
 
-    def evaluate_model(
-        self, model: Union[SuperResolutionDenoiseDiffusion, nn.Module], dataset: Dataset
-    ):
-        """Evaluate a trained Super Resolution (SR) model with the given dataset.
-
-        Arguments
-        ---------
-        model : SuperResolutionDenoiseDiffusion | nn.Module
-            The trained neural network.
-        dataset : Dataset
-            The dataset to train the model on.
-        """
-        raise NotImplementedError("Not implemented yet")
-
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""
         dataset = self.get_dataset()
-        model = self.train_model(dataset)
-        self.evaluate_model(model, dataset)
+        self.train_model(dataset)
