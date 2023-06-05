@@ -1,7 +1,10 @@
-from typing import List, Tuple, Union
+from typing import List, Optional, Tuple, Union
 
 import torch
 import torch.nn as nn
+from diffusers import ConfigMixin, ModelMixin
+from diffusers.configuration_utils import register_to_config
+from diffusers.models.unet_2d import UNet2DOutput
 
 from deepr.model.activations import Swish
 from deepr.model.attention import AttentionBlock
@@ -113,15 +116,17 @@ class MiddleBlock(nn.Module):
         return x
 
 
-class UNet(nn.Module):
+class UNet(ModelMixin, ConfigMixin):
+    @register_to_config
     def __init__(
         self,
         image_channels: int = 1,
+        in_channels: int = 1,
         n_channels: int = 16,
+        sample_size: Optional[Union[int, Tuple[int, int]]] = None,
         channel_multipliers: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
         is_attention: Union[Tuple[bool, ...], List[bool]] = (False, False, True, True),
         n_blocks: int = 2,
-        conditioned_on_input: Union[bool, int] = False,
     ):
         """
         U-Net.
@@ -146,11 +151,12 @@ class UNet(nn.Module):
                 Whether to use conditioning on other inputs, or the number of conditions.
         """
         super().__init__()
+        self.sample_size = sample_size
         n_resolutions = len(channel_multipliers)
 
         # Project input + conditions
         self.image_proj = nn.Conv2d(
-            image_channels + int(conditioned_on_input),
+            self.in_channels,
             n_channels,
             kernel_size=(3, 3),
             padding=(1, 1),
@@ -213,14 +219,11 @@ class UNet(nn.Module):
         )
 
     def forward(
-        self, 
-        sample: torch.Tensor, 
-        timestep: torch.Tensor, 
-        return_dict: bool = True
+        self, sample: torch.Tensor, timestep: torch.Tensor, return_dict: bool = True
     ):
         """
         Forward pass.
-        
+
         Applies the forward pass of the U-Net model on the given input tensor, `sample`,
         and timestep, `timestep`.
 
@@ -240,6 +243,18 @@ class UNet(nn.Module):
             noise: torch.Tensor
                 The output tensor of the shape (batch_size, num_classes, height, width).
         """
+        timesteps = timestep
+        if not torch.is_tensor(timesteps):
+            timesteps = torch.tensor(
+                [timesteps], dtype=torch.long, device=sample.device
+            )
+        elif torch.is_tensor(timesteps) and len(timesteps.shape) == 0:
+            timesteps = timesteps[None].to(sample.device)
+        # broadcast to batch dimension in a way that's compatible with ONNX/Core ML
+        timesteps = timesteps * torch.ones(
+            sample.shape[0], dtype=timesteps.dtype, device=timesteps.device
+        )
+
         t = self.time_emb(timestep)
         x = self.image_proj(sample)
 
@@ -261,9 +276,8 @@ class UNet(nn.Module):
                 x = m(x, t)
 
         out = self.final(self.act(self.norm(x)))
-        
+
         if not return_dict:
             return (out,)
-        
-        return {"sample": out}
 
+        return UNet2DOutput(sample=out)
