@@ -4,7 +4,7 @@ import diffusers
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
-from diffusers import DDPMPipeline
+from diffusers import DDPMPipeline, DDPMScheduler
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from PIL import Image
@@ -13,8 +13,13 @@ from tqdm import tqdm
 from deepr.model.configs import TrainingConfig
 
 
-def save_samples(config, pipeline, outname: str):
+def save_samples(config, model, outname: str):
     """Save a set of samples."""
+    scheduler = DDPMScheduler(
+        num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, 
+    )
+    pipeline = DDPMPipeline(unet=model, scheduler=scheduler).to(config.device)
+
     images = pipeline(
         batch_size=config.eval_batch_size,
         generator=torch.manual_seed(config.seed),
@@ -61,20 +66,19 @@ def train_diffusion(
             repo = Repository(config.output_dir, clone_from=repo_name)
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("train_example")
+        accelerator.init_trackers("Train Diffusion", config=config.__dict__)
 
     model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, lr_scheduler
     )
 
-    accelerator.init_trackers("probando", config=config.__dict__)
     global_step = 0
     # Now you train the model
     for epoch in range(config.num_epochs):
         progress_bar = tqdm(
             total=len(train_dataloader), disable=not accelerator.is_local_main_process
         )
-        progress_bar.set_description(f"Epoch {epoch}")
+        progress_bar.set_description(f"Epoch {epoch+1}")
 
         for step, (_, cerra) in enumerate(train_dataloader):
             bs = cerra.shape[0]
@@ -118,17 +122,18 @@ def train_diffusion(
         # After each epoch you optionally sample some demo images
         if accelerator.is_main_process:
             is_last_epoch = epoch == config.num_epochs - 1
-            pipeline = DDPMPipeline(
-                unet=accelerator.unwrap_model(model), scheduler=noise_scheduler
-            ).to(config.device)
 
             if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
                 test_dir = os.path.join(config.output_dir, "samples")
                 os.makedirs(test_dir, exist_ok=True)
-                save_samples(config, pipeline, outname=f"{test_dir}/{epoch:04d}.png")
+                save_samples(
+                    config, 
+                    accelerator.unwrap_model(model), 
+                    outname=f"{test_dir}/{epoch+1:04d}.png"
+                )
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 if config.push_to_hub:
-                    repo.push_to_hub(commit_message=f"Epoch {epoch}", blocking=True)
+                    repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
                 else:
-                    pipeline.save_pretrained(config.output_dir)
+                    model.save_pretrained(config.output_dir)
