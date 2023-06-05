@@ -4,10 +4,31 @@ import diffusers
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
+from diffusers import DDPMPipeline
 from diffusers.optimization import get_cosine_schedule_with_warmup
+from huggingface_hub import Repository
+from PIL import Image
 from tqdm import tqdm
 
 from deepr.model.configs import TrainingConfig
+
+
+def save_samples(config, pipeline, outname: str):
+    """Save a set of samples."""
+    images = pipeline(
+        batch_size=config.eval_batch_size,
+        generator=torch.manual_seed(config.seed),
+    ).images
+
+    # Make a grid out of the images
+    w, h = images[0].size
+    cols, rows = 4, config.eval_batch_size // 4
+    image_grid = Image.new("L", size=(cols * w, rows * h))
+    for i, image in enumerate(images):
+        image_grid.paste(image, box=(i % cols * w, i // cols * h))
+
+    # Save the image
+    image_grid.save(outname)
 
 
 def train_diffusion(
@@ -33,6 +54,14 @@ def train_diffusion(
         log_with="tensorboard",
         project_dir=os.path.join(config.output_dir, "logs"),
     )
+
+    if accelerator.is_main_process:
+        if config.push_to_hub:
+            repo_name = "predictia/reanalysis_downscaler"
+            repo = Repository(config.output_dir, clone_from=repo_name)
+        elif config.output_dir is not None:
+            os.makedirs(config.output_dir, exist_ok=True)
+        accelerator.init_trackers("train_example")
 
     model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
         model, optimizer, train_dataloader, lr_scheduler
@@ -86,21 +115,20 @@ def train_diffusion(
             accelerator.log(logs, step=global_step)
             global_step += 1
 
-        # After each epoch you optionally sample some demo images with evaluate() and save the model
-        # if accelerator.is_main_process:
-        #    pipeline = DDPMPipeline(
-        #        unet=accelerator.unwrap_model(model), scheduler=noise_scheduler
-        #    )
+        # After each epoch you optionally sample some demo images
+        if accelerator.is_main_process:
+            is_last_epoch = epoch == config.num_epochs - 1
+            pipeline = DDPMPipeline(
+                unet=accelerator.unwrap_model(model), scheduler=noise_scheduler
+            ).to(config.device)
 
-        #    if (
-        #        epoch + 1
-        #    ) % config.save_image_epochs == 0 or epoch == config.num_epochs - 1:
-        #        evaluate(config, epoch, pipeline)
+            if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
+                test_dir = os.path.join(config.output_dir, "samples")
+                os.makedirs(test_dir, exist_ok=True)
+                save_samples(config, pipeline, outname=f"{test_dir}/{epoch:04d}.png")
 
-        #    if (
-        #        epoch + 1
-        #    ) % config.save_model_epochs == 0 or epoch == config.num_epochs - 1:
-        #        if config.push_to_hub:
-        #            repo.push_to_hub(commit_message=f"Epoch {epoch}", blocking=True)
-        #        else:
-        #            pipeline.save_pretrained(config.output_dir)
+            if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
+                if config.push_to_hub:
+                    repo.push_to_hub(commit_message=f"Epoch {epoch}", blocking=True)
+                else:
+                    pipeline.save_pretrained(config.output_dir)
