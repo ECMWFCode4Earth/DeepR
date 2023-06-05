@@ -39,6 +39,8 @@ def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
     if class_name.lower() == "unet":
         from deepr.model.unet import UNet
 
+        if "sample_size" in kwargs:
+            kwargs["sample_size"] = tuple(kwargs["sample_size"])
         return UNet(**kwargs)
     else:
         raise NotImplementedError(f"{class_name} is not implemented")
