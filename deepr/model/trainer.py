@@ -16,7 +16,9 @@ from deepr.model.configs import TrainingConfig
 def save_samples(config, model, outname: str):
     """Save a set of samples."""
     scheduler = DDPMScheduler(
-        num_train_timesteps=1000, beta_start=0.0001, beta_end=0.02, 
+        num_train_timesteps=1000,
+        beta_start=0.0001,
+        beta_end=0.02,
     )
     pipeline = DDPMPipeline(unet=model, scheduler=scheduler).to(config.device)
 
@@ -127,9 +129,9 @@ def train_diffusion(
                 test_dir = os.path.join(config.output_dir, "samples")
                 os.makedirs(test_dir, exist_ok=True)
                 save_samples(
-                    config, 
-                    accelerator.unwrap_model(model), 
-                    outname=f"{test_dir}/{epoch+1:04d}.png"
+                    config,
+                    accelerator.unwrap_model(model),
+                    outname=f"{test_dir}/{epoch+1:04d}.png",
                 )
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
