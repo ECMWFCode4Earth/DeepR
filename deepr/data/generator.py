@@ -8,11 +8,11 @@ from deepr.data.scaler import XarrayStandardScaler
 
 class DataGenerator(Dataset):
     def __init__(
-            self,
-            features_files: DataFileCollection,
-            label_files: DataFileCollection,
-            features_scaler: XarrayStandardScaler,
-            label_scaler: XarrayStandardScaler
+        self,
+        features_files: DataFileCollection,
+        label_files: DataFileCollection,
+        features_scaler: XarrayStandardScaler,
+        label_scaler: XarrayStandardScaler,
     ):
         """
         Initialize the DataGenerator class.

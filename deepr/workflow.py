@@ -71,16 +71,23 @@ class MainPipeline:
         data_configuration = DataConfiguration(self.configuration["data_configuration"])
         logger.debug("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
-        features_scaler = XarrayStandardScaler(features_collection)
+        if self.configuration["data_configuration"]["features_configuration"][
+            "apply_standardization"
+        ]:
+            features_scaler = XarrayStandardScaler(features_collection)
+        else:
+            features_scaler = None
         logger.debug("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
-        label_scaler = XarrayStandardScaler(label_collection)
+        if self.configuration["data_configuration"]["features_configuration"][
+            "apply_standardization"
+        ]:
+            label_scaler = XarrayStandardScaler(label_collection)
+        else:
+            label_scaler = None
         logger.debug("Define the DataGenerator object.")
         data_generator = DataGenerator(
-            features_collection,
-            label_collection,
-            features_scaler,
-            label_scaler
+            features_collection, label_collection, features_scaler, label_scaler
         )
         return data_generator
 

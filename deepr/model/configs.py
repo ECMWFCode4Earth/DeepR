@@ -79,7 +79,8 @@ class DiffusionTrainingConfiguration:
                 if epoch == 0:  # Only first epoch
                     inputs = self.diffusion.merge_net_inputs(coarse_images, x)
                     self.writer.add_graph(
-                        self.eps_model, [inputs, torch.ones(inputs.shape[0]).to(self.device)]
+                        self.eps_model,
+                        [inputs, torch.ones(inputs.shape[0]).to(self.device)],
                     )
 
             return None

@@ -1,5 +1,6 @@
 from typing import Tuple
 
+import pandas
 import xarray
 
 from deepr.data.files import DataFileCollection
@@ -34,8 +35,8 @@ class XarrayStandardScaler:
         dataset = xarray.open_mfdataset(
             [file.to_path() for file in self.files.collection]
         )
-        mean = dataset.mean(dim="time")
-        std = dataset.std(dim="time")
+        mean = dataset.groupby("time.month").mean()
+        std = dataset.groupby("time.month").std()
         return mean, std
 
     def apply_scaler(self, ds: xarray.Dataset) -> xarray.Dataset:
@@ -57,6 +58,7 @@ class XarrayStandardScaler:
         This method subtracts the average dataset from the input dataset and divides
         it by the standard deviation dataset.
         """
-        ds_scaled = ds - self.average
-        ds_scaled = ds_scaled / self.standard_deviation
+        time_month = pandas.to_datetime(ds.time.values).month
+        ds_scaled = ds - self.average.sel(month=time_month)
+        ds_scaled = ds_scaled / self.standard_deviation.sel(month=time_month)
         return ds_scaled
