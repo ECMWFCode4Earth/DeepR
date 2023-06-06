@@ -25,7 +25,7 @@ class UNet(ModelMixin, ConfigMixin):
     @register_to_config
     def __init__(
         self,
-        image_channels: int = 1,
+        out_channels: int = 1,
         in_channels: int = 1,
         n_channels: int = 16,
         sample_size: Optional[Union[int, Tuple[int, int]]] = None,
@@ -45,7 +45,7 @@ class UNet(ModelMixin, ConfigMixin):
 
         Parameters
         ----------
-        image_channels : int
+        out_channels : int
             Number of channels in the output image.
         in_channels : int
             Number of channels of the input 2D matrix.
@@ -92,18 +92,18 @@ class UNet(ModelMixin, ConfigMixin):
 
         # First half of U-Net - decreasing resolution
         down: List[nn.Module] = []
-        out_channels = in_channels = n_channels
+        interm_channels = in_channels = n_channels
         for i in range(n_resolutions):
-            out_channels = in_channels * channel_multipliers[i]
+            interm_channels = in_channels * channel_multipliers[i]
 
             # Resnet Blocks
             for _ in range(n_blocks):
                 down.append(
                     DownBlock(
-                        in_channels, out_channels, n_channels * 4, is_attention[i]
+                        in_channels, interm_channels, n_channels * 4, is_attention[i]
                     )
                 )
-                in_channels = out_channels
+                in_channels = interm_channels
             # Down sample at all resolutions except the last
             if i < n_resolutions - 1:
                 down.append(Downsample(in_channels))
@@ -111,26 +111,23 @@ class UNet(ModelMixin, ConfigMixin):
         self.down = nn.ModuleList(down)
 
         # Middle block
-        self.middle = MiddleBlock(
-            out_channels,
-            n_channels * 4,
-        )
+        self.middle = MiddleBlock(interm_channels, n_channels * 4)
 
         # Second half of U-Net - increasing resolution
         up: List[nn.Module] = []
-        in_channels = out_channels
+        in_channels = interm_channels
         for i in reversed(range(n_resolutions)):
-            out_channels = in_channels
+            interm_channels = in_channels
             for _ in range(n_blocks):
                 up.append(
-                    UpBlock(in_channels, out_channels, n_channels * 4, is_attention[i])
+                    UpBlock(in_channels, interm_channels, n_channels * 4, is_attention[i])
                 )
             # Final block to reduce the number of channels
-            out_channels = in_channels // channel_multipliers[i]
+            interm_channels = in_channels // channel_multipliers[i]
             up.append(
-                UpBlock(in_channels, out_channels, n_channels * 4, is_attention[i])
+                UpBlock(in_channels, interm_channels, n_channels * 4, is_attention[i])
             )
-            in_channels = out_channels
+            in_channels = interm_channels
             # Up sample at all resolutions except last
             if i > 0:
                 up.append(Upsample(in_channels))
@@ -142,7 +139,7 @@ class UNet(ModelMixin, ConfigMixin):
         self.norm = nn.GroupNorm(8, n_channels)
         self.act = Swish()
         self.final = nn.Conv2d(
-            in_channels, image_channels, kernel_size=(3, 3), padding=(1, 1)
+            in_channels, out_channels, kernel_size=(3, 3), padding=(1, 1)
         )
 
     def forward(
