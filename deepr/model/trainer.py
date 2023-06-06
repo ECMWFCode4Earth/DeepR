@@ -14,7 +14,14 @@ from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
 
-def save_samples(config, model, era5: torch.Tensor, cerra: torch.Tensor, outname: str):
+def save_samples(
+    config, 
+    model, 
+    era5: torch.Tensor, 
+    cerra: torch.Tensor, 
+    times: torch.Tensor, 
+    outname: str
+):
     """Save a set of samples."""
     scheduler = DDPMScheduler(
         num_train_timesteps=1000,
@@ -31,8 +38,11 @@ def save_samples(config, model, era5: torch.Tensor, cerra: torch.Tensor, outname
     ).images
 
     # Make a grid out of the images
+    sample_names = [f"{t[0]:02d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     images = images.transpose(1, 3).transpose(2, 3)
-    get_figure_model_samples(era5, cerra, images, filename=outname)
+    get_figure_model_samples(
+        era5, cerra, images, column_names=samples_names, filename=outname
+    )
 
 
 def train_diffusion(
@@ -47,7 +57,7 @@ def train_diffusion(
         dataset, config.train_batch_size, pin_memory=True
     )
     dataloader_val = torch.utils.data.DataLoader(
-        dataset_val, config.train_batch_size, pin_memory=True
+        dataset_val, config.val_batch_size, pin_memory=True
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -81,7 +91,7 @@ def train_diffusion(
     ) = accelerator.prepare(model, optimizer, dataloader, dataloader_val, lr_scheduler)
 
     # Get fixed samples
-    val_era5, val_cerra = next(iter(val_dataloader))
+    val_era5, val_cerra, val_times = next(iter(val_dataloader))
 
     global_step = 0
     # Now you train the model
@@ -91,7 +101,7 @@ def train_diffusion(
         )
         progress_bar.set_description(f"Epoch {epoch+1}")
 
-        for step, (era5, cerra) in enumerate(train_dataloader):
+        for step, (era5, cerra, times) in enumerate(train_dataloader):
             bs = cerra.shape[0]
 
             # Sample noise to add to the images
@@ -147,6 +157,7 @@ def train_diffusion(
                     accelerator.unwrap_model(model),
                     val_era5,
                     val_cerra,
+                    val_times,
                     outname=f"{test_dir}/{epoch+1:04d}.png",
                 )
 

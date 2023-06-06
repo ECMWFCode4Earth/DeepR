@@ -12,6 +12,7 @@ def get_figure_model_samples(
     coarse_image: torch.Tensor,
     fine_image: torch.Tensor,
     prediction: torch.Tensor,
+    column_names: List[str] = None,
     filename: Optional[str] = None,
 ):
     vmax = max(
@@ -63,6 +64,10 @@ def get_figure_model_samples(
             axs[1, i].set_ylabel("CERRA (High-res)", fontsize=14)
             for r in range(n_realizations):
                 axs[2 + r, i].set_ylabel("Prediction (High-res)", fontsize=14)
+
+    if column_names is not None:
+        for c, col_name in enumerate(column_names):
+            axs[0, c].set_title(col_name, fontsize=14)
 
     if n_samples == 1:
         fig.subplots_adjust(bottom=0.05)
