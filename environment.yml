@@ -21,6 +21,7 @@ dependencies:
 # Metrics libraries
 - xskillscore
 # Libraries for utilities
+- pydantic
 - pyyaml
 - tqdm
 # Types for mypy

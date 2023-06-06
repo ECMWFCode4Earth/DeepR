@@ -1,15 +1,17 @@
 import logging
-from dataclasses import dataclass
+
+from pydantic.dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
 
 
 @dataclass
 class TrainingConfig:
-    image_size: int = 128  # the generated image resolution
     train_batch_size: int = 16
-    eval_batch_size: int = 16  # how many images to sample during evaluation
+    val_batch_size: int = 16  # how many images to sample during evaluation
+    validation_split: float = 0.2
     num_epochs: int = 50
+    num_samples: int = 3
     gradient_accumulation_steps = 1
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 500

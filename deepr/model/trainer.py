@@ -4,38 +4,35 @@ import diffusers
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
-from diffusers import DDPMPipeline, DDPMScheduler
+from diffusers import DDPMScheduler
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
-from PIL import Image
 from tqdm import tqdm
 
+from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.configs import TrainingConfig
+from deepr.visualizations.plot_maps import get_figure_model_samples
 
 
-def save_samples(config, model, outname: str):
+def save_samples(config, model, era5: torch.Tensor, cerra: torch.Tensor, outname: str):
     """Save a set of samples."""
     scheduler = DDPMScheduler(
         num_train_timesteps=1000,
         beta_start=0.0001,
         beta_end=0.02,
     )
-    pipeline = DDPMPipeline(unet=model, scheduler=scheduler).to(config.device)
+    pipeline = cDDPMPipeline(unet=model, scheduler=scheduler).to(config.device)
 
+    era5_repeated = era5.repeat(config.num_samples, 1, 1, 1)
     images = pipeline(
-        batch_size=config.eval_batch_size,
+        images=era5_repeated,
         generator=torch.manual_seed(config.seed),
+        output_type="tensor",
     ).images
 
     # Make a grid out of the images
-    w, h = images[0].size
-    cols, rows = 4, config.eval_batch_size // 4
-    image_grid = Image.new("L", size=(cols * w, rows * h))
-    for i, image in enumerate(images):
-        image_grid.paste(image, box=(i % cols * w, i // cols * h))
-
-    # Save the image
-    image_grid.save(outname)
+    images = images.transpose(1, 3).transpose(2, 3)
+    get_figure_model_samples(era5, cerra, images, filename=outname)
 
 
 def train_diffusion(
@@ -44,9 +41,18 @@ def train_diffusion(
     noise_scheduler: diffusers.SchedulerMixin,
     dataset: torch.utils.data.Dataset,
 ):
+    train_dataset, val_dataset = torch.utils.data.random_split(
+        dataset,
+        [1 - config.validation_split, config.validation_split],
+        generator=torch.Generator().manual_seed(config.seed),
+    )
+
     # Define important objects
     train_dataloader = torch.utils.data.DataLoader(
-        dataset, config.train_batch_size, shuffle=True, pin_memory=True
+        train_dataset, config.train_batch_size, shuffle=True, pin_memory=True
+    )
+    val_dataloader = torch.utils.data.DataLoader(
+        val_dataset, config.val_batch_size, shuffle=False, pin_memory=True
     )
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     lr_scheduler = get_cosine_schedule_with_warmup(
@@ -70,9 +76,18 @@ def train_diffusion(
             os.makedirs(config.output_dir, exist_ok=True)
         accelerator.init_trackers("Train Diffusion", config=config.__dict__)
 
-    model, optimizer, train_dataloader, lr_scheduler = accelerator.prepare(
-        model, optimizer, train_dataloader, lr_scheduler
+    (
+        model,
+        optimizer,
+        train_dataloader,
+        val_dataloader,
+        lr_scheduler,
+    ) = accelerator.prepare(
+        model, optimizer, train_dataloader, val_dataloader, lr_scheduler
     )
+
+    # Get fixed samples
+    val_era5, val_cerra = next(iter(val_dataloader))
 
     global_step = 0
     # Now you train the model
@@ -82,7 +97,7 @@ def train_diffusion(
         )
         progress_bar.set_description(f"Epoch {epoch+1}")
 
-        for step, (_, cerra) in enumerate(train_dataloader):
+        for step, (era5, cerra) in enumerate(train_dataloader):
             bs = cerra.shape[0]
 
             # Sample noise to add to the images
@@ -101,8 +116,10 @@ def train_diffusion(
             noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
             with accelerator.accumulate(model):
+                model_inputs = torch.cat([noisy_images, era5], dim=1)
+
                 # Predict the noise residual
-                noise_pred = model(noisy_images, timesteps, return_dict=False)[0]
+                noise_pred = model(model_inputs, timesteps, return_dict=False)[0]
                 loss = F.mse_loss(noise_pred, noise)
                 accelerator.backward(loss)
 
@@ -112,10 +129,14 @@ def train_diffusion(
                 optimizer.zero_grad()
 
             progress_bar.update(1)
+            pred_var = noise_pred.var(keepdim=True, dim=0).mean().item()
+            true_var = noise.var(keepdim=True, dim=0).mean().item()
             logs = {
                 "loss": loss.detach().item(),
                 "lr": lr_scheduler.get_last_lr()[0],
                 "step": global_step,
+                "mean_pred_noise": noise_pred.mean().item(),
+                "mean_var_ratio": true_var / pred_var,
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
@@ -131,6 +152,8 @@ def train_diffusion(
                 save_samples(
                     config,
                     accelerator.unwrap_model(model),
+                    val_era5,
+                    val_cerra,
                     outname=f"{test_dir}/{epoch+1:04d}.png",
                 )
 
@@ -139,3 +162,5 @@ def train_diffusion(
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
                 else:
                     model.save_pretrained(config.output_dir)
+
+    accelerator.end_training()
