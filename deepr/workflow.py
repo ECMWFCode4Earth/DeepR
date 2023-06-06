@@ -37,12 +37,17 @@ def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
     ------
         NotImplementedError: If the specified neural network class is not implemented.
     """
+    if "sample_size" in kwargs:
+        kwargs["sample_size"] = tuple(kwargs["sample_size"])
+
     if class_name.lower() == "unet":
         from deepr.model.unet import UNet
 
-        if "sample_size" in kwargs:
-            kwargs["sample_size"] = tuple(kwargs["sample_size"])
         return UNet(**kwargs)
+    elif class_name.split(".")[0].lower() == "diffusers":
+        import diffusers
+
+        return diffusers.__dict__[class_name](**kwargs)
     else:
         raise NotImplementedError(f"{class_name} is not implemented")
 
