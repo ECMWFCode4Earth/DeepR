@@ -96,7 +96,7 @@ class DataGenerator(IterableDataset):
 
             time_value = pandas.to_datetime(time_value)
             time_value_batch = numpy.array(
-                [time_value.hour, time_value.day, time_value.month]
+                [time_value.hour, time_value.day, time_value.month, time_value.year]
             )
             batch = (
                 torch.as_tensor(features_ds_batch.to_array().to_numpy()),
