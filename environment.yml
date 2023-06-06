@@ -11,6 +11,9 @@ dependencies:
 # Deep learning and machine learning libraries
 - pytorch
 - tensorboard
+- accelerate
+- diffusers
+- huggingface_hub
 # Visualization libraries
 - cartopy
 - matplotlib
