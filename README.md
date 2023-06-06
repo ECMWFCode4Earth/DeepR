@@ -116,7 +116,13 @@ which is the mean squared error (MSE) between:
 
 During inference, we can sample random noise and run the reverse process conditioned on input ERA5 grids, to obtain high resolution reanalysis grids. Another major benefit from this approach is the possibility of generation an ensemble of grids to represent its uncertainty avoiding the mode collapse (common in GANs).
 
-### U-Net
+### $\\epsilon\_{t}$-model
+
+#### diffusers.UNet2DModel
+
+
+
+#### Tailored UNet
 
 In particular, a tailored U-Net architecture with 2D convolutions, residual connections and attetion layers is used.
 
@@ -140,21 +146,51 @@ The parameteres of these model implemented in [deepr/model/unet.py](deepr/model/
 
 *NOTE II*: Spatial tensors fed to Diffusion model must have shapes of length multiple of $2^{\\text{num resolutions} - 1}$.
 
-#### Downsampling
 
-The class [Downsample](deepr/model/utils.py#LL55) ...
+An example configuration for this model is specified in training_configuration > model_configuration > eps_model,
+```
+training_configuration:
+  ...
+  model_configuration:
+    eps_model:
+      class_name: UNet
+      kwargs:
+        n_channels: 32
+        channel_multipliers: [1, 2, 2, 4]
+        n_blocks: 2
+        is_attention: [False, False, True, True]
+        time_embedding_type: positional
+        in_channels: 2
+        image_channels: 1 # Number of channels in the image. 3 for RGB.
+        sample_size: [20, 32]
+  ...
+```
 
-#### Upsampling
+##### Downsampling
 
-The class [Upsample](deepr/model/utils.py#LL43) ...
+The class [Downsample](deepr/model/unet_blocks.py#LL20) ...
 
-#### Down Block
+##### Upsampling
 
-#### Up Block
+The class [Upsample](deepr/model/unet_blocks.py#LL8) ...
 
-#### Residual Block
+##### Down Block
 
-#### Final Block
+The class [Down block](deepr/model/unet_blocks.py#LL30)
+
+##### Middle Block
+
+The class [Middle block](deepr/model/unet_blocks.py#LL123)
+
+
+##### Up Block
+
+The class [Up block](deepr/model/unet_blocks.py#LL73)
+
+##### Residual Block
+
+##### Final Block
+
 
 ## References
 
