@@ -1,3 +1,4 @@
+from inspect import signature
 from typing import List, Optional, Tuple, Union
 
 import torch
@@ -31,6 +32,7 @@ class cDDPMPipeline(DiffusionPipeline):
         images: Union[torch.Tensor, List[torch.Tensor]],
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         num_inference_steps: int = 1000,
+        eta: Optional[float] = 0.0,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
     ) -> Union[ImagePipelineOutput, Tuple]:
@@ -64,6 +66,12 @@ class cDDPMPipeline(DiffusionPipeline):
         else:
             latents = randn_tensor(image_shape, generator=generator, device=self.device)
 
+        # support for DDIM scheduler
+        accepts_eta = "eta" in set(signature(self.scheduler.step).parameters.keys())
+        extra_kwargs = {}
+        if accepts_eta:
+            extra_kwargs["eta"] = eta
+
         # set step values
         self.scheduler.set_timesteps(num_inference_steps, device=self.device)
         latents = latents * self.scheduler.init_noise_sigma
@@ -77,7 +85,7 @@ class cDDPMPipeline(DiffusionPipeline):
 
             # 2. compute previous image: x_t -> x_t-1
             latents = self.scheduler.step(
-                model_output, t, latents, generator=generator
+                model_output, t, latents, generator=generator, **extra_kwargs
             ).prev_sample
 
         image = (latents / 2 + 0.5).clamp(0, 1)

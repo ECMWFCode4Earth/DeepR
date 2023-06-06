@@ -105,8 +105,7 @@ def train_diffusion(
                 device=config.device,
             ).long()
 
-            # Add noise to the clean images according to the noise magnitude at each
-            # timestep (this is the forward diffusion process)
+            # Add noise to the clean images according to the noise magnitude at each t
             noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
             with accelerator.accumulate(model):
