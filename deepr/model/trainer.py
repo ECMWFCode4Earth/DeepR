@@ -15,12 +15,12 @@ from deepr.visualizations.plot_maps import get_figure_model_samples
 
 
 def save_samples(
-    config, 
-    model, 
-    era5: torch.Tensor, 
-    cerra: torch.Tensor, 
-    times: torch.Tensor, 
-    outname: str
+    config,
+    model,
+    era5: torch.Tensor,
+    cerra: torch.Tensor,
+    times: torch.Tensor,
+    outname: str,
 ):
     """Save a set of samples."""
     scheduler = DDPMScheduler(
@@ -41,7 +41,7 @@ def save_samples(
     sample_names = [f"{t[0]:02d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     images = images.transpose(1, 3).transpose(2, 3)
     get_figure_model_samples(
-        era5, cerra, images, column_names=samples_names, filename=outname
+        era5, cerra, images, column_names=sample_names, filename=outname
     )
 
 
@@ -93,6 +93,7 @@ def train_diffusion(
     # Get fixed samples
     val_era5, val_cerra, val_times = next(iter(val_dataloader))
 
+    tf_writter = accelerator.get_tracker("tensorboard").writer
     global_step = 0
     # Now you train the model
     for epoch in range(config.num_epochs):
@@ -122,7 +123,9 @@ def train_diffusion(
                 model_inputs = torch.cat([noisy_images, era5], dim=1)
 
                 # Predict the noise residual
-                noise_pred = model(model_inputs, timesteps, return_dict=False)[0]
+                noise_pred = model(
+                    model_inputs, timesteps, return_dict=False, class_labels=times[:, 0]
+                )[0]
                 loss = F.mse_loss(noise_pred, noise)
                 accelerator.backward(loss)
 
@@ -143,6 +146,8 @@ def train_diffusion(
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
+            tf_writter.add_histogram("noise predicted", noise_pred, global_step)
+            tf_writter.add_histogram("noise", noise, global_step)
             global_step += 1
 
         # After each epoch you optionally sample some demo images
