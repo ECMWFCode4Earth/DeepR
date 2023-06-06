@@ -17,7 +17,7 @@ class TrainingConfig:
     lr_warmup_steps: int = 500
     save_image_epochs: int = 10
     save_model_epochs: int = 30
-    device: str = "cpu"
+    device: str = "cuda"
     mixed_precision: str = (
         "fp16"  # `no` for float32, `fp16` for automatic mixed precision
     )

@@ -32,7 +32,7 @@ class cDDPMPipeline(DiffusionPipeline):
         images: Union[torch.Tensor, List[torch.Tensor]],
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         num_inference_steps: int = 1000,
-        era: Optional[float] = 0.0,
+        eta: Optional[float] = 0.0,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
     ) -> Union[ImagePipelineOutput, Tuple]:
