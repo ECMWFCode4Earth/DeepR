@@ -39,26 +39,22 @@ def train_diffusion(
     config: TrainingConfig,
     model,
     noise_scheduler: diffusers.SchedulerMixin,
-    dataset: torch.utils.data.Dataset,
+    dataset: torch.utils.data.IterableDataset,
+    dataset_val: torch.utils.data.IterableDataset,
 ):
-    train_dataset, val_dataset = torch.utils.data.random_split(
-        dataset,
-        [1 - config.validation_split, config.validation_split],
-        generator=torch.Generator().manual_seed(config.seed),
+    # Define important objects
+    dataloader = torch.utils.data.DataLoader(
+        dataset, config.train_batch_size, pin_memory=True
+    )
+    dataloader_val = torch.utils.data.DataLoader(
+        dataset_val, config.train_batch_size, pin_memory=True
     )
 
-    # Define important objects
-    train_dataloader = torch.utils.data.DataLoader(
-        train_dataset, config.train_batch_size, shuffle=True, pin_memory=True
-    )
-    val_dataloader = torch.utils.data.DataLoader(
-        val_dataset, config.val_batch_size, shuffle=False, pin_memory=True
-    )
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=config.lr_warmup_steps,
-        num_training_steps=(len(train_dataloader) * config.num_epochs),
+        num_training_steps=(len(dataloader) * config.num_epochs),
     )
 
     accelerator = Accelerator(
@@ -82,9 +78,7 @@ def train_diffusion(
         train_dataloader,
         val_dataloader,
         lr_scheduler,
-    ) = accelerator.prepare(
-        model, optimizer, train_dataloader, val_dataloader, lr_scheduler
-    )
+    ) = accelerator.prepare(model, optimizer, dataloader, dataloader_val, lr_scheduler)
 
     # Get fixed samples
     val_era5, val_cerra = next(iter(val_dataloader))

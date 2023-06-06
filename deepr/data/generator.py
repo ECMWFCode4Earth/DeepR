@@ -1,12 +1,12 @@
 import torch
 import xarray
-from torch.utils.data import Dataset
+from torch.utils.data import IterableDataset
 
 from deepr.data.configuration import DataFileCollection
 from deepr.data.scaler import XarrayStandardScaler
 
 
-class DataGenerator(Dataset):
+class DataGenerator(IterableDataset):
     def __init__(
         self,
         features_files: DataFileCollection,
@@ -28,10 +28,13 @@ class DataGenerator(Dataset):
         label_scaler: XarrayStandardScaler
             Scaler object with which to apply the standardization
         """
+        super(DataGenerator).__init__()
         self.feature_files = features_files
         self.label_files = label_files
         self.features_scaler = features_scaler
         self.label_scaler = label_scaler
+        self.number_files = len(self.label_files.collection)
+        self.file_index = 0
         self.num_samples = self.get_num_samples()
         self.label_ds = None
         self.features_ds = None
@@ -46,54 +49,6 @@ class DataGenerator(Dataset):
             Number of samples in the dataset.
         """
         return self.num_samples
-
-    def __getitem__(self, index):
-        """
-        Retrieve a batch of data given an index.
-
-        Parameters
-        ----------
-        index : int
-            Index of the batch.
-
-        Returns
-        -------
-        tuple
-            A tuple containing the batch of feature and label data.
-
-        Raises
-        ------
-        IndexError
-            If the index is out of range.
-        """
-        if self.label_ds is None and self.features_ds is None:
-            file_idx, _ = self.get_indices(index)
-            label_file = self.label_files.collection[file_idx]
-            features_files = self.feature_files.find_data(
-                **{"temporal_coverage": label_file.temporal_coverage}
-            )
-            self.features_ds, self.label_ds = self.load_data(
-                label_file=label_file, features_files=features_files
-            )
-
-        file_idx, sample_idx = self.get_indices(index)
-
-        features_ds_batch = self.features_ds.isel(time=sample_idx)
-        if self.features_scaler:
-            features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
-        label_ds_batch = self.label_ds.isel(time=sample_idx)
-        if self.label_scaler:
-            label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
-
-        if sample_idx >= self.label_ds.dims["time"]:
-            self.label_ds = None
-            self.features_ds = None
-
-        batch = (
-            torch.as_tensor(features_ds_batch.to_array().to_numpy()),
-            torch.as_tensor(label_ds_batch.to_array().to_numpy()),
-        )
-        return batch
 
     def get_num_samples(self):
         """
@@ -111,47 +66,44 @@ class DataGenerator(Dataset):
             label_ds.close()
         return num_samples
 
-    def get_indices(self, index):
+    def __iter__(self):
         """
-        Calculate the file index and sample index based on the given overall index.
-
-        Parameters
-        ----------
-        index : int
-            Overall index of a sample in the dataset.
+        Retrieve a batch of data given an index.
 
         Returns
         -------
         tuple
-            A tuple containing the file index and sample index.
+            A tuple containing the batch of feature and label data.
 
         Raises
         ------
         IndexError
             If the index is out of range.
         """
-        file_idx = 0
-        sample_idx = index
-        for label_file in self.label_files.collection:
-            num_samples = xarray.open_dataset(label_file.to_path()).dims["time"]
-            if sample_idx < num_samples:
-                break
-            else:
-                sample_idx -= num_samples
-                file_idx += 1
-        return file_idx, sample_idx
+        if self.label_ds is None and self.features_ds is None:
+            self.load_data()
 
-    @staticmethod
-    def load_data(features_files, label_file):
+        for time_index, time_value in enumerate(self.label_ds.time.values):
+            time_index += 1
+            features_ds_batch = self.features_ds.sel(time=time_value)
+            if self.features_scaler:
+                features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
+            label_ds_batch = self.label_ds.sel(time=time_value)
+            if self.label_scaler:
+                label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
+            batch = (
+                torch.as_tensor(features_ds_batch.to_array().to_numpy()),
+                torch.as_tensor(label_ds_batch.to_array().to_numpy()),
+            )
+            if time_index == len(self.label_ds.time.values):
+                self.label_ds = None
+                self.features_ds = None
+
+            yield batch
+
+    def load_data(self):
         """
         Load the data from the given label file and feature files.
-
-        Parameters
-        ----------
-        features_files : DataFileCollection
-            The DataFileCollection object containing the feature files.
-        label_file : DataFile
-            The DataFile object representing the label file.
 
         Returns
         -------
@@ -166,8 +118,16 @@ class DataGenerator(Dataset):
 
         The feature datasets are merged into a single dataset using xarray.merge().
         """
+        if self.file_index >= self.number_files:
+            raise StopIteration("No more files to load.")
+
+        label_file = self.label_files.collection[self.file_index]
+        features_files = self.feature_files.find_data(
+            **{"temporal_coverage": label_file.temporal_coverage}
+        )
+
         label_ds = xarray.open_dataset(label_file.to_path())
-        label_ds = label_ds.sel(
+        self.label_ds = label_ds.sel(
             latitude=slice(
                 label_file.spatial_coverage["latitude"][0],
                 label_file.spatial_coverage["latitude"][1],
@@ -191,5 +151,6 @@ class DataGenerator(Dataset):
                 ),
             )
             features_datasets.append(features_ds)
-        features_ds = xarray.merge(features_datasets)
-        return features_ds, label_ds
+        self.features_ds = xarray.merge(features_datasets)
+
+        self.file_index += 1
