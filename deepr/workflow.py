@@ -47,7 +47,7 @@ def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
     elif class_name.split(".")[0].lower() == "diffusers":
         import diffusers
 
-        return diffusers.__dict__[class_name](**kwargs)
+        return diffusers.__dict__[class_name.split(".")[1]](**kwargs)
     else:
         raise NotImplementedError(f"{class_name} is not implemented")
 
