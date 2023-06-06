@@ -27,14 +27,13 @@ class UNet(ModelMixin, ConfigMixin):
         self,
         out_channels: int = 1,
         in_channels: int = 1,
-        n_channels: int = 16,
         sample_size: Optional[Union[int, Tuple[int, int]]] = None,
         time_embedding_type: str = "positional",
         flip_sin_to_cos: bool = True,
         freq_shift: int = 0,
-        channel_multipliers: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
+        block_out_channels: Union[Tuple[int, ...], List[int]] = (1, 2, 2, 4),
         is_attention: Union[Tuple[bool, ...], List[bool]] = (False, False, True, True),
-        n_blocks: int = 2,
+        layers_per_block: int = 2,
     ):
         """
         U-Net.
@@ -49,31 +48,30 @@ class UNet(ModelMixin, ConfigMixin):
             Number of channels in the output image.
         in_channels : int
             Number of channels of the input 2D matrix.
-        n_channels : int
-            Number of channels in the first layer of the model.
         sample_size : int | Tuple[int, int]
             Spatial dimension of the samples.
         time_embedding_type : str
             Type of time embedding. Options are: "positional" and "fourier".
         freq_shift : int
             Frequency shift of the Fourier time embedding.
-        channel_multipliers : Union[Tuple[int, ...], List[int]]
-            The channel multiplier for each resolution level of the U-Net.
+        block_out_channels : Union[Tuple[int, ...], List[int]]
+            The output channels for each resolution level of the U-Net.
         is_attention : Union[Tuple[bool, ...], List[int]]
             Whether to use attention mechanism at each resolution level of the U-Net.
-        n_blocks : int
+        layers_per_block : int
             Number of residual blocks at each resolution level of the U-Net.
         conditioned_on_input : Union[bool, int]
             Whether to use conditioning on other inputs, or the number of conditions.
         """
         super().__init__()
         self.sample_size = sample_size
-        n_resolutions = len(channel_multipliers)
+        n_resolutions = len(block_out_channels)
+        init_channels = block_out_channels[0]
 
         # Project input + conditions
         self.image_proj = nn.Conv2d(
             self.config.in_channels,
-            n_channels,
+            init_channels,
             kernel_size=(3, 3),
             padding=(1, 1),
         )
@@ -81,62 +79,58 @@ class UNet(ModelMixin, ConfigMixin):
         # Time Embedding
         if time_embedding_type == "fourier":
             self.time_proj = GaussianFourierProjection(
-                embedding_size=n_channels, scale=16
+                embedding_size=init_channels, scale=16
             )
-            timestep_input_dim = 2 * n_channels
+            timestep_input_dim = 2 * init_channels
         elif time_embedding_type == "positional":
-            self.time_proj = Timesteps(n_channels, flip_sin_to_cos, freq_shift)
-            timestep_input_dim = n_channels
+            self.time_proj = Timesteps(init_channels, flip_sin_to_cos, freq_shift)
+            timestep_input_dim = init_channels
 
-        self.time_embedding = TimestepEmbedding(timestep_input_dim, n_channels * 4)
+        self.time_embedding = TimestepEmbedding(timestep_input_dim, init_channels * 4)
 
         # First half of U-Net - decreasing resolution
         down: List[nn.Module] = []
-        interm_channels = in_channels = n_channels
-        for i in range(n_resolutions):
-            interm_channels = in_channels * channel_multipliers[i]
-
+        in_ch_down = init_channels
+        for i, out_ch_down in enumerate(block_out_channels):
             # Resnet Blocks
-            for _ in range(n_blocks):
+            for _ in range(layers_per_block):
                 down.append(
                     DownBlock(
-                        in_channels, interm_channels, n_channels * 4, is_attention[i]
+                        in_ch_down, out_ch_down, init_channels * 4, is_attention[i]
                     )
                 )
-                in_channels = interm_channels
+                in_ch_down = out_ch_down
             # Down sample at all resolutions except the last
             if i < n_resolutions - 1:
-                down.append(Downsample(in_channels))
+                down.append(Downsample(in_ch_down))
 
         self.down = nn.ModuleList(down)
 
         # Middle block
-        self.middle = MiddleBlock(interm_channels, n_channels * 4)
+        self.middle = MiddleBlock(out_ch_down, init_channels * 4)
+        in_ch_up = out_ch_down
 
         # Second half of U-Net - increasing resolution
         up: List[nn.Module] = []
-        in_channels = interm_channels
-        for i in reversed(range(n_resolutions)):
-            interm_channels = in_channels
-            for _ in range(n_blocks):
+        for i, out_ch_up in reversed(list(enumerate(block_out_channels))):
+            for _ in range(layers_per_block):
                 up.append(
-                    UpBlock(in_channels, interm_channels, n_channels * 4, is_attention[i])
+                    UpBlock(in_ch_up, in_ch_up, init_channels * 4, is_attention[i])
                 )
+
             # Final block to reduce the number of channels
-            interm_channels = in_channels // channel_multipliers[i]
-            up.append(
-                UpBlock(in_channels, interm_channels, n_channels * 4, is_attention[i])
-            )
-            in_channels = interm_channels
+            up.append(UpBlock(in_ch_up, out_ch_up, init_channels * 4, is_attention[i]))
+            in_ch_up = out_ch_up
+
             # Up sample at all resolutions except last
             if i > 0:
-                up.append(Upsample(in_channels))
+                up.append(Upsample(in_ch_up))
 
         # Combine the set of modules
         self.up = nn.ModuleList(up)
 
         # Final normalization and convolution layer
-        self.norm = nn.GroupNorm(8, n_channels)
+        self.norm = nn.GroupNorm(8, init_channels)
         self.act = Swish()
         self.final = nn.Conv2d(
             in_channels, out_channels, kernel_size=(3, 3), padding=(1, 1)

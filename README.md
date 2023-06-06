@@ -118,7 +118,72 @@ During inference, we can sample random noise and run the reverse process conditi
 
 ### $\\epsilon\_{t}$-model
 
+The library [diffusers](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models) brings several options to include in Diffusion Models. Here, we present several of the options included there that may fit our use case as well as our own tailored implementations.
+
 #### diffusers.UNet2DModel
+
+The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) is the most similar class to our implementation, which is a U-net architecture with several options for down and up blocks.
+
+- *Down blocks*: DownBlock2D, ResnetDownsampleBlock2D, AttnDownBlock2D, CrossAttnDownBlock2D, SimpleCrossAttnDownBlock2D, SkipDownBlock2D, AttnSkipDownBlock2D, DownEncoderBlock2D, AttnDownEncoderBlock2D, KDownBlock2D and KCrossAttnDownBlock2D.
+
+- *Up block*: UpBlock2D, ResnetUpsampleBlock2D, CrossAttnUpBlock2D, SimpleCrossAttnUpBlock2D, AttnUpBlock2D, SkipUpBlock2D, AttnSkipUpBlock2D, UpDecoderBlock2D, AttnUpDecoderBlock2D, KUpBlock2D and KCrossAttnUpBlock2D.
+
+One example configuration to use [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) is included below:
+
+```
+training_configuration:
+  ...
+  model_configuration:
+    eps_model:
+      class_name: diffusers.UNet2DModel
+      kwargs:
+        block_out_channels: [32, 64, 128]
+        down_block_types: [DownBlock2D, AttnDownBlock2D, AttnDownBlock2D]
+        up_block_types: [AttnUpBlock2D, AttnUpBlock2D, UpBlock2D]
+        layers_per_block: 2
+        time_embedding_type: positional
+        in_channels: 2
+        out_channels: 1
+        sample_size: [20, 32]
+  ...
+```
+
+The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) also accepts conditioning on labels through its argument `class_labels`. First, the embedding type must be specified in the [`__init__`](https://github.com/huggingface/diffusers/blob/v0.16.0/src/diffusers/models/unet_2d.py#L83) method trough:
+
+- Passing `class_embed_type` (Options are 'timestep', 'identity' or None).
+- Passing `num_class_embeds` with the size of the dictionary of embeddings to use.
+
+#### diffusers.UNet2DConditionModel
+
+The[diffusers.UNet2DConditionModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DConditionModel) is an extension of the previous [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) to consider conditions during the reverse process such as time stamps, or other covariables.
+
+One interesting parameter to tune is the activation funcion used in the time embedding which can be: Swish, Mish, SiLU or GELU.
+
+But the most remarkable difference is the possibility of conditioning the reverse diffusion process in the encoder hidden states (comming from images, text, or any other)
+
+One example configuration to use [diffusers.UNet2DConditionModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DConditionModel) is included below:
+
+```
+training_configuration:
+  ...
+  model_configuration:
+    eps_model:
+      class_name: diffusers.UNet2DConditionModel
+      kwargs:
+        block_out_channels: [124, 256, 512]
+        down_block_types: [CrossAttnDownBlock2D, CrossAttnDownBlock2D, DownBlock2D]
+        mid_block_type: UNetMidBlock2DCrossAttn
+        up_block_types: [UpBlock2D, CrossAttnUpBlock2D, CrossAttnUpBlock2D]
+        layers_per_block: 2
+        time_embedding_type: positional
+        in_channels: 2
+        out_channels: 1
+        sample_size: [20, 32]
+        only_cross_attention: False
+        cross_attention_dim: 256
+        addition_embed_type: other
+  ...
+```
 
 #### Tailored UNet
 
@@ -153,13 +218,12 @@ training_configuration:
     eps_model:
       class_name: UNet
       kwargs:
-        n_channels: 32
-        channel_multipliers: [1, 2, 2, 4]
-        n_blocks: 2
+        block_out_channels: [32, 64, 128, 256]
         is_attention: [False, False, True, True]
+        layers_per_block: 2
         time_embedding_type: positional
         in_channels: 2
-        image_channels: 1 # Number of channels in the image. 3 for RGB.
+        out_channels: 1
         sample_size: [20, 32]
   ...
 ```

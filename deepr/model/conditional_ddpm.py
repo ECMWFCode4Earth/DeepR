@@ -48,14 +48,14 @@ class cDDPMPipeline(DiffusionPipeline):
         if isinstance(self.unet.config.sample_size, int):
             image_shape = (
                 batch_size,
-                self.unet.config.image_channels,
+                self.unet.config.out_channels,
                 self.unet.config.sample_size,
                 self.unet.config.sample_size,
             )
         else:
             image_shape = (
                 batch_size,
-                self.unet.config.image_channels,
+                self.unet.config.out_channels,
                 *self.unet.config.sample_size,
             )
 
