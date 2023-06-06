@@ -2,7 +2,7 @@ from pathlib import Path
 
 import diffusers
 from torch import nn
-from torch.utils.data import Dataset
+from torch.utils.data import IterableDataset
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
@@ -65,7 +65,7 @@ class MainPipeline:
         logger.info(f"Reading experiment configuration from file {configuration_file}.")
         self.configuration = read_yaml_file(configuration_file)
 
-    def get_dataset(self) -> Dataset:
+    def get_dataset(self) -> (IterableDataset, IterableDataset):
         """
         Initialize the data_loader for the pipeline.
 
@@ -74,37 +74,57 @@ class MainPipeline:
         data_generator : Dataset
             The initialized DataGenerator object.
         """
-        logger.debug("Loading configuration...")
+        logger.info("Loading configuration...")
         data_configuration = DataConfiguration(self.configuration["data_configuration"])
-        logger.debug("Get features from data_configuration dictionary.")
+        logger.info("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
+        (
+            features_collection_train,
+            features_collection_val,
+        ) = features_collection.split_data(
+            self.configuration["data_configuration"]["common_configuration"][
+                "data_split"
+            ]["validation"]
+        )
         if self.configuration["data_configuration"]["features_configuration"][
             "apply_standardization"
         ]:
-            features_scaler = XarrayStandardScaler(features_collection)
+            features_scaler = XarrayStandardScaler(features_collection_train)
         else:
             features_scaler = None
-        logger.debug("Get label from data_configuration dictionary.")
+        logger.info("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
+        label_collection_train, label_collection_val = label_collection.split_data(
+            self.configuration["data_configuration"]["common_configuration"][
+                "data_split"
+            ]["validation"]
+        )
         if self.configuration["data_configuration"]["features_configuration"][
             "apply_standardization"
         ]:
-            label_scaler = XarrayStandardScaler(label_collection)
+            label_scaler = XarrayStandardScaler(label_collection_train)
         else:
             label_scaler = None
-        logger.debug("Define the DataGenerator object.")
-        data_generator = DataGenerator(
-            features_collection, label_collection, features_scaler, label_scaler
+        logger.info("Define the DataGenerator object.")
+        data_generator_train = DataGenerator(
+            features_collection_train,
+            label_collection_train,
+            features_scaler,
+            label_scaler,
         )
-        return data_generator
+        data_generator_val = DataGenerator(
+            features_collection_val, label_collection_val, features_scaler, label_scaler
+        )
+        return data_generator_train, data_generator_val
 
-    def train_diffusion(self, dataset: Dataset):
+    def train_diffusion(self, dataset: IterableDataset, dataset_val: IterableDataset):
         """Train a Deep Diffusion model with the given dataset.
 
         Arguments
         ---------
-        dataset : Dataset
+        dataset : IterableDataset
             The dataset to train the model on.
+        dataset_val: IterableDataset
 
         Returns
         -------
@@ -120,9 +140,9 @@ class MainPipeline:
             **train_configs["model_configuration"].pop("scheduler")
         )
         train_cfg = TrainingConfig(**train_configs["training_parameters"])
-        train_diffusion(train_cfg, eps_model, scheduler, dataset)
+        train_diffusion(train_cfg, eps_model, scheduler, dataset, dataset_val)
 
-    def train_end2end_nn(self, dataset: Dataset) -> nn.Module:
+    def train_end2end_nn(self, dataset: IterableDataset) -> nn.Module:
         """Train a end-to-end neural network with the given dataset.
 
         Arguments
@@ -137,13 +157,14 @@ class MainPipeline:
         """
         raise NotImplementedError("Not implemented yet")
 
-    def train_model(self, dataset: Dataset):
+    def train_model(self, dataset: IterableDataset, dataset_val: IterableDataset):
         """Train a Super Resolution (SR) model with the given dataset.
 
         Arguments
         ---------
-        dataset : Dataset
+        dataset : IterableDataset
             The dataset to train the model on.
+        dataset_val: IterableDataset
 
         Returns
         -------
@@ -152,9 +173,9 @@ class MainPipeline:
         """
         model_type = self.configuration["training_configuration"]["type"]
         if model_type == "diffusion":
-            self.train_diffusion(dataset)
+            self.train_diffusion(dataset, dataset_val)
         elif model_type == "end2end":
-            self.train_end2end_nn(dataset)
+            self.train_end2end_nn(dataset, dataset_val)
         else:
             raise NotImplementedError(
                 f"The training procedure {model_type} is not supported."
@@ -162,5 +183,5 @@ class MainPipeline:
 
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""
-        dataset = self.get_dataset()
-        self.train_model(dataset)
+        dataset_train, dataset_val = self.get_dataset()
+        self.train_model(dataset_train, dataset_val)

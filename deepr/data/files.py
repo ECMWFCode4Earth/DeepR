@@ -157,6 +157,21 @@ class DataFileCollection:
         """
         self.collection.sort(key=lambda x: getattr(x, attribute))
 
+    def split_data(self, split_coefficient: float):
+        """
+        Split the data collection into two different data collections.
+
+        Parameters
+        ----------
+        split_coefficient : float
+            The coefficient by which the data is split.
+        """
+        return DataFileCollection(
+            collection=self.collection[: int(split_coefficient * len(self.collection))]
+        ), DataFileCollection(
+            collection=self.collection[int(split_coefficient * len(self.collection)) :]
+        )
+
     def get_variable_list(self) -> List[str]:
         """
         Get the list of variables in the data collection.
