@@ -1,3 +1,5 @@
+import numpy
+import pandas
 import torch
 import xarray
 from torch.utils.data import IterableDataset
@@ -91,9 +93,15 @@ class DataGenerator(IterableDataset):
             label_ds_batch = self.label_ds.sel(time=time_value)
             if self.label_scaler:
                 label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
+
+            time_value = pandas.to_datetime(time_value)
+            time_value_batch = numpy.array(
+                [time_value.hour, time_value.day, time_value.month]
+            )
             batch = (
                 torch.as_tensor(features_ds_batch.to_array().to_numpy()),
                 torch.as_tensor(label_ds_batch.to_array().to_numpy()),
+                torch.as_tensor(time_value_batch),
             )
             if time_index == len(self.label_ds.time.values):
                 self.label_ds = None
