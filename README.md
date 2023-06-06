@@ -120,8 +120,6 @@ During inference, we can sample random noise and run the reverse process conditi
 
 #### diffusers.UNet2DModel
 
-
-
 #### Tailored UNet
 
 In particular, a tailored U-Net architecture with 2D convolutions, residual connections and attetion layers is used.
@@ -146,8 +144,8 @@ The parameteres of these model implemented in [deepr/model/unet.py](deepr/model/
 
 *NOTE II*: Spatial tensors fed to Diffusion model must have shapes of length multiple of $2^{\\text{num resolutions} - 1}$.
 
-
 An example configuration for this model is specified in training_configuration > model_configuration > eps_model,
+
 ```
 training_configuration:
   ...
@@ -182,7 +180,6 @@ The class [Down block](deepr/model/unet_blocks.py#LL30)
 
 The class [Middle block](deepr/model/unet_blocks.py#LL123)
 
-
 ##### Up Block
 
 The class [Up block](deepr/model/unet_blocks.py#LL73)
@@ -190,7 +187,6 @@ The class [Up block](deepr/model/unet_blocks.py#LL73)
 ##### Residual Block
 
 ##### Final Block
-
 
 ## References
 
