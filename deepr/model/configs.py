@@ -9,7 +9,6 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     train_batch_size: int = 16
     val_batch_size: int = 16  # how many images to sample during evaluation
-    validation_split: float = 0.2
     num_epochs: int = 50
     num_samples: int = 3
     gradient_accumulation_steps = 1
@@ -17,6 +16,7 @@ class TrainingConfig:
     lr_warmup_steps: int = 500
     save_image_epochs: int = 10
     save_model_epochs: int = 30
+    hour_embed_type: str = "none"
     device: str = "cuda"
     mixed_precision: str = (
         "fp16"  # `no` for float32, `fp16` for automatic mixed precision

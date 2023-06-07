@@ -33,6 +33,7 @@ class cDDPMPipeline(DiffusionPipeline):
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         num_inference_steps: int = 1000,
         eta: Optional[float] = 0.0,
+        class_labels: Optional[List[int]] = None,
         output_type: Optional[str] = "pil",
         return_dict: bool = True,
     ) -> Union[ImagePipelineOutput, Tuple]:
@@ -81,7 +82,7 @@ class cDDPMPipeline(DiffusionPipeline):
             latents_input = self.scheduler.scale_model_input(latents_input, t)
 
             # 1. predict noise model_output
-            model_output = self.unet(latents_input, t).sample
+            model_output = self.unet(latents_input, t, class_labels=class_labels).sample
 
             # 2. compute previous image: x_t -> x_t-1
             latents = self.scheduler.step(

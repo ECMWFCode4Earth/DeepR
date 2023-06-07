@@ -1,17 +1,36 @@
 import os
-
+from typing import Optional
 import diffusers
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
 from diffusers import DDPMScheduler
 from diffusers.optimization import get_cosine_schedule_with_warmup
+from diffusers.models.embeddings import get_timestep_embedding
 from huggingface_hub import Repository
 from tqdm import tqdm
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
+
+
+def get_hour_embedding(
+    hours: torch.Tensor, embedding_type: str, emb_size: int = 64
+) -> torch.Tensor:
+    if embedding_type == "positional":
+        hour_emb = get_timestep_embedding(hours.squeeze(), emb_size, max_period=24)
+    elif embedding_type == "cyclical":
+        hour_emb = torch.stack([
+            torch.cos(2 * torch.pi * hours / 24),
+            torch.sin(2 * torch.pi * hours / 24),
+        ], dim=1)
+    elif embedding_type in ("class", "timestep"):
+        hour_emb = hours
+    else:
+        hour_emb = None
+
+    return hour_emb
 
 
 def save_samples(
@@ -21,6 +40,7 @@ def save_samples(
     cerra: torch.Tensor,
     times: torch.Tensor,
     outname: str,
+    class_embed_size: Optional[int] = 64
 ):
     """Save a set of samples."""
     scheduler = DDPMScheduler(
@@ -30,18 +50,24 @@ def save_samples(
     )
     pipeline = cDDPMPipeline(unet=model, scheduler=scheduler).to(config.device)
 
+    hour_emb = get_hour_embedding(times[:, :1], config.hour_embed_type, class_embed_size)
+
     era5_repeated = era5.repeat(config.num_samples, 1, 1, 1)
+    if hour_emb is not None:
+        hour_emb = hour_emb.to(config.device)
+        hour_emb = hour_emb.repeat(config.num_samples, 1).squeeze()
     images = pipeline(
         images=era5_repeated,
+        class_labels=hour_emb,
         generator=torch.manual_seed(config.seed),
         output_type="tensor",
     ).images
 
     # Make a grid out of the images
-    sample_names = [f"{t[0]:02d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
+    sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     images = images.transpose(1, 3).transpose(2, 3)
     get_figure_model_samples(
-        era5, cerra, images, column_names=sample_names, filename=outname
+        era5.cpu(), cerra.cpu(), images.cpu(), column_names=sample_names, filename=outname
     )
 
 
@@ -102,7 +128,7 @@ def train_diffusion(
         )
         progress_bar.set_description(f"Epoch {epoch+1}")
 
-        for step, (era5, cerra, times) in enumerate(train_dataloader):
+        for era5, cerra, times in train_dataloader:
             bs = cerra.shape[0]
 
             # Sample noise to add to the images
@@ -119,12 +145,19 @@ def train_diffusion(
             # Add noise to the clean images according to the noise magnitude at each t
             noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
+            # Encode hour
+            emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
+            hour_emb = get_hour_embedding(times[:, :1], config.hour_embed_type, emb_size)
+            if hour_emb is not None:
+                hour_emb = hour_emb.to(config.device).squeeze()
+
+            # Predict the noise residual
             with accelerator.accumulate(model):
                 model_inputs = torch.cat([noisy_images, era5], dim=1)
 
                 # Predict the noise residual
                 noise_pred = model(
-                    model_inputs, timesteps, return_dict=False, class_labels=times[:, 0]
+                    model_inputs, timesteps, return_dict=False, class_labels=hour_emb
                 )[0]
                 loss = F.mse_loss(noise_pred, noise)
                 accelerator.backward(loss)
@@ -164,6 +197,7 @@ def train_diffusion(
                     val_cerra,
                     val_times,
                     outname=f"{test_dir}/{epoch+1:04d}.png",
+                    class_embed_size=emb_size
                 )
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
