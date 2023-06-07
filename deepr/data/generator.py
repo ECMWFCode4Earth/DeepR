@@ -109,6 +109,10 @@ class DataGenerator(IterableDataset):
 
             yield batch
 
+        # Reset iterator
+        self.file_index = 0
+        self.feature_ds, self.label_ds = None, None
+
     def load_data(self):
         """
         Load the data from the given label file and feature files.
