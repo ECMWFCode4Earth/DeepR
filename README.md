@@ -153,6 +153,15 @@ The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api
 - Passing `class_embed_type` (Options are 'timestep', 'identity' or None).
 - Passing `num_class_embeds` with the size of the dictionary of embeddings to use.
 
+For example, to consider the hour of the data as covariate in this model we have two options:
+
+**Option A:** Set `num_class_embeds` = 24 in the model creation and `hour_embed_type` = `class` in training configuration. This way the model learns a Embedding table for each hour.
+
+**Option B:** Set `class_embed_type` = `identity` in the model configuration and `hour_embed_type` = `positional` in training configuration.
+
+**Option C:** Set `class_embed_type` = `timestep` in the model configuration and `hour_embed_type` = `timestep` in training configuration. This configuration applies the same cos & sin transformation as in Option B maintaining the same `max_duration=10000`. Unlike Option B, we fit 2 `nn.Linear` after the embedding before feeding it to the NN.
+
+
 #### diffusers.UNet2DConditionModel
 
 The[diffusers.UNet2DConditionModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DConditionModel) is an extension of the previous [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) to consider conditions during the reverse process such as time stamps, or other covariables.
