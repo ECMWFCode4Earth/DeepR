@@ -126,9 +126,6 @@ class DataGenerator(IterableDataset):
 
         The feature datasets are merged into a single dataset using xarray.merge().
         """
-        if self.file_index >= self.number_files:
-            raise StopIteration("No more files to load.")
-
         label_file = self.label_files.collection[self.file_index]
         features_files = self.feature_files.find_data(
             **{"temporal_coverage": label_file.temporal_coverage}
