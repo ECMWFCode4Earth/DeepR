@@ -1,19 +1,20 @@
 import os
 from typing import Optional
+
 import diffusers
+import evaluate
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
 from diffusers import DDPMScheduler
-from diffusers.optimization import get_cosine_schedule_with_warmup
 from diffusers.models.embeddings import get_timestep_embedding
+from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from tqdm import tqdm
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
-
 
 repo_name = "predictia/europe_reanalysis_downscaler"
 
@@ -24,10 +25,13 @@ def get_hour_embedding(
     if embedding_type == "positional":
         hour_emb = get_timestep_embedding(hours.squeeze(), emb_size, max_period=24)
     elif embedding_type == "cyclical":
-        hour_emb = torch.stack([
-            torch.cos(2 * torch.pi * hours / 24),
-            torch.sin(2 * torch.pi * hours / 24),
-        ], dim=1)
+        hour_emb = torch.stack(
+            [
+                torch.cos(2 * torch.pi * hours / 24),
+                torch.sin(2 * torch.pi * hours / 24),
+            ],
+            dim=1,
+        )
     elif embedding_type in ("class", "timestep"):
         hour_emb = hours
     else:
@@ -43,7 +47,7 @@ def save_samples(
     cerra: torch.Tensor,
     times: torch.Tensor,
     outname: str,
-    class_embed_size: Optional[int] = 64
+    class_embed_size: Optional[int] = 64,
 ):
     """Save a set of samples."""
     scheduler = DDPMScheduler(
@@ -53,7 +57,9 @@ def save_samples(
     )
     pipeline = cDDPMPipeline(unet=model, scheduler=scheduler).to(config.device)
 
-    hour_emb = get_hour_embedding(times[:, :1], config.hour_embed_type, class_embed_size)
+    hour_emb = get_hour_embedding(
+        times[:, :1], config.hour_embed_type, class_embed_size
+    )
 
     era5_repeated = era5.repeat(config.num_samples, 1, 1, 1)
     if hour_emb is not None:
@@ -70,7 +76,11 @@ def save_samples(
     sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     images = images.transpose(1, 3).transpose(2, 3)
     get_figure_model_samples(
-        era5.cpu(), cerra.cpu(), images.cpu(), column_names=sample_names, filename=outname
+        era5.cpu(),
+        cerra.cpu(),
+        images.cpu(),
+        column_names=sample_names,
+        filename=outname,
     )
 
 
@@ -83,10 +93,10 @@ def train_diffusion(
     dataset_info: dict = None,
 ):
     # Define important objects
-    dataloader = torch.utils.data.DataLoader(
+    train_dataloader = torch.utils.data.DataLoader(
         dataset, config.train_batch_size, pin_memory=True
     )
-    dataloader_val = torch.utils.data.DataLoader(
+    val_dataloader = torch.utils.data.DataLoader(
         dataset_val, config.val_batch_size, pin_memory=True
     )
 
@@ -94,7 +104,7 @@ def train_diffusion(
     lr_scheduler = get_cosine_schedule_with_warmup(
         optimizer=optimizer,
         num_warmup_steps=config.lr_warmup_steps,
-        num_training_steps=(len(dataloader) * config.num_epochs),
+        num_training_steps=(len(train_dataloader) * config.num_epochs),
     )
 
     accelerator = Accelerator(
@@ -120,7 +130,9 @@ def train_diffusion(
         train_dataloader,
         val_dataloader,
         lr_scheduler,
-    ) = accelerator.prepare(model, optimizer, dataloader, dataloader_val, lr_scheduler)
+    ) = accelerator.prepare(
+        model, optimizer, train_dataloader, val_dataloader, lr_scheduler
+    )
 
     # Get fixed samples
     val_era5, val_cerra, val_times = next(iter(val_dataloader))
@@ -153,7 +165,9 @@ def train_diffusion(
 
             # Encode hour
             emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
-            hour_emb = get_hour_embedding(times[:, :1], config.hour_embed_type, emb_size)
+            hour_emb = get_hour_embedding(
+                times[:, :1], config.hour_embed_type, emb_size
+            )
             if hour_emb is not None:
                 hour_emb = hour_emb.to(config.device).squeeze()
 
@@ -206,7 +220,7 @@ def train_diffusion(
                     val_cerra,
                     val_times,
                     outname=f"{test_dir}/{epoch+1:04d}.png",
-                    class_embed_size=emb_size
+                    class_embed_size=emb_size,
                 )
                 tf_writter.add_figure("Samples", fig, global_step=epoch)
 
@@ -215,7 +229,7 @@ def train_diffusion(
                     repo.push_to_hub(
                         repo_id=repo_name,
                         commit_message=f"Epoch {epoch+1}",
-                        blocking=True
+                        blocking=True,
                     )
                 else:
                     model.save_pretrained(config.output_dir)
@@ -255,19 +269,19 @@ def train_diffusion(
                 model_inputs, timesteps, return_dict=False, class_labels=hour_emb
             )[0]
             mse.add_batches(
-                references=noise.reshape((bs, -1)), 
-                predictions=noise_pred.reshape((bs, -1))
+                references=noise.reshape((noise.shape[0], -1)),
+                predictions=noise_pred.reshape((noise_pred.shape[0], -1)),
             )
-    
+
     val_mse = mse.compute()
     hparams = config.__dict__ + dataset_info if dataset_info is not None else {}
     tf_writter.add_hparams(hparams, {"test_mse": val_mse["mse"]})
     if accelerator.is_main_process:
         if config.push_to_hub:
             evaluate.save(
-                config.output_dir, 
-                experiment="Train Diffusion", 
-                **val_mse, 
+                config.output_dir,
+                experiment="Train Diffusion",
+                **val_mse,
                 **hparams,
             )
             evaluate.push_to_hub(

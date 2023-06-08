@@ -1,5 +1,6 @@
 from pathlib import Path
 from typing import Dict, Tuple
+
 import diffusers
 from torch import nn
 from torch.utils.data import IterableDataset
@@ -45,7 +46,7 @@ def get_neural_network(
     if "sample_size" in kwargs:
         kwargs["sample_size"] = tuple(kwargs["sample_size"])
     elif sample_size is None:
-        raise ValueError(f"sample_size must be specified for {class_name}") 
+        raise ValueError(f"sample_size must be specified for {class_name}")
     else:
         kwargs["sample_size"] = sample_size
 
@@ -87,7 +88,7 @@ class MainPipeline:
                 config[key].pop("data_dir")
             logger.info(f"{key.capitalize().replace('_', ' ')} configuration:")
             logger.info("\n".join([f"\t{k}: {v}" for k, v in val.items()]))
-        
+
         return config
 
     def get_dataset(self) -> (IterableDataset, IterableDataset):
@@ -169,11 +170,11 @@ class MainPipeline:
 
         # Train the diffusion model
         train_diffusion(
-            train_cfg, 
-            eps_model, 
-            scheduler, 
-            dataset, 
-            dataset_val, 
+            train_cfg,
+            eps_model,
+            scheduler,
+            dataset,
+            dataset_val,
             self._prepare_data_cfg_log(),
         )
 
@@ -194,10 +195,13 @@ class MainPipeline:
         model : nn.Module
             The trained neural network.
         """
+        train_configs = self.configuration["training_configuration"]
         model_cfg = train_configs["model_configuration"].pop("neural_network")
+        train_cfg = TrainingConfig(**train_configs["training_parameters"])
+
         model = get_neural_network(**model_cfg, sample_size=dataset.output_shape)
-        
-        train_nn(config, model, dataset, val_dataset, self._prepare_data_cfg_log())
+
+        train_nn(train_cfg, model, dataset, val_dataset, self._prepare_data_cfg_log())
 
         raise NotImplementedError("Not implemented yet")
 
