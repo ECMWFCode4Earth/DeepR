@@ -40,7 +40,7 @@ class DataGenerator(IterableDataset):
         self.num_samples = self.get_num_samples()
         self.label_ds = None
         self.features_ds = None
-        self.input_shape, self.aux_shape, self.output_shape = self.get_shapes()
+        self.input_shape, self.input_channels, self.aux_shape, self.output_shape = self.get_shapes()
 
     def __len__(self):
         """
@@ -174,7 +174,8 @@ class DataGenerator(IterableDataset):
 
         """
         features_sample, label_sample, aux_sample = next(self.__iter__())
-        input_shape = tuple(features_sample.shape)
+        input_shape = tuple(features_sample.shape[1:])
+        input_channels = features_sample.shape[0]
         aux_shape = tuple(aux_sample.shape)
-        output_shape = tuple(label_sample.shape)
-        return input_shape, aux_shape, output_shape
+        output_shape = tuple(label_sample.shape[1:])
+        return input_shape, input_channels, aux_shape, output_shape
