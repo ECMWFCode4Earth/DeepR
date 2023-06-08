@@ -112,6 +112,7 @@ def train_diffusion(
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         log_with="tensorboard",
         project_dir=os.path.join(config.output_dir, "logs"),
+        cpu=config.device == "cpu"
     )
 
     if accelerator.is_main_process:
