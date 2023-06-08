@@ -66,18 +66,18 @@ data_configuration:
 
 During the development stage, a subset of the data is used to validate the implementation of the model:
 
-Features: (32, 20)------- Label: (32, 20)
+Features: (32, 24)------- Label: (32, 24)
 
 ```reduce-spatial-coverage.yml
 data_configuration:
   features_configuration:
     spatial_coverage:
       longitude: [ 6.0, 13.75 ]
-      latitude: [ 50, 45.25 ]
+      latitude: [ 50.25, 44.5 ]
   label_configuration:
     spatial_coverage:
       longitude: [ 9.2, 10.75]
-      latitude: [ 48, 47.05 ]
+      latitude: [ 48.1, 46.95 ]
 ```
 
 ## Methodology

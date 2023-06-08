@@ -102,8 +102,10 @@ def train_diffusion(
 
     if accelerator.is_main_process:
         if config.push_to_hub:
-            repo_name = "predictia/reanalysis_downscaler"
-            repo = Repository(config.output_dir, clone_from=repo_name)
+            repo_name = "predictia/europe_reanalysis_downscaler"
+            repo = Repository(
+                config.output_dir, clone_from=repo_name, token=os.getenv("HF_TOKEN")
+            )
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
         accelerator.init_trackers("Train Diffusion", config=config.__dict__)
@@ -176,12 +178,16 @@ def train_diffusion(
                 "step": global_step,
                 "mean_pred_noise": noise_pred.mean().item(),
                 "mean_var_ratio": true_var / pred_var,
+                "epoch": epoch,
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             tf_writter.add_histogram("noise predicted", noise_pred, global_step)
             tf_writter.add_histogram("noise", noise, global_step)
             global_step += 1
+
+        progress_bar.close()
+        
 
         # After each epoch you optionally sample some demo images
         if accelerator.is_main_process:
@@ -207,3 +213,60 @@ def train_diffusion(
                     model.save_pretrained(config.output_dir)
 
     accelerator.end_training()
+
+    mse = evaluate.load("mse", "multilist")
+    for era5, cerra, times in val_dataloader:
+        bs = cerra.shape[0]
+
+        # Sample noise to add to the images
+        noise = torch.randn(cerra.shape).to(config.device)
+
+        # Sample a random timestep for each image
+        timesteps = torch.randint(
+            0,
+            noise_scheduler.config.num_train_timesteps,
+            (bs,),
+            device=config.device,
+        ).long()
+
+        # Add noise to the clean images according to the noise magnitude at each t
+        noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
+
+        # Encode hour
+        emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
+        hour_emb = get_hour_embedding(times[:, :1], config.hour_embed_type, emb_size)
+        if hour_emb is not None:
+            hour_emb = hour_emb.to(config.device).squeeze()
+
+        # Predict the noise residual
+        with torch.no_grad():
+            model_inputs = torch.cat([noisy_images, era5], dim=1)
+
+            # Predict the noise residual
+            noise_pred = model(
+                model_inputs, timesteps, return_dict=False, class_labels=hour_emb
+            )[0]
+            mse.add_batches(
+                references=noise.reshape((bs, -1)), 
+                predictions=noise_pred.reshape((bs, -1))
+            )
+    
+    val_mse = mse.compute()
+    if accelerator.is_main_process:
+        if config.push_to_hub:
+            evaluate.save(
+                config.output_dir, 
+                experiment="Train Diffusion", 
+                **val_mse, 
+                **config.__dict__
+            )
+            evaluate.push_to_hub(
+                model_id=repo_name,
+                metric_type="mse",
+                metric_name="MSE",
+                metric_value=val_mse["mse"],
+                dataset_split="test",
+                task_type="super-resolution",
+                task_name="Super Resolution",
+            )
+
