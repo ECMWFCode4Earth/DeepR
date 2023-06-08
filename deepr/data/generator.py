@@ -40,6 +40,7 @@ class DataGenerator(IterableDataset):
         self.num_samples = self.get_num_samples()
         self.label_ds = None
         self.features_ds = None
+        self.input_shape, self.aux_shape, self.output_shape = self.get_shapes()
 
     def __len__(self):
         """
@@ -82,36 +83,36 @@ class DataGenerator(IterableDataset):
         IndexError
             If the index is out of range.
         """
-        if self.label_ds is None and self.features_ds is None:
-            self.load_data()
+        while self.file_index < self.number_files:
 
-        for time_index, time_value in enumerate(self.label_ds.time.values):
-            time_index += 1
-            features_ds_batch = self.features_ds.sel(time=time_value)
-            if self.features_scaler:
-                features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
-            label_ds_batch = self.label_ds.sel(time=time_value)
-            if self.label_scaler:
-                label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
+            if self.label_ds is None and self.features_ds is None:
+                self.load_data()
 
-            time_value = pandas.to_datetime(time_value)
-            time_value_batch = numpy.array(
-                [time_value.hour, time_value.day, time_value.month, time_value.year]
-            )
-            batch = (
-                torch.as_tensor(features_ds_batch.to_array().to_numpy()),
-                torch.as_tensor(label_ds_batch.to_array().to_numpy()),
-                torch.as_tensor(time_value_batch),
-            )
-            if time_index == len(self.label_ds.time.values):
-                self.label_ds = None
-                self.features_ds = None
+            for time_index, time_value in enumerate(self.label_ds.time.values):
+                time_index += 1
+                features_ds_batch = self.features_ds.sel(time=time_value)
+                if self.features_scaler:
+                    features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
+                label_ds_batch = self.label_ds.sel(time=time_value)
+                if self.label_scaler:
+                    label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
 
-            yield batch
+                time_value = pandas.to_datetime(time_value)
+                time_value_batch = numpy.array(
+                    [time_value.hour, time_value.day, time_value.month, time_value.year]
+                )
+                batch = (
+                    torch.as_tensor(features_ds_batch.to_array().to_numpy()),
+                    torch.as_tensor(label_ds_batch.to_array().to_numpy()),
+                    torch.as_tensor(time_value_batch),
+                )
+                if time_index == len(self.label_ds.time.values):
+                    self.label_ds = None
+                    self.features_ds = None
 
-        # Reset iterator
+                yield batch
+
         self.file_index = 0
-        self.feature_ds, self.label_ds = None, None
 
     def load_data(self):
         """
@@ -163,3 +164,17 @@ class DataGenerator(IterableDataset):
         self.features_ds = xarray.merge(features_datasets)
 
         self.file_index += 1
+
+    def get_shapes(self) -> tuple:
+        """
+        Retrieves the shapes of the input, auxiliary, and output data.
+
+        Returns:
+            tuple: A tuple containing the input shape, auxiliary shape, and output shape.
+
+        """
+        features_sample, label_sample, aux_sample = next(self.__iter__())
+        input_shape = tuple(features_sample.shape)
+        aux_shape = tuple(aux_sample.shape)
+        output_shape = tuple(label_sample.shape)
+        return input_shape, aux_shape, output_shape

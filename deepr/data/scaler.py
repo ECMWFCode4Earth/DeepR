@@ -59,6 +59,6 @@ class XarrayStandardScaler:
         it by the standard deviation dataset.
         """
         time_month = pandas.to_datetime(ds.time.values).month
-        ds_scaled = ds - self.average.sel(month=time_month)
-        ds_scaled = ds_scaled / self.standard_deviation.sel(month=time_month)
+        ds_scaled = ds - self.average.sel(month=time_month, method="nearest")
+        ds_scaled = ds_scaled / self.standard_deviation.sel(month=time_month, method="nearest")
         return ds_scaled

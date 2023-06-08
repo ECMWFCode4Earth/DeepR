@@ -98,6 +98,7 @@ def train_diffusion(
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         log_with="tensorboard",
         project_dir=os.path.join(config.output_dir, "logs"),
+        cpu=config.device == "cpu"
     )
 
     if accelerator.is_main_process:
@@ -129,6 +130,8 @@ def train_diffusion(
         progress_bar.set_description(f"Epoch {epoch+1}")
 
         for era5, cerra, times in train_dataloader:
+
+
             bs = cerra.shape[0]
 
             # Sample noise to add to the images
