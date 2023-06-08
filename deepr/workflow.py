@@ -18,7 +18,10 @@ logger = get_logger(__name__)
 
 
 def get_neural_network(
-    class_name: str, kwargs: dict, sample_size: Tuple[int] = None
+    class_name: str,
+    kwargs: dict,
+    sample_size: Tuple[int] = None,
+    out_channels: int = None,
 ) -> nn.Module:
     """Get neural network.
 
@@ -33,6 +36,8 @@ def get_neural_network(
         Dictionary of keyword arguments to pass to the neural network constructor.
     sample_size : Optional[tuple]
         Sample size of the target samples.
+    out_channels : Optional[int]
+        Output channels of the target samples.
 
     Returns
     -------
@@ -49,6 +54,9 @@ def get_neural_network(
         raise ValueError(f"sample_size must be specified for {class_name}")
     else:
         kwargs["sample_size"] = sample_size
+
+    if "out_channels" not in kwargs and out_channels is not None:
+        kwargs["out_channels"] = out_channels
 
     if class_name.lower() == "unet":
         from deepr.model.unet import UNet
@@ -165,7 +173,11 @@ class MainPipeline:
         train_cfg = TrainingConfig(**train_configs["training_parameters"])
 
         # Instantiate objects
-        eps_model = get_neural_network(**model_cfg, sample_size=dataset.output_shape)
+        eps_model = get_neural_network(
+            **model_cfg,
+            sample_size=dataset.output_shape,
+            out_channels=dataset.output_channels,
+        )
         scheduler = get_hf_scheduler(**scheduler_cfg)
 
         # Train the diffusion model
@@ -199,7 +211,11 @@ class MainPipeline:
         model_cfg = train_configs["model_configuration"].pop("neural_network")
         train_cfg = TrainingConfig(**train_configs["training_parameters"])
 
-        model = get_neural_network(**model_cfg, sample_size=dataset.output_shape)
+        model = get_neural_network(
+            **model_cfg,
+            out_channels=dataset.output_channels,
+            sample_size=dataset.output_shape,
+        )
 
         train_nn(train_cfg, model, dataset, val_dataset, self._prepare_data_cfg_log())
 
