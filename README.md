@@ -124,9 +124,9 @@ The library [diffusers](https://huggingface.co/docs/diffusers/v0.16.0/en/api/mod
 
 The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) is the most similar class to our implementation, which is a U-net architecture with several options for down and up blocks.
 
-- *Down blocks*: DownBlock2D, ResnetDownsampleBlock2D, AttnDownBlock2D, CrossAttnDownBlock2D, SimpleCrossAttnDownBlock2D, SkipDownBlock2D, AttnSkipDownBlock2D, DownEncoderBlock2D, AttnDownEncoderBlock2D, KDownBlock2D and KCrossAttnDownBlock2D.
+- **Down blocks**: DownBlock2D, ResnetDownsampleBlock2D, AttnDownBlock2D, CrossAttnDownBlock2D, SimpleCrossAttnDownBlock2D, SkipDownBlock2D, AttnSkipDownBlock2D, DownEncoderBlock2D, AttnDownEncoderBlock2D, KDownBlock2D and KCrossAttnDownBlock2D.
 
-- *Up block*: UpBlock2D, ResnetUpsampleBlock2D, CrossAttnUpBlock2D, SimpleCrossAttnUpBlock2D, AttnUpBlock2D, SkipUpBlock2D, AttnSkipUpBlock2D, UpDecoderBlock2D, AttnUpDecoderBlock2D, KUpBlock2D and KCrossAttnUpBlock2D.
+- **Up block**: UpBlock2D, ResnetUpsampleBlock2D, CrossAttnUpBlock2D, SimpleCrossAttnUpBlock2D, AttnUpBlock2D, SkipUpBlock2D, AttnSkipUpBlock2D, UpDecoderBlock2D, AttnUpDecoderBlock2D, KUpBlock2D and KCrossAttnUpBlock2D.
 
 One example configuration to use [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) is included below:
 
@@ -155,11 +155,11 @@ The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api
 
 For example, to consider the hour of the data as covariate in this model we have two options:
 
-**Option A:** Set `num_class_embeds` = 24 in the model creation and `hour_embed_type` = `class` in training configuration. This way the model learns a Embedding table for each hour.
+**Option A:** Set `num_class_embeds = 24` in the model creation and `hour_embed_type = class` in training configuration. This way the model learns a Embedding table for each hour.
 
-**Option B:** Set `class_embed_type` = `identity` in the model configuration and `hour_embed_type` = `positional` in training configuration.
+**Option B:** Set `class_embed_type = identity` in the model configuration and `hour_embed_type = positional` in training configuration.
 
-**Option C:** Set `class_embed_type` = `timestep` in the model configuration and `hour_embed_type` = `timestep` in training configuration. This configuration applies the same cos & sin transformation as in Option B maintaining the same `max_duration=10000`. Unlike Option B, we fit 2 `nn.Linear` after the embedding before feeding it to the NN.
+**Option C:** Set `class_embed_type = timestep` in the model configuration and `hour_embed_type` = `timestep` in training configuration. This configuration applies the same cos & sin transformation as in Option B maintaining the same `max_duration=10000`. Unlike Option B, we fit 2 `nn.Linear` after the embedding before feeding it to the NN.
 
 
 #### diffusers.UNet2DConditionModel
@@ -261,7 +261,24 @@ The class [Up block](deepr/model/unet_blocks.py#LL73)
 
 ##### Final Block
 
+## Appendix I: Positional Embeddings
+
+When working with sequential data, the order of the elements is important, and we must pay attention to how we pass this information to our models. 
+
+In our particular case, the timesteps $t$ is encoded with positional embeddings as proposed in the [Denoising Diffusion Probabilistic Models](https://arxiv.org/pdf/2006.11239.pdf) paper.
+
+![Positional Embeddings](docs/_static/pos_embedding.png)
+
+Besides, we may encoded other important features as the hour of the day or the day of the year, which are cyclical. This is different from positional encodings because we want the encoding from hour 23 to be more similar to the one from 0 than from hour 18.
+
+
 ## References
+
+- Ho, J., Jain, A., & Abbeel, P. (2020). [Denoising diffusion probabilistic models](https://arxiv.org/pdf/2006.11239.pdf). Advances in Neural Information Processing Systems, 33, 6840-6851.
+
+- Song, J., Meng, C., & Ermon, S. (2020). [Denoising diffusion implicit models](https://arxiv.org/pdf/2010.02502.pdf). arXiv preprint arXiv:2010.02502. 
+
+- Rombach, R., Blattmann, A., Lorenz, D., Esser, P., & Ommer, B. (2022). [High-resolution image synthesis with latent diffusion models](https://arxiv.org/pdf/2112.10752.pdf). In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 10684-10695).
 
 - [Annotated Deep Learning Paper implementations](https://github.com/labmlai/annotated_deep_learning_paper_implementations)
 
