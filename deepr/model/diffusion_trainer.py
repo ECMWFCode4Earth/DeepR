@@ -112,7 +112,7 @@ def train_diffusion(
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         log_with="tensorboard",
         project_dir=os.path.join(config.output_dir, "logs"),
-        cpu=config.device == "cpu"
+        cpu=config.device == "cpu",
     )
 
     if accelerator.is_main_process:
@@ -220,7 +220,7 @@ def train_diffusion(
                     val_era5,
                     val_cerra,
                     val_times,
-                    outname=f"{test_dir}/{epoch+1:04d}.png",
+                    outname=f"{test_dir}/diffusion_{epoch+1:04d}.png",
                     class_embed_size=emb_size,
                 )
                 tf_writter.add_figure("Samples", fig, global_step=epoch)

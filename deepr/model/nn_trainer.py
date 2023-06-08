@@ -10,8 +10,31 @@ from huggingface_hub import Repository
 from tqdm import tqdm
 
 from deepr.model.configs import TrainingConfig
+from deepr.visualizations.plot_maps import get_figure_model_samples
 
 repo_name = "predictia/europe_reanalysis_downscaler_nn"
+
+
+def save_samples(
+    model,
+    era5: torch.Tensor,
+    cerra: torch.Tensor,
+    times: torch.Tensor,
+    outname: str,
+):
+    """Save a set of samples."""
+    with torch.no_grad():
+        images = model(era5, times[:, 0], return_dict=False)[0]
+
+    # Make a grid out of the images
+    sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
+    get_figure_model_samples(
+        era5.cpu(),
+        cerra.cpu(),
+        images.cpu(),
+        column_names=sample_names,
+        filename=outname,
+    )
 
 
 def train_nn(
@@ -76,7 +99,7 @@ def train_nn(
         for era5, cerra, times in train_dataloader:
             # Predict the noise residual
             with accelerator.accumulate(model):
-                cerra_pred = model(era5, times[:, :1], return_dict=False)[0]
+                cerra_pred = model(era5, times[:, 0], return_dict=False)[0]
                 loss = F.mse_loss(cerra_pred, cerra)
                 accelerator.backward(loss)
 
@@ -111,6 +134,14 @@ def train_nn(
             if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
                 test_dir = os.path.join(config.output_dir, "samples")
                 os.makedirs(test_dir, exist_ok=True)
+                fig = save_samples(
+                    accelerator.unwrap_model(model),
+                    val_era5,
+                    val_cerra,
+                    val_times,
+                    outname=f"{test_dir}/nn_{epoch+1:04d}.png",
+                )
+                tf_writter.add_figure("Predictions", fig, global_step=epoch)
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 if config.push_to_hub:
@@ -128,7 +159,7 @@ def train_nn(
     for era5, cerra, times in val_dataloader:
         # Predict the noise residual
         with torch.no_grad():
-            pred = model(era5, times[:, :1], return_dict=False)[0]
+            pred = model(era5, times[:, 0], return_dict=False)[0]
             mse.add_batches(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),

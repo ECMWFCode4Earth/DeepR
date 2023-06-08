@@ -36,7 +36,7 @@ def get_figure_model_samples(
     else:
         n_realizations = prediction.shape[0] // n_samples
 
-    figsize = (7.7 * n_realizations, 4.8 * n_samples)
+    figsize = (4.5 * (n_realizations + 2), 4.8 * n_samples)
     fig, axs = plt.subplots(n_realizations + 2, n_samples, figsize=figsize)
     plt.tight_layout()
     if n_samples == 1:
