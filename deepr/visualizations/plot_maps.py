@@ -80,7 +80,7 @@ def get_figure_model_samples(
 
     if filename is not None:
         logger.info(f"Samples from model have been saved to {filename}")
-        plt.savefig(filename)
+        plt.savefig(filename, bbox_inches="tight", transparent=True)
         plt.close()
 
     return fig

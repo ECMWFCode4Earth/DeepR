@@ -1,5 +1,5 @@
 from pathlib import Path
-
+from typing import Dict, Tuple
 import diffusers
 from torch import nn
 from torch.utils.data import IterableDataset
@@ -8,14 +8,17 @@ from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
 from deepr.data.scaler import XarrayStandardScaler
 from deepr.model.configs import TrainingConfig
-from deepr.model.trainer import train_diffusion
+from deepr.model.diffusion_trainer import train_diffusion
+from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
 
 logger = get_logger(__name__)
 
 
-def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
+def get_neural_network(
+    class_name: str, kwargs: dict, sample_size: Tuple[int] = None
+) -> nn.Module:
     """Get neural network.
 
     Given a class name and a dictionary of keyword arguments, returns an instance of a
@@ -27,6 +30,8 @@ def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
         The name of the neural network class to use.
     kwargs : dict
         Dictionary of keyword arguments to pass to the neural network constructor.
+    sample_size : Optional[tuple]
+        Sample size of the target samples.
 
     Returns
     -------
@@ -39,6 +44,10 @@ def get_neural_network(class_name: str, kwargs: dict) -> nn.Module:
     """
     if "sample_size" in kwargs:
         kwargs["sample_size"] = tuple(kwargs["sample_size"])
+    elif sample_size is None:
+        raise ValueError(f"sample_size must be specified for {class_name}") 
+    else:
+        kwargs["sample_size"] = sample_size
 
     if class_name.lower() == "unet":
         from deepr.model.unet import UNet
@@ -69,6 +78,17 @@ class MainPipeline:
         """
         logger.info(f"Reading experiment configuration from file {configuration_file}.")
         self.configuration = read_yaml_file(configuration_file)
+
+    def _prepare_data_cfg_log(self) -> Dict:
+        config = self.configuration["data_configuration"]
+        for key, val in config.items():
+            # Drop data dir
+            if "data_dir" in val.keys():
+                config[key].pop("data_dir")
+            logger.info(f"{key.capitalize().replace('_', ' ')} configuration:")
+            logger.info("\n".join([f"\t{k}: {v}" for k, v in val.items()]))
+        
+        return config
 
     def get_dataset(self) -> (IterableDataset, IterableDataset):
         """
@@ -130,6 +150,7 @@ class MainPipeline:
         dataset : IterableDataset
             The dataset to train the model on.
         dataset_val: IterableDataset
+            The dataset to validate the model on.
 
         Returns
         -------
@@ -138,28 +159,46 @@ class MainPipeline:
         """
         logger.info("Train Deep Diffusion model for Super Resolution task.")
         train_configs = self.configuration["training_configuration"]
-        eps_model = get_neural_network(
-            **train_configs["model_configuration"].pop("eps_model")
-        )
-        scheduler = get_hf_scheduler(
-            **train_configs["model_configuration"].pop("scheduler")
-        )
+        model_cfg = train_configs["model_configuration"].pop("eps_model")
+        scheduler_cfg = train_configs["model_configuration"].pop("scheduler")
         train_cfg = TrainingConfig(**train_configs["training_parameters"])
-        train_diffusion(train_cfg, eps_model, scheduler, dataset, dataset_val)
 
-    def train_end2end_nn(self, dataset: IterableDataset) -> nn.Module:
+        # Instantiate objects
+        eps_model = get_neural_network(**model_cfg, sample_size=dataset.output_shape)
+        scheduler = get_hf_scheduler(**scheduler_cfg)
+
+        # Train the diffusion model
+        train_diffusion(
+            train_cfg, 
+            eps_model, 
+            scheduler, 
+            dataset, 
+            dataset_val, 
+            self._prepare_data_cfg_log(),
+        )
+
+    def train_end2end_nn(
+        self, dataset: IterableDataset, val_dataset: IterableDataset
+    ) -> nn.Module:
         """Train a end-to-end neural network with the given dataset.
 
         Arguments
         ---------
-        dataset : Dataset
+        dataset : IterableDataset
             The dataset to train the model on.
+        dataset_val: IterableDataset
+            The dataset to validate the model on.
 
         Returns
         -------
         model : nn.Module
             The trained neural network.
         """
+        model_cfg = train_configs["model_configuration"].pop("neural_network")
+        model = get_neural_network(**model_cfg, sample_size=dataset.output_shape)
+        
+        train_nn(config, model, dataset, val_dataset, self._prepare_data_cfg_log())
+
         raise NotImplementedError("Not implemented yet")
 
     def train_model(self, dataset: IterableDataset, dataset_val: IterableDataset):
