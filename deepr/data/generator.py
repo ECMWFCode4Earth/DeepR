@@ -1,3 +1,4 @@
+import random
 from typing import Tuple
 
 import numpy
@@ -18,6 +19,7 @@ class DataGenerator(IterableDataset):
         label_files: DataFileCollection,
         features_scaler: XarrayStandardScaler,
         label_scaler: XarrayStandardScaler,
+        shuffle: bool = False,
     ):
         """
         Initialize the DataGenerator class.
@@ -36,6 +38,7 @@ class DataGenerator(IterableDataset):
         super(DataGenerator).__init__()
         self.feature_files = features_files
         self.label_files = label_files
+        self.init_date, self.end_date = self.get_dataset_dates()
         self.features_scaler = features_scaler
         self.label_scaler = label_scaler
         self.number_files = len(self.label_files.collection)
@@ -50,6 +53,15 @@ class DataGenerator(IterableDataset):
             self.output_shape,
             self.output_channels,
         ) = self.get_shapes()
+        self.shuffle = shuffle
+        if self.shuffle:
+            combined_files = list(
+                zip(self.feature_files.collection, self.label_files.collection)
+            )
+            random.shuffle(combined_files)
+            shuffled_files_features, shuffled_files_labels = zip(*combined_files)
+            self.feature_files.collection = shuffled_files_features
+            self.label_files.collection = shuffled_files_features
 
     def __len__(self):
         """
@@ -193,3 +205,24 @@ class DataGenerator(IterableDataset):
         output_shape = tuple(label_sample.shape[1:])
         out_channels = label_sample.shape[0]
         return input_shape, input_channels, aux_shape, output_shape, out_channels
+
+    def get_dataset_dates(self):
+        """
+        Retrieve the initial and end dates of the dataset.
+
+        Returns
+        -------
+        tuple
+            A tuple containing the initial and end dates of the dataset.
+
+        Raises
+        ------
+        IndexError
+            If the label files collection is empty.
+        """
+        files_collection = self.label_files.collection
+        init_file = files_collection[0]
+        end_file = files_collection[-1]
+        init_date = init_file.temporal_coverage
+        end_date = end_file.temporal_coverage
+        return init_date, end_date
