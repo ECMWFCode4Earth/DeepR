@@ -24,6 +24,10 @@ mamba-env-update:
 	$(MAMBA) env update $(MAMBAFLAGS) -f ci/environment-ci.yml
 	$(MAMBA) env update $(MAMBAFLAGS) -f environment.yml
 
+mamba-cuda_env-update:
+	$(MAMBA) env update $(MAMBAFLAGS) -f ci/environment-ci.yml
+	$(MAMBA) env update $(MAMBAFLAGS) -f environment_CUDA.yml
+
 docker-build:
 	docker build -t $(PROJECT) .
 
