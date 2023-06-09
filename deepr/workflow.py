@@ -114,8 +114,16 @@ class MainPipeline:
         features_collection = data_configuration.get_features()
         (
             features_collection_train,
-            features_collection_val,
+            features_collection_test,
         ) = features_collection.split_data(
+            self.configuration["data_configuration"]["common_configuration"][
+                "data_split"
+            ]["test"]
+        )
+        (
+            features_collection_train,
+            features_collection_val,
+        ) = features_collection_train.split_data(
             self.configuration["data_configuration"]["common_configuration"][
                 "data_split"
             ]["validation"]
@@ -128,7 +136,15 @@ class MainPipeline:
             features_scaler = None
         logger.info("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
-        label_collection_train, label_collection_val = label_collection.split_data(
+        label_collection_train, label_collection_test = label_collection.split_data(
+            self.configuration["data_configuration"]["common_configuration"][
+                "data_split"
+            ]["test"]
+        )
+        (
+            label_collection_train,
+            label_collection_val,
+        ) = label_collection_train.split_data(
             self.configuration["data_configuration"]["common_configuration"][
                 "data_split"
             ]["validation"]
@@ -149,13 +165,20 @@ class MainPipeline:
         data_generator_val = DataGenerator(
             features_collection_val, label_collection_val, features_scaler, label_scaler
         )
-        return data_generator_train, data_generator_val
+        data_generator_test = DataGenerator(
+            features_collection_test,
+            label_collection_test,
+            features_scaler,
+            label_scaler,
+        )
+        return data_generator_train, data_generator_val, data_generator_test
 
     def train_diffusion(self, dataset: IterableDataset, dataset_val: IterableDataset):
-        """Train a Deep Diffusion model with the given dataset.
+        """
+        Train a Deep Diffusion model with the given dataset.
 
-        Arguments
-        ---------
+        Parameters
+        ----------
         dataset : IterableDataset
             The dataset to train the model on.
         dataset_val: IterableDataset
@@ -191,13 +214,14 @@ class MainPipeline:
         )
 
     def train_end2end_nn(
-        self, dataset: IterableDataset, val_dataset: IterableDataset
+        self, dataset_train: IterableDataset, dataset_val: IterableDataset
     ) -> nn.Module:
-        """Train a end-to-end neural network with the given dataset.
+        """
+        Train an end-to-end neural network with the given dataset.
 
-        Arguments
-        ---------
-        dataset : IterableDataset
+        Parameters
+        ----------
+        dataset_train : IterableDataset
             The dataset to train the model on.
         dataset_val: IterableDataset
             The dataset to validate the model on.
@@ -213,22 +237,30 @@ class MainPipeline:
 
         model = get_neural_network(
             **model_cfg,
-            out_channels=dataset.output_channels,
-            sample_size=dataset.output_shape,
+            out_channels=dataset_train.output_channels,
+            sample_size=dataset_train.output_shape,
         )
 
-        train_nn(train_cfg, model, dataset, val_dataset, self._prepare_data_cfg_log())
+        train_nn(
+            train_cfg, model, dataset_train, dataset_val, self._prepare_data_cfg_log()
+        )
 
         raise NotImplementedError("Not implemented yet")
 
-    def train_model(self, dataset: IterableDataset, dataset_val: IterableDataset):
-        """Train a Super Resolution (SR) model with the given dataset.
+    def train_model(
+        self,
+        dataset_train: IterableDataset,
+        dataset_val: IterableDataset,
+    ):
+        """
+        Train a Super Resolution (SR) model with the given dataset.
 
-        Arguments
-        ---------
-        dataset : IterableDataset
+        Parameters
+        ----------
+        dataset_train : IterableDataset
             The dataset to train the model on.
         dataset_val: IterableDataset
+            The dataset to validate the model on.
 
         Returns
         -------
@@ -237,9 +269,9 @@ class MainPipeline:
         """
         model_type = self.configuration["training_configuration"]["type"]
         if model_type == "diffusion":
-            self.train_diffusion(dataset, dataset_val)
+            self.train_diffusion(dataset_train, dataset_val)
         elif model_type == "end2end":
-            self.train_end2end_nn(dataset, dataset_val)
+            self.train_end2end_nn(dataset_train, dataset_val)
         else:
             raise NotImplementedError(
                 f"The training procedure {model_type} is not supported."
@@ -247,5 +279,5 @@ class MainPipeline:
 
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""
-        dataset_train, dataset_val = self.get_dataset()
+        dataset_train, dataset_val, dataset_test = self.get_dataset()
         self.train_model(dataset_train, dataset_val)
