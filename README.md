@@ -50,7 +50,7 @@ Before pushing to GitHub, run the following commands:
 
 The spatial coverage of the datasets provided is described below:
 
-Features: (240, 150) ------- Label: (800, 500)
+Features: (240, 150) ------- Label: (800, 480)
 
 ```complete-spatial-coverage.yml
 data_configuration:
@@ -61,7 +61,7 @@ data_configuration:
   label_configuration:
     spatial_coverage:
       longitude: [ -10, 29.95]
-      latitude: [ 60, 35.05 ]
+      latitude: [ 59.6, 35.65 ]
 ```
 
 During the development stage, a subset of the data is used to validate the implementation of the model:
