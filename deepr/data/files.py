@@ -167,9 +167,13 @@ class DataFileCollection:
             The coefficient by which the data is split.
         """
         return DataFileCollection(
-            collection=self.collection[: int(split_coefficient * len(self.collection))]
+            collection=self.collection[
+                : int((1 - split_coefficient) * len(self.collection))
+            ]
         ), DataFileCollection(
-            collection=self.collection[int(split_coefficient * len(self.collection)) :]
+            collection=self.collection[
+                int((1 - split_coefficient) * len(self.collection)) :
+            ]
         )
 
     def get_variable_list(self) -> List[str]:

@@ -75,13 +75,14 @@ def save_samples(
     # Make a grid out of the images
     sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     images = images.transpose(1, 3).transpose(2, 3)
-    get_figure_model_samples(
+    figure = get_figure_model_samples(
         era5.cpu(),
         cerra.cpu(),
         images.cpu(),
         column_names=sample_names,
         filename=outname,
     )
+    return figure
 
 
 def train_diffusion(
