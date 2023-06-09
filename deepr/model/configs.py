@@ -1,5 +1,6 @@
 import logging
 
+import torch
 from pydantic.dataclasses import dataclass
 
 logger = logging.getLogger(__name__)
@@ -28,3 +29,7 @@ class TrainingConfig:
         True  # overwrite the old model when re-running the notebook
     )
     seed: int = 0
+
+    def __post_init__(self):
+        if self.device == "cuda" and not torch.cuda.is_available():
+            logger.info("CUDA device requested but not available :(")

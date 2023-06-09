@@ -24,11 +24,11 @@ def save_samples(
 ):
     """Save a set of samples."""
     with torch.no_grad():
-        images = model(era5, times[:, 0], return_dict=False)[0]
+        images = model(era5, return_dict=False)[0]
 
     # Make a grid out of the images
     sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
-    get_figure_model_samples(
+    return get_figure_model_samples(
         era5.cpu(),
         cerra.cpu(),
         images.cpu(),
@@ -99,8 +99,8 @@ def train_nn(
         for era5, cerra, times in train_dataloader:
             # Predict the noise residual
             with accelerator.accumulate(model):
-                cerra_pred = model(era5, times[:, 0], return_dict=False)[0]
-                loss = F.mse_loss(cerra_pred, cerra)
+                cerra_pred = model(era5, return_dict=False)[0]
+                loss = F.l1_loss(cerra_pred, cerra)
                 accelerator.backward(loss)
 
                 accelerator.clip_grad_norm_(model.parameters(), 1.0)

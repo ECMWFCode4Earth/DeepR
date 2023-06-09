@@ -211,6 +211,11 @@ def train_diffusion(
         if accelerator.is_main_process:
             is_last_epoch = epoch == config.num_epochs - 1
 
+            if epoch == 0:
+                tf_writter.add_graph(
+                    accelerator.unwrap_model(model), (model_inputs, timesteps)
+                )
+
             if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
                 test_dir = os.path.join(config.output_dir, "samples")
                 os.makedirs(test_dir, exist_ok=True)
