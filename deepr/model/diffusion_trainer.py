@@ -15,7 +15,7 @@ from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
-repo_name = "predictia/europe_reanalysis_downscaler"
+repo_name = "predictia/europe_reanalysis_downscaler_diffuser"
 
 
 def get_hour_embedding(

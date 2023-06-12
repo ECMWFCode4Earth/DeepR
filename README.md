@@ -260,6 +260,14 @@ The class [Up block](deepr/model/unet_blocks.py#LL73)
 
 ##### Final Block
 
+## Project Outputs
+
+### Models (HuggingFace)
+
+- [**Swin2SR (x4)**](https://huggingface.co/predictia/europe_reanalysis_downscaler_swin2sr): A novel transformed-based method for image super-resolution trained with meteorological datasets.
+
+- [**Conditioned Denoising Diffusion Probabilistic Model**](predictia/europe_reanalysis_downscaler_diffuser): A tailored DDPM that accepts temporal covariates as the hours of the day or the day of the years as input to the $\\eps$-model.
+
 ## Appendix I: Positional Embeddings
 
 When working with sequential data, the order of the elements is important, and we must pay attention to how we pass this information to our models.
@@ -275,6 +283,8 @@ Besides, we may encoded other important features as the hour of the day or the d
 - Ho, J., Jain, A., & Abbeel, P. (2020). [Denoising diffusion probabilistic models](https://arxiv.org/pdf/2006.11239.pdf). Advances in Neural Information Processing Systems, 33, 6840-6851.
 
 - Song, J., Meng, C., & Ermon, S. (2020). [Denoising diffusion implicit models](https://arxiv.org/pdf/2010.02502.pdf). arXiv preprint arXiv:2010.02502.
+
+- Conde, M. V., Choi, U. J., Burchi, M., & Timofte, R. (2022). [Swin2SR: Swinv2 transformer for compressed image super-resolution and restoration](https://arxiv.org/pdf/2209.11345.pdf). arXiv preprint arXiv:2209.11345.
 
 - Rombach, R., Blattmann, A., Lorenz, D., Esser, P., & Ommer, B. (2022). [High-resolution image synthesis with latent diffusion models](https://arxiv.org/pdf/2112.10752.pdf). In Proceedings of the IEEE/CVF Conference on Computer Vision and Pattern Recognition (pp. 10684-10695).
 
