@@ -2,7 +2,7 @@ from typing import Tuple
 
 import diffusers
 from torch import nn
-
+import numpy as np
 from deepr.utilities.logger import get_logger
 
 logger = get_logger(__name__)
@@ -53,10 +53,15 @@ def get_neural_network(
         from deepr.model.unet import UNet
 
         return UNet(**kwargs)
-    elif class_name.lower() == "convswin2rs":
-        from deepr.model.conv_swin2rs import ConvSwin2RS
+    elif class_name.lower() == "convswin2sr":
+        from deepr.model.conv_swin2sr import ConvSwin2SR, ConvSwin2SRConfig
 
-        return ConvSwin2RS(**kwargs)
+        kwargs["num_channels"] = kwargs.pop("out_channels")
+        image_size = (np.array(kwargs.pop("sample_size"))) / kwargs["upscale"]
+        kwargs["image_size"] = tuple([int(i) for i in image_size])
+
+        cfg = ConvSwin2SRConfig(**kwargs)
+        return ConvSwin2SR(cfg)
     elif class_name.split(".")[0].lower() == "diffusers":
         import diffusers
 

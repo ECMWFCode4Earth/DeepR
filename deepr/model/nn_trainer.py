@@ -34,6 +34,7 @@ def save_samples(
         images.cpu(),
         column_names=sample_names,
         filename=outname,
+        figsize=(15, 6.5),
     )
 
 
@@ -41,7 +42,7 @@ def train_nn(
     config: TrainingConfig,
     model,
     train_dataset: torch.utils.data.DataLoader,
-    test_dataset: torch.utils.data.DataLoader,
+    val_dataset: torch.utils.data.DataLoader,
     dataset_info: Dict = None,
 ):
     # Define important objects
@@ -49,7 +50,7 @@ def train_nn(
         train_dataset, config.train_batch_size, pin_memory=True
     )
     dataloader_val = torch.utils.data.DataLoader(
-        test_dataset, config.val_batch_size, pin_memory=True
+        val_dataset, config.val_batch_size, pin_memory=True
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -86,6 +87,8 @@ def train_nn(
 
     # Get fixed samples
     val_era5, val_cerra, val_times = next(iter(val_dataloader))
+    if config.val_batch_size > 4:
+        val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
 
     tf_writter = accelerator.get_tracker("tensorboard").writer
     global_step = 0
@@ -132,14 +135,14 @@ def train_nn(
             is_last_epoch = epoch == config.num_epochs - 1
 
             if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
-                test_dir = os.path.join(config.output_dir, "samples")
-                os.makedirs(test_dir, exist_ok=True)
+                samples_dir = os.path.join(config.output_dir, "samples")
+                os.makedirs(samples_dir, exist_ok=True)
                 fig = save_samples(
                     accelerator.unwrap_model(model),
                     val_era5,
                     val_cerra,
                     val_times,
-                    outname=f"{test_dir}/nn_{epoch+1:04d}.png",
+                    outname=f"{samples_dir}/nn_{epoch+1:04d}.png",
                 )
                 tf_writter.add_figure("Predictions", fig, global_step=epoch)
 
@@ -155,33 +158,4 @@ def train_nn(
 
     accelerator.end_training()
 
-    mse = evaluate.load("mse", "multilist")
-    for era5, cerra, times in val_dataloader:
-        # Predict the noise residual
-        with torch.no_grad():
-            pred = model(era5, times[:, 0], return_dict=False)[0]
-            mse.add_batches(
-                references=cerra.reshape((cerra.shape[0], -1)),
-                predictions=pred.reshape((pred.shape[0], -1)),
-            )
-
-    val_mse = mse.compute()
-    hparams = config.__dict__ + dataset_info if dataset_info is not None else {}
-    tf_writter.add_hparams(hparams, {"test_mse": val_mse["mse"]})
-    if accelerator.is_main_process:
-        if config.push_to_hub:
-            evaluate.save(
-                config.output_dir,
-                experiment="Train Neural Network",
-                **val_mse,
-                **hparams,
-            )
-            evaluate.push_to_hub(
-                model_id=repo_name,
-                metric_type="mse",
-                metric_name="MSE",
-                metric_value=val_mse["mse"],
-                dataset_split="test",
-                task_type="super-resolution",
-                task_name="Super Resolution",
-            )
+    return model

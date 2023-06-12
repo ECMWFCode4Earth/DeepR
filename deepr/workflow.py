@@ -13,6 +13,7 @@ from deepr.model.models import get_hf_scheduler, get_neural_network
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
+from deepr.validation.test_model import test_model
 
 logger = get_logger(__name__)
 
@@ -41,7 +42,7 @@ class MainPipeline:
 
         return config
 
-    def get_dataset(self) -> Tuple[IterableDataset, IterableDataset]:
+    def get_dataset(self) -> Tuple[IterableDataset, IterableDataset, IterableDataset]:
         """
         Initialize the data_loader for the pipeline.
 
@@ -52,66 +53,39 @@ class MainPipeline:
         """
         logger.info("Loading configuration...")
         data_configuration = DataConfiguration(self.configuration["data_configuration"])
+        data_splits = data_configuration.common_configuration["data_split"]
+        
+        test_split_size = data_splits["test"]
+        val_split_size = data_splits["validation"] / (1 - test_split_size)
+        
         logger.info("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
-        (
-            features_collection_train,
-            features_collection_test,
-        ) = features_collection.split_data(
-            self.configuration["data_configuration"]["common_configuration"][
-                "data_split"
-            ]["test"]
-        )
-        (
-            features_collection_train,
-            features_collection_val,
-        ) = features_collection_train.split_data(
-            self.configuration["data_configuration"]["common_configuration"][
-                "data_split"
-            ]["validation"]
-        )
-        if self.configuration["data_configuration"]["features_configuration"][
-            "apply_standardization"
-        ]:
-            features_scaler = XarrayStandardScaler(features_collection_train)
+        features_coll_train, features_coll_test = features_collection.split_data(test_split_size)
+        features_coll_train, features_coll_val = features_coll_train.split_data(val_split_size)
+        if data_configuration.features_configuration["apply_standardization"]:
+            features_scaler = XarrayStandardScaler(features_coll_train)
         else:
             features_scaler = None
+
         logger.info("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
-        label_collection_train, label_collection_test = label_collection.split_data(
-            self.configuration["data_configuration"]["common_configuration"][
-                "data_split"
-            ]["test"]
-        )
-        (
-            label_collection_train,
-            label_collection_val,
-        ) = label_collection_train.split_data(
-            self.configuration["data_configuration"]["common_configuration"][
-                "data_split"
-            ]["validation"]
-        )
-        if self.configuration["data_configuration"]["features_configuration"][
-            "apply_standardization"
-        ]:
-            label_scaler = XarrayStandardScaler(label_collection_train)
+        label_coll_train, label_coll_test = label_collection.split_data(test_split_size)
+        label_coll_train, label_coll_val = label_coll_train.split_data(val_split_size)
+        if data_configuration.features_configuration["apply_standardization"]:
+            label_scaler = XarrayStandardScaler(label_coll_train)
         else:
             label_scaler = None
+
+        # Define DataGenerators
         logger.info("Define the DataGenerator object.")
         data_generator_train = DataGenerator(
-            features_collection_train,
-            label_collection_train,
-            features_scaler,
-            label_scaler,
+            features_coll_train, label_coll_train, features_scaler, label_scaler
         )
         data_generator_val = DataGenerator(
-            features_collection_val, label_collection_val, features_scaler, label_scaler
+            features_coll_val, label_coll_val, features_scaler, label_scaler
         )
         data_generator_test = DataGenerator(
-            features_collection_test,
-            label_collection_test,
-            features_scaler,
-            label_scaler,
+            features_coll_test, label_coll_test, features_scaler, label_scaler
         )
         return data_generator_train, data_generator_val, data_generator_test
 
@@ -183,11 +157,9 @@ class MainPipeline:
             sample_size=dataset_train.output_shape,
         )
 
-        train_nn(
+        return train_nn(
             train_cfg, model, dataset_train, dataset_val, self._prepare_data_cfg_log()
         )
-
-        raise NotImplementedError("Not implemented yet")
 
     def train_model(
         self,
@@ -211,15 +183,20 @@ class MainPipeline:
         """
         model_type = self.configuration["training_configuration"]["type"]
         if model_type == "diffusion":
-            self.train_diffusion(dataset_train, dataset_val)
+            return self.train_diffusion(dataset_train, dataset_val)
         elif model_type == "end2end":
-            self.train_end2end_nn(dataset_train, dataset_val)
+            return self.train_end2end_nn(dataset_train, dataset_val)
         else:
             raise NotImplementedError(
                 f"The training procedure {model_type} is not supported."
             )
 
+    def test_model(self, model, dataset):
+        return test_model(model, dataset, hparams=hparams, push_to_hub=False)
+
+
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""
         dataset_train, dataset_val, dataset_test = self.get_dataset()
-        self.train_model(dataset_train, dataset_val)
+        model = self.train_model(dataset_train, dataset_val)
+        self.test_model(model, dataset_test)

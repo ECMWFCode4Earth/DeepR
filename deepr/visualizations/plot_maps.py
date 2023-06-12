@@ -1,5 +1,5 @@
 import logging
-from typing import List, Optional
+from typing import List, Optional, Tuple
 
 import matplotlib.pyplot as plt
 import numpy as np
@@ -14,6 +14,7 @@ def get_figure_model_samples(
     prediction: torch.Tensor,
     column_names: List[str] = None,
     filename: Optional[str] = None,
+    figsize: Optional[Tuple[int, int]] = None,
 ):
     vmax = max(
         float(torch.max(coarse_image)),
@@ -36,7 +37,8 @@ def get_figure_model_samples(
     else:
         n_realizations = prediction.shape[0] // n_samples
 
-    figsize = (4.5 * (n_realizations + 2), 4.8 * n_samples)
+    if figsize is None:
+        figsize = (4.5 * (n_realizations + 2), 4.8 * n_samples)
     fig, axs = plt.subplots(n_realizations + 2, n_samples, figsize=figsize)
     plt.tight_layout()
     if n_samples == 1:
