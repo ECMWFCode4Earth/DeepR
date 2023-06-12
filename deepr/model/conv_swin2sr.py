@@ -1,12 +1,12 @@
 import logging
-from typing import Any, Dict, List, Optional, Tuple, Union
+from typing import List, Optional
 
 import torch
 import torch.nn as nn
-from transformers import Swin2SRConfig, Swin2SRForImageSuperResolution, PreTrainedModel
-from transformers.models.swin2sr.configuration_swin2sr import Swin2SRConfig
+from transformers import PreTrainedModel, Swin2SRConfig, Swin2SRForImageSuperResolution
 
 logger = logging.getLogger(__name__)
+
 
 class ConvSwin2SRConfig(Swin2SRConfig):
     model_type = "conv_swin2sr"
@@ -19,26 +19,26 @@ class ConvSwin2SRConfig(Swin2SRConfig):
 
     def __init__(
         self,
-        image_size: int =64,
-        patch_size: int =1,
+        image_size: int = 64,
+        patch_size: int = 1,
         num_channels: int = None,
-        embed_dim: int=180,
-        depths: List[int]=[6, 6, 6, 6, 6, 6],
-        num_heads: List[int]=[6, 6, 6, 6, 6, 6],
-        window_size: int =8,
-        mlp_ratio: float=2.0,
-        qkv_bias:bool=True,
-        hidden_dropout_prob: float=0.0,
-        attention_probs_dropout_prob: float=0.0,
-        drop_path_rate: float =0.1,
-        hidden_act: str="gelu",
-        use_absolute_embeddings:bool =False,
-        initializer_range: bool=0.02,
-        layer_norm_eps: float=1e-5,
-        upscale: int=2,
-        img_range: float=1.0,
-        resi_connection: str="1conv",
-        upsampler: str="pixelshuffle",
+        embed_dim: int = 180,
+        depths: List[int] = [6, 6, 6, 6, 6, 6],
+        num_heads: List[int] = [6, 6, 6, 6, 6, 6],
+        window_size: int = 8,
+        mlp_ratio: float = 2.0,
+        qkv_bias: bool = True,
+        hidden_dropout_prob: float = 0.0,
+        attention_probs_dropout_prob: float = 0.0,
+        drop_path_rate: float = 0.1,
+        hidden_act: str = "gelu",
+        use_absolute_embeddings: bool = False,
+        initializer_range: bool = 0.02,
+        layer_norm_eps: float = 1e-5,
+        upscale: int = 2,
+        img_range: float = 1.0,
+        resi_connection: str = "1conv",
+        upsampler: str = "pixelshuffle",
         conv_channels: List[int] = [],
         conv_kernel_size: List[int] = [],
         conv_stride: List[int] = [],
@@ -65,9 +65,9 @@ class ConvSwin2SRConfig(Swin2SRConfig):
             img_range=img_range,
             resi_connection=resi_connection,
             upsampler=upsampler,
-            **kwargs
+            **kwargs,
         )
-        
+
         assert (
             len(conv_channels)
             == len(conv_stride)
@@ -79,12 +79,12 @@ class ConvSwin2SRConfig(Swin2SRConfig):
         self.conv_kernel_size = conv_kernel_size
         self.conv_stride = conv_stride
         self.conv_padding = conv_padding
-        
+
         if len(conv_channels):
             assert (
                 conv_channels[-1] == num_channels
             ), "Ouput channels of CNN must match the input channels of the Swin2SR."
-    
+
     def swin2sr_kwargs(self):
         logger.info(
             f"The Swin2SR(x{self.upscale}) model should receive pixel values of shape"
@@ -114,7 +114,6 @@ class ConvSwin2SRConfig(Swin2SRConfig):
 
 
 class ConvSwin2SR(PreTrainedModel):
-
     config_class = ConvSwin2SRConfig
     base_model_prefix = "convswin2sr"
     main_input_name = "pixel_values"
@@ -124,11 +123,7 @@ class ConvSwin2SR(PreTrainedModel):
         super().__init__(config)
         self.config = config
 
-        if config.num_channels is None:
-            config.num_channels = out_channels
-
         in_channels = config.num_channels
-
         convs: List[nn.Module] = []
         for i in range(len(config.conv_kernel_size)):
             convs.append(

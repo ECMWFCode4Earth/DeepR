@@ -2,7 +2,6 @@ import os
 from typing import Optional
 
 import diffusers
-import evaluate
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -95,10 +94,10 @@ def train_diffusion(
 ):
     # Define important objects
     train_dataloader = torch.utils.data.DataLoader(
-        dataset, config.train_batch_size, pin_memory=True
+        dataset, config.batch_size, pin_memory=True
     )
     val_dataloader = torch.utils.data.DataLoader(
-        dataset_val, config.val_batch_size, pin_memory=True
+        dataset_val, config.batch_size, pin_memory=True
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -138,13 +137,16 @@ def train_diffusion(
 
     # Get fixed samples
     val_era5, val_cerra, val_times = next(iter(val_dataloader))
+    if config.val_batch_size > 4:
+        val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
 
     tf_writter = accelerator.get_tracker("tensorboard").writer
     global_step = 0
     # Now you train the model
     for epoch in range(config.num_epochs):
         progress_bar = tqdm(
-            total=len(train_dataloader), disable=not accelerator.is_local_main_process
+            total=len(train_dataloader) + len(val_dataloader),
+            disable=not accelerator.is_local_main_process,
         )
         progress_bar.set_description(f"Epoch {epoch+1}")
 
@@ -193,12 +195,13 @@ def train_diffusion(
             pred_var = noise_pred.var(keepdim=True, dim=0).mean().item()
             true_var = noise.var(keepdim=True, dim=0).mean().item()
             logs = {
-                "loss": loss.detach().item(),
-                "lr": lr_scheduler.get_last_lr()[0],
+                "loss_vs_step": loss.detach().item(),
+                "lr_vs_step": lr_scheduler.get_last_lr()[0],
                 "step": global_step,
-                "bias_perc": (noise - noise_pred).mean().item() / noise.mean().item(),
-                "mean_var_ratio": true_var / pred_var,
-                "epoch": epoch,
+                "bias_perc_vs_step": (noise - noise_pred).mean().item()
+                / noise.mean().item(),
+                "mean_var_ratio_vs_step": true_var / pred_var,
+                "epoch_vs_step": epoch,
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
@@ -206,6 +209,50 @@ def train_diffusion(
             tf_writter.add_histogram("noise", noise, global_step)
             global_step += 1
 
+        # Evaluate
+        loss, true_var, pred_var, bias, mean_pred = [], [], [], [], []
+        for era5, cerra, times in val_dataloader:
+            bs = cerra.shape[0]
+            noise = torch.randn(cerra.shape).to(config.device)
+            timesteps = torch.randint(
+                0,
+                noise_scheduler.config.num_train_timesteps,
+                (bs,),
+                device=config.device,
+            ).long()
+            noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
+
+            # Validation: Encode hour
+            emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
+            hour_emb = get_hour_embedding(
+                times[:, :1], config.hour_embed_type, emb_size
+            )
+            if hour_emb is not None:
+                hour_emb = hour_emb.to(config.device).squeeze()
+
+            # Predict the noise residual
+            with torch.no_grad():
+                model_inputs = torch.cat([noisy_images, era5], dim=1)
+
+                # Predict the noise residual
+                noise_pred = model(
+                    model_inputs, timesteps, return_dict=False, class_labels=hour_emb
+                )[0]
+                loss.append(F.mse_loss(noise_pred, noise))
+
+            pred_var.append(noise_pred.var(keepdim=True, dim=0).mean().item())
+            true_var.append(noise.var(keepdim=True, dim=0).mean().item())
+            bias.append((noise - noise_pred).mean().item())
+            mean_pred.append(noise_pred.mean().item())
+            progress_bar.update(1)
+
+        logs = {
+            "val_loss_vs_epoch": sum(loss) / len(loss),
+            "val_bias_perc_vs_epoch": sum(bias) / sum(mean_pred),
+            "val_mean_var_ratio_vs_epoch": sum(true_var) / sum(pred_var),
+            "epoch": epoch,
+        }
+        accelerator.log(logs, step=epoch)
         progress_bar.close()
 
         # After each epoch you optionally sample some demo images
@@ -242,61 +289,4 @@ def train_diffusion(
                     model.save_pretrained(config.output_dir)
 
     accelerator.end_training()
-
-    mse = evaluate.load("mse", "multilist")
-    for era5, cerra, times in val_dataloader:
-        bs = cerra.shape[0]
-
-        # Sample noise to add to the images
-        noise = torch.randn(cerra.shape).to(config.device)
-
-        # Sample a random timestep for each image
-        timesteps = torch.randint(
-            0,
-            noise_scheduler.config.num_train_timesteps,
-            (bs,),
-            device=config.device,
-        ).long()
-
-        # Add noise to the clean images according to the noise magnitude at each t
-        noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
-
-        # Encode hour
-        emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
-        hour_emb = get_hour_embedding(times[:, :1], config.hour_embed_type, emb_size)
-        if hour_emb is not None:
-            hour_emb = hour_emb.to(config.device).squeeze()
-
-        # Predict the noise residual
-        with torch.no_grad():
-            model_inputs = torch.cat([noisy_images, era5], dim=1)
-
-            # Predict the noise residual
-            noise_pred = model(
-                model_inputs, timesteps, return_dict=False, class_labels=hour_emb
-            )[0]
-            mse.add_batches(
-                references=noise.reshape((noise.shape[0], -1)),
-                predictions=noise_pred.reshape((noise_pred.shape[0], -1)),
-            )
-
-    val_mse = mse.compute()
-    hparams = config.__dict__ + dataset_info if dataset_info is not None else {}
-    tf_writter.add_hparams(hparams, {"test_mse": val_mse["mse"]})
-    if accelerator.is_main_process:
-        if config.push_to_hub:
-            evaluate.save(
-                config.output_dir,
-                experiment="Train Diffusion",
-                **val_mse,
-                **hparams,
-            )
-            evaluate.push_to_hub(
-                model_id=repo_name,
-                metric_type="mse",
-                metric_name="MSE",
-                metric_value=val_mse["mse"],
-                dataset_split="test",
-                task_type="super-resolution",
-                task_name="Super Resolution",
-            )
+    return model

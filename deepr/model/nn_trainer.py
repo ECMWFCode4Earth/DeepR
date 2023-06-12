@@ -1,7 +1,6 @@
 import os
 from typing import Dict
 
-import evaluate
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -47,10 +46,10 @@ def train_nn(
 ):
     # Define important objects
     dataloader = torch.utils.data.DataLoader(
-        train_dataset, config.train_batch_size, pin_memory=True
+        train_dataset, config.batch_size, pin_memory=True
     )
     dataloader_val = torch.utils.data.DataLoader(
-        val_dataset, config.val_batch_size, pin_memory=True
+        val_dataset, config.batch_size, pin_memory=True
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -95,7 +94,8 @@ def train_nn(
     # Now you train the model
     for epoch in range(config.num_epochs):
         progress_bar = tqdm(
-            total=len(train_dataloader), disable=not accelerator.is_local_main_process
+            total=len(train_dataloader) + len(val_dataloader),
+            disable=not accelerator.is_local_main_process,
         )
         progress_bar.set_description(f"Epoch {epoch+1}")
 
@@ -115,11 +115,12 @@ def train_nn(
             pred_var = cerra_pred.var(keepdim=True, dim=0).mean().item()
             true_var = cerra.var(keepdim=True, dim=0).mean().item()
             logs = {
-                "loss": loss.detach().item(),
-                "lr": lr_scheduler.get_last_lr()[0],
+                "loss_vs_step": loss.detach().item(),
+                "lr_vs_step": lr_scheduler.get_last_lr()[0],
                 "step": global_step,
-                "bias_perc": (cerra - cerra_pred).mean().item() / cerra.mean().item(),
-                "mean_var_ratio": true_var / pred_var,
+                "bias_perc_vs_step": (cerra - cerra_pred).mean().item()
+                / cerra.mean().item(),
+                "mean_var_ratio_vs_step": true_var / pred_var,
                 "epoch": epoch,
             }
             progress_bar.set_postfix(**logs)
@@ -128,6 +129,27 @@ def train_nn(
             tf_writter.add_histogram("cerra", cerra, global_step)
             global_step += 1
 
+        # Evaluate
+        loss, true_var, pred_var, bias, mean_pred = [], [], [], [], []
+        for era5, cerra, times in val_dataloader:
+            # Predict the noise residual
+            with torch.no_grad():
+                cerra_pred = model(era5, return_dict=False)[0]
+                loss.append(F.l1_loss(cerra_pred, cerra))
+
+            pred_var.append(cerra_pred.var(keepdim=True, dim=0).mean().item())
+            true_var.append(cerra.var(keepdim=True, dim=0).mean().item())
+            bias.append((cerra - cerra_pred).mean().item())
+            mean_pred.append(cerra_pred.mean().item())
+            progress_bar.update(1)
+
+        logs = {
+            "val_loss_vs_epoch": sum(loss) / len(loss),
+            "val_bias_perc_vs_epoch": sum(bias) / sum(mean_pred),
+            "val_mean_var_ratio_vs_epoch": sum(true_var) / sum(pred_var),
+            "epoch": epoch,
+        }
+        accelerator.log(logs, step=epoch)
         progress_bar.close()
 
         # After each epoch you optionally sample some demo images

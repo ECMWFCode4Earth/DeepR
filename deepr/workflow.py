@@ -54,14 +54,18 @@ class MainPipeline:
         logger.info("Loading configuration...")
         data_configuration = DataConfiguration(self.configuration["data_configuration"])
         data_splits = data_configuration.common_configuration["data_split"]
-        
+
         test_split_size = data_splits["test"]
         val_split_size = data_splits["validation"] / (1 - test_split_size)
-        
+
         logger.info("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
-        features_coll_train, features_coll_test = features_collection.split_data(test_split_size)
-        features_coll_train, features_coll_val = features_coll_train.split_data(val_split_size)
+        features_coll_train, features_coll_test = features_collection.split_data(
+            test_split_size
+        )
+        features_coll_train, features_coll_val = features_coll_train.split_data(
+            val_split_size
+        )
         if data_configuration.features_configuration["apply_standardization"]:
             features_scaler = XarrayStandardScaler(features_coll_train)
         else:
@@ -192,8 +196,7 @@ class MainPipeline:
             )
 
     def test_model(self, model, dataset):
-        return test_model(model, dataset, hparams=hparams, push_to_hub=False)
-
+        return test_model(model, dataset, hparams={}, push_to_hub=False)
 
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""

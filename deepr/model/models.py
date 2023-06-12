@@ -1,8 +1,9 @@
 from typing import Tuple
 
 import diffusers
-from torch import nn
 import numpy as np
+from torch import nn
+
 from deepr.utilities.logger import get_logger
 
 logger = get_logger(__name__)

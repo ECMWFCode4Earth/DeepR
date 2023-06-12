@@ -3,13 +3,14 @@ import torch
 
 
 def test_model(
-    model, 
-    dataset: torch.utils.data.IterableDataset, 
+    model,
+    dataset: torch.utils.data.IterableDataset,
     hparams: dict = {},
-    push_to_hub: bool = False, 
+    push_to_hub: bool = False,
+    batch_size: int = 16,
 ):
-    dataloader = torch.utils.data.DataLoader(dataset, config.val_batch_size, pin_memory=True)
-    
+    torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+
     mse = evaluate.load("mse", "multilist")
     for era5, cerra, times in dataset:
         # Predict the noise residual
@@ -39,4 +40,3 @@ def test_model(
             task_type="super-resolution",
             task_name="Super Resolution",
         )
-
