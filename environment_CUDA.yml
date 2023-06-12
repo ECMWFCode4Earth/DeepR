@@ -18,6 +18,7 @@ dependencies:
 - tensorboard
 - accelerate
 - diffusers
+- transformers
 - huggingface_hub
 - evaluate
 # Visualization libraries
