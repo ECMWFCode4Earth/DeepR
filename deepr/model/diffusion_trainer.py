@@ -289,4 +289,4 @@ def train_diffusion(
                     model.save_pretrained(config.output_dir)
 
     accelerator.end_training()
-    return model
+    return model, repo_name

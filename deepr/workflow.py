@@ -29,7 +29,12 @@ class MainPipeline:
             Path to the configuration file.
         """
         logger.info(f"Reading experiment configuration from file {configuration_file}.")
-        self.configuration = read_yaml_file(configuration_file)
+        configuration = read_yaml_file(configuration_file)
+        self.data_config = configuration["data_configuration"]
+        train_config = configuration["training_configuration"]
+        self.pipeline_type = train_config["type"]
+        self.model_config = train_config["model_configuration"]
+        self.training_config = TrainingConfig(**train_config["training_parameters"])
 
     def _prepare_data_cfg_log(self) -> Dict:
         config = self.configuration["data_configuration"]
@@ -52,7 +57,7 @@ class MainPipeline:
             The initialized DataGenerator object.
         """
         logger.info("Loading configuration...")
-        data_configuration = DataConfiguration(self.configuration["data_configuration"])
+        data_configuration = DataConfiguration(self.data_config)
         data_splits = data_configuration.common_configuration["data_split"]
 
         test_split_size = data_splits["test"]
@@ -110,10 +115,9 @@ class MainPipeline:
             The trained model.
         """
         logger.info("Train Deep Diffusion model for Super Resolution task.")
-        train_configs = self.configuration["training_configuration"]
-        model_cfg = train_configs["model_configuration"].pop("eps_model")
-        scheduler_cfg = train_configs["model_configuration"].pop("scheduler")
-        train_cfg = TrainingConfig(**train_configs["training_parameters"])
+        self.configuration["training_configuration"]
+        model_cfg = self.model_config.pop("eps_model")
+        scheduler_cfg = self.model_config.pop("scheduler")
 
         # Instantiate objects
         eps_model = get_neural_network(
@@ -125,7 +129,7 @@ class MainPipeline:
 
         # Train the diffusion model
         train_diffusion(
-            train_cfg,
+            self.train_cfg,
             eps_model,
             scheduler,
             dataset,
@@ -151,9 +155,7 @@ class MainPipeline:
         model : nn.Module
             The trained neural network.
         """
-        train_configs = self.configuration["training_configuration"]
-        model_cfg = train_configs["model_configuration"].pop("neural_network")
-        train_cfg = TrainingConfig(**train_configs["training_parameters"])
+        model_cfg = self.model_config.pop("neural_network")
 
         model = get_neural_network(
             **model_cfg,
@@ -162,7 +164,11 @@ class MainPipeline:
         )
 
         return train_nn(
-            train_cfg, model, dataset_train, dataset_val, self._prepare_data_cfg_log()
+            self.train_cfg,
+            model,
+            dataset_train,
+            dataset_val,
+            self._prepare_data_cfg_log(),
         )
 
     def train_model(
@@ -185,21 +191,28 @@ class MainPipeline:
         model : nn.Module | SuperResolutionDenoiseDiffusion
             The trained neural network.
         """
-        model_type = self.configuration["training_configuration"]["type"]
-        if model_type == "diffusion":
+        if self.pipeline_type == "diffusion":
             return self.train_diffusion(dataset_train, dataset_val)
-        elif model_type == "end2end":
+        elif self.pipeline_type == "end2end":
             return self.train_end2end_nn(dataset_train, dataset_val)
         else:
             raise NotImplementedError(
-                f"The training procedure {model_type} is not supported."
+                f"The training procedure {self.pipeline_type} is not supported."
             )
 
-    def test_model(self, model, dataset):
-        return test_model(model, dataset, hparams={}, push_to_hub=False)
+    def test_model(self, model, dataset, hf_repo_name: str = None):
+        push_to_hf = hf_repo_name is not None and self.training_config.push_to_hub
+        hparams = self.data_config.get("data_split", None)
+        return test_model(
+            model,
+            dataset,
+            hparams=hparams,
+            push_to_hub=push_to_hf,
+            batch_size=self.training_config.batch_size,
+        )
 
     def run_pipeline(self):
         """Run the pipeline and return the data generator."""
         dataset_train, dataset_val, dataset_test = self.get_dataset()
-        model = self.train_model(dataset_train, dataset_val)
-        self.test_model(model, dataset_test)
+        model, repo_name = self.train_model(dataset_train, dataset_val)
+        self.test_model(model, dataset_test, hf_repo_name=repo_name)

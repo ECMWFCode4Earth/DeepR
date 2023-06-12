@@ -11,7 +11,7 @@ from tqdm import tqdm
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
-repo_name = "predictia/europe_reanalysis_downscaler_nn"
+repo_name = "predictia/europe_reanalysis_downscaler_swin2sr"
 
 
 def save_samples(
@@ -180,4 +180,4 @@ def train_nn(
 
     accelerator.end_training()
 
-    return model
+    return model, repo_name
