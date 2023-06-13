@@ -34,10 +34,10 @@ class MainPipeline:
         train_config = configuration["training_configuration"]
         self.pipeline_type = train_config["type"]
         self.model_config = train_config["model_configuration"]
-        self.training_config = TrainingConfig(**train_config["training_parameters"])
+        self.train_config = TrainingConfig(**train_config["training_parameters"])
 
     def _prepare_data_cfg_log(self) -> Dict:
-        config = self.configuration["data_configuration"]
+        config = self.data_config
         for key, val in config.items():
             # Drop data dir
             if "data_dir" in val.keys():
@@ -129,7 +129,7 @@ class MainPipeline:
 
         # Train the diffusion model
         train_diffusion(
-            self.train_cfg,
+            self.train_config,
             eps_model,
             scheduler,
             dataset,
@@ -164,7 +164,7 @@ class MainPipeline:
         )
 
         return train_nn(
-            self.train_cfg,
+            self.train_config,
             model,
             dataset_train,
             dataset_val,
@@ -201,14 +201,14 @@ class MainPipeline:
             )
 
     def test_model(self, model, dataset, hf_repo_name: str = None):
-        push_to_hf = hf_repo_name is not None and self.training_config.push_to_hub
+        push_to_hf = hf_repo_name is not None and self.train_config.push_to_hub
         hparams = self.data_config.get("data_split", None)
         return test_model(
             model,
             dataset,
             hparams=hparams,
             push_to_hub=push_to_hf,
-            batch_size=self.training_config.batch_size,
+            batch_size=self.train_config.batch_size,
         )
 
     def run_pipeline(self):

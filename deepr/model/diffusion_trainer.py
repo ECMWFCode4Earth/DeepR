@@ -137,7 +137,7 @@ def train_diffusion(
 
     # Get fixed samples
     val_era5, val_cerra, val_times = next(iter(val_dataloader))
-    if config.val_batch_size > 4:
+    if config.batch_size > 4:
         val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
 
     tf_writter = accelerator.get_tracker("tensorboard").writer
