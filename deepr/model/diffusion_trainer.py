@@ -92,6 +92,8 @@ def train_diffusion(
     dataset_val: torch.utils.data.IterableDataset,
     dataset_info: dict = None,
 ):
+    hparams = config.__dict__ | dataset_info
+
     # Define important objects
     train_dataloader = torch.utils.data.DataLoader(
         dataset, config.batch_size, pin_memory=True
@@ -123,7 +125,7 @@ def train_diffusion(
             repo.git_pull()
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("Train Diffusion", config=config.__dict__)
+        accelerator.init_trackers("Train Denoising Diffusion Model", config=hparams)
 
     (
         model,

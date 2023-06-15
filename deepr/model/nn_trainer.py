@@ -77,7 +77,7 @@ def train_nn(
             repo.git_pull()
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("Train Neural Network", config=hparams)
+        accelerator.init_trackers("Train Super-Resolution NN", config=hparams)
 
     (
         model,
