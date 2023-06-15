@@ -23,6 +23,7 @@ dependencies:
 # Metrics libraries
 - xskillscore
 # Libraries for utilities
+- mlflow
 - pydantic
 - pyyaml
 - tqdm

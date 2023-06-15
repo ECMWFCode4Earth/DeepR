@@ -4,6 +4,7 @@ from typing import Dict
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
+from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from tqdm import tqdm
@@ -42,8 +43,10 @@ def train_nn(
     model,
     train_dataset: torch.utils.data.DataLoader,
     val_dataset: torch.utils.data.DataLoader,
-    dataset_info: Dict = None,
+    dataset_info: Dict = {},
 ):
+    hparams = config.__dict__ | dataset_info
+
     # Define important objects
     dataloader = torch.utils.data.DataLoader(
         train_dataset, config.batch_size, pin_memory=True
@@ -62,7 +65,7 @@ def train_nn(
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        log_with="tensorboard",
+        log_with=[LoggerType.TENSORBOARD, LoggerType.MLFLOW],
         project_dir=os.path.join(config.output_dir, "logs"),
     )
 
@@ -74,7 +77,7 @@ def train_nn(
             repo.git_pull()
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("Train Neural Network", config=config.__dict__)
+        accelerator.init_trackers("Train Neural Network", config=hparams)
 
     (
         model,
