@@ -45,7 +45,7 @@ def train_nn(
     val_dataset: torch.utils.data.DataLoader,
     dataset_info: Dict = {},
 ):
-    hparams = config.__dict__ | dataset_info
+    hparams = config.__dict__ #| dataset_info
 
     # Define important objects
     dataloader = torch.utils.data.DataLoader(
@@ -77,7 +77,7 @@ def train_nn(
             repo.git_pull()
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("Train Super-Resolution (NN)", config=config.__dict__)
+        accelerator.init_trackers("Train Super-Resolution NN", config=hparams)
 
     (
         model,
