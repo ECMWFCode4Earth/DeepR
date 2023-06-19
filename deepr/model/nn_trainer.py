@@ -65,7 +65,7 @@ def train_nn(
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        log_with=[LoggerType.TENSORBOARD, LoggerType.MLFLOW],
+        log_with=[LoggerType.TENSORBOARD],
         project_dir=os.path.join(config.output_dir, "logs"),
     )
 
@@ -77,7 +77,7 @@ def train_nn(
             repo.git_pull()
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("Train Super-Resolution NN", config=hparams)
+        accelerator.init_trackers("Train Super-Resolution (NN)", config=config.__dict__)
 
     (
         model,
