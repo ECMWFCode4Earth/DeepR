@@ -2,7 +2,6 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 from torch import nn
-from torch.utils.data import IterableDataset
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
@@ -37,6 +36,14 @@ class MainPipeline:
         self.train_config = TrainingConfig(**train_config["training_parameters"])
 
     def _prepare_data_cfg_log(self) -> Dict:
+        """
+        Prepare and log the data configuration.
+
+        Returns
+        -------
+        config : Dict
+            The prepared data configuration.
+        """
         config = self.data_config
         for key, val in config.items():
             # Drop data dir
@@ -47,14 +54,14 @@ class MainPipeline:
 
         return config
 
-    def get_dataset(self) -> Tuple[IterableDataset, IterableDataset, IterableDataset]:
+    def get_dataset(self) -> Tuple[DataGenerator, DataGenerator, DataGenerator]:
         """
         Initialize the data_loader for the pipeline.
 
         Returns
         -------
-        data_generator : Dataset
-            The initialized DataGenerator object.
+        data_generator : Tuple[DataGenerator, DataGenerator, DataGenerator]
+            The initialized DataGenerator objects for training, validation, and testing.
         """
         logger.info("Loading configuration...")
         data_configuration = DataConfiguration(self.data_config)
@@ -115,15 +122,15 @@ class MainPipeline:
         )
         return data_generator_train, data_generator_val, data_generator_test
 
-    def train_diffusion(self, dataset: IterableDataset, dataset_val: IterableDataset):
+    def train_diffusion(self, dataset: DataGenerator, dataset_val: DataGenerator):
         """
         Train a Deep Diffusion model with the given dataset.
 
         Parameters
         ----------
-        dataset : IterableDataset
+        dataset : DataGenerator
             The dataset to train the model on.
-        dataset_val: IterableDataset
+        dataset_val: DataGenerator
             The dataset to validate the model on.
 
         Returns
@@ -154,16 +161,16 @@ class MainPipeline:
         )
 
     def train_end2end_nn(
-        self, dataset_train: IterableDataset, dataset_val: IterableDataset
+        self, dataset_train: DataGenerator, dataset_val: DataGenerator
     ) -> nn.Module:
         """
         Train an end-to-end neural network with the given dataset.
 
         Parameters
         ----------
-        dataset_train : IterableDataset
+        dataset_train : DataGenerator
             The dataset to train the model on.
-        dataset_val: IterableDataset
+        dataset_val: DataGenerator
             The dataset to validate the model on.
 
         Returns
@@ -189,17 +196,17 @@ class MainPipeline:
 
     def train_model(
         self,
-        dataset_train: IterableDataset,
-        dataset_val: IterableDataset,
+        dataset_train: DataGenerator,
+        dataset_val: DataGenerator,
     ):
         """
         Train a Super Resolution (SR) model with the given dataset.
 
         Parameters
         ----------
-        dataset_train : IterableDataset
+        dataset_train : DataGenerator
             The dataset to train the model on.
-        dataset_val: IterableDataset
+        dataset_val: DataGenerator
             The dataset to validate the model on.
 
         Returns
@@ -217,6 +224,23 @@ class MainPipeline:
             )
 
     def test_model(self, model, dataset, hf_repo_name: str = None):
+        """
+        Test a trained model with the given dataset.
+
+        Parameters
+        ----------
+        model : nn.Module | SuperResolutionDenoiseDiffusion
+            The trained model to test.
+        dataset : DataGenerator
+            The dataset to test the model on.
+        hf_repo_name : str, optional
+            The name of the Hugging Face repository to push the model to, by default None.
+
+        Returns
+        -------
+        test_results : Dict
+            The test results of the model.
+        """
         push_to_hf = hf_repo_name is not None and self.train_config.push_to_hub
         hparams = self.data_config.get("data_split", None)
         return test_model(
@@ -228,7 +252,14 @@ class MainPipeline:
         )
 
     def run_pipeline(self):
-        """Run the pipeline and return the data generator."""
+        """
+        Run the pipeline.
+
+        Returns
+        -------
+        data_generator : Tuple[DataGenerator, DataGenerator, DataGenerator]
+            The initialized DataGenerator
+        """
         dataset_train, dataset_val, dataset_test = self.get_dataset()
         model, repo_name = self.train_model(dataset_train, dataset_val)
         self.test_model(model, dataset_test, hf_repo_name=repo_name)

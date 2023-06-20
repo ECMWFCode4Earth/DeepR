@@ -1,8 +1,9 @@
-import click
 from pathlib import Path
 
-from deepr.workflow import MainPipeline
+import click
+
 from deepr.utilities.logger import get_logger
+from deepr.workflow import MainPipeline
 
 logger = get_logger(__name__)
 

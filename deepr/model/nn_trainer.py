@@ -1,6 +1,7 @@
 import os
 from typing import Dict
 
+import matplotlib.pyplot
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -9,6 +10,7 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from tqdm import tqdm
 
+from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
@@ -19,9 +21,26 @@ def save_samples(
     model,
     era5: torch.Tensor,
     cerra: torch.Tensor,
-    outname: str,
-):
-    """Save a set of samples."""
+    output_name: str,
+) -> matplotlib.pyplot.Figure:
+    """
+    Save a set of samples.
+
+    Parameters
+    ----------
+    model : nn.Module
+        The model used for generating samples.
+    era5 : torch.Tensor
+        The ERA5 data tensor.
+    cerra : torch.Tensor
+        The CERRA data tensor.
+    output_name : str
+        The output file name.
+
+    Returns
+    -------
+    None
+    """
     with torch.no_grad():
         images = model(era5, return_dict=False)[0]
 
@@ -30,7 +49,7 @@ def save_samples(
         era5.cpu(),
         cerra.cpu(),
         images.cpu(),
-        filename=outname,
+        filename=output_name,
         figsize=(15, 6.5),
     )
 
@@ -38,11 +57,39 @@ def save_samples(
 def train_nn(
     config: TrainingConfig,
     model,
-    train_dataset: torch.utils.data.DataLoader,
-    val_dataset: torch.utils.data.DataLoader,
+    train_dataset: DataGenerator,
+    val_dataset: DataGenerator,
     dataset_info: Dict = {},
 ):
-    hparams = config.__dict__ #| dataset_info
+    """
+    Train a neural network model.
+
+    Parameters
+    ----------
+    config : TrainingConfig
+        The training configuration.
+    model : nn.Module
+        The neural network model.
+    train_dataset : DataGenerator
+        The training dataset.
+    val_dataset : DataGenerator
+        The validation dataset.
+    dataset_info : Dict, optional
+        Additional dataset information, by default {}.
+
+    Returns
+    -------
+    model : nn.Module
+        The trained model.
+    repo_name : str
+        The repository name.
+
+    Notes
+    -----
+    This function performs the training of a neural network model using the provided
+    datasets and configuration.
+    """
+    hparams = config.__dict__
 
     # Define important objects
     dataloader = torch.utils.data.DataLoader(
@@ -89,7 +136,7 @@ def train_nn(
     if config.batch_size > 4:
         val_era5, val_cerra = val_era5[:4], val_cerra[:4]
 
-    tf_writter = accelerator.get_tracker("tensorboard").writer
+    tf_writer = accelerator.get_tracker("tensorboard").writer
     global_step = 0
     # Now you train the model
     for epoch in range(config.num_epochs):
@@ -125,8 +172,8 @@ def train_nn(
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
-            tf_writter.add_histogram("cerra prediction", cerra_pred, global_step)
-            tf_writter.add_histogram("cerra", cerra, global_step)
+            tf_writer.add_histogram("cerra prediction", cerra_pred, global_step)
+            tf_writer.add_histogram("cerra", cerra, global_step)
             global_step += 1
 
         # Evaluate
@@ -163,9 +210,9 @@ def train_nn(
                     accelerator.unwrap_model(model),
                     val_era5,
                     val_cerra,
-                    outname=f"{samples_dir}/nn_{epoch+1:04d}.png",
+                    output_name=f"{samples_dir}/nn_{epoch+1:04d}.png",
                 )
-                tf_writter.add_figure("Predictions", fig, global_step=epoch)
+                tf_writer.add_figure("Predictions", fig, global_step=epoch)
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 if config.push_to_hub:
