@@ -72,7 +72,10 @@ class MainPipeline:
             val_split_size
         )
         if data_configuration.features_configuration["apply_standardization"]:
-            features_scaler = XarrayStandardScaler(features_coll_train)
+            features_scaler = XarrayStandardScaler(
+                features_coll_train,
+                data_configuration.common_configuration["cache_dir"],
+            )
         else:
             features_scaler = None
 
@@ -81,20 +84,34 @@ class MainPipeline:
         label_coll_train, label_coll_test = label_collection.split_data(test_split_size)
         label_coll_train, label_coll_val = label_coll_train.split_data(val_split_size)
         if data_configuration.features_configuration["apply_standardization"]:
-            label_scaler = XarrayStandardScaler(label_coll_train)
+            label_scaler = XarrayStandardScaler(
+                label_coll_train, data_configuration.common_configuration["cache_dir"]
+            )
         else:
             label_scaler = None
 
         # Define DataGenerators
         logger.info("Define the DataGenerator object.")
         data_generator_train = DataGenerator(
-            features_coll_train, label_coll_train, features_scaler, label_scaler
+            features_coll_train,
+            data_configuration.features_configuration["add_auxiliary"],
+            label_coll_train,
+            features_scaler,
+            label_scaler,
         )
         data_generator_val = DataGenerator(
-            features_coll_val, label_coll_val, features_scaler, label_scaler
+            features_coll_val,
+            data_configuration.features_configuration["add_auxiliary"],
+            label_coll_val,
+            features_scaler,
+            label_scaler,
         )
         data_generator_test = DataGenerator(
-            features_coll_test, label_coll_test, features_scaler, label_scaler
+            features_coll_test,
+            data_configuration.features_configuration["add_auxiliary"],
+            label_coll_test,
+            features_scaler,
+            label_scaler,
         )
         return data_generator_train, data_generator_val, data_generator_test
 
@@ -115,7 +132,6 @@ class MainPipeline:
             The trained model.
         """
         logger.info("Train Deep Diffusion model for Super Resolution task.")
-        self.configuration["training_configuration"]
         model_cfg = self.model_config.pop("eps_model")
         scheduler_cfg = self.model_config.pop("scheduler")
 

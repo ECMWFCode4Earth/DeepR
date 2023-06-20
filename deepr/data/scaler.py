@@ -2,12 +2,13 @@ from typing import Tuple
 
 import pandas
 import xarray
+from joblib import Memory
 
 from deepr.data.files import DataFileCollection
 
 
 class XarrayStandardScaler:
-    def __init__(self, files: DataFileCollection):
+    def __init__(self, files: DataFileCollection, cache_directory: str):
         """
         Initialize the XarrayStandardScaler object.
 
@@ -15,11 +16,26 @@ class XarrayStandardScaler:
         ----------
         files : DataFileCollection
             Data files from which the XarrayStandardScaler wants to be calculated.
+        cache_directory : str
+            Directory path to store the cache files.
         """
         self.files = files
+        self.cache_directory = cache_directory
         self.average, self.standard_deviation = self.get_parameters()
         self.average.load()
         self.standard_deviation.load()
+
+    def create_memory(self):
+        """
+        Create a joblib Memory object with the specified cache directory.
+
+        Returns
+        -------
+        Memory
+            A joblib Memory object with the cache directory.
+        """
+        memory = Memory(location=self.cache_directory, verbose=0)
+        return memory
 
     def get_parameters(self) -> Tuple[xarray.Dataset, xarray.Dataset]:
         """
@@ -32,12 +48,17 @@ class XarrayStandardScaler:
         std : xarray.Dataset
             The dataset containing the standard deviation values of the parameters.
         """
-        dataset = xarray.open_mfdataset(
-            [file.to_path() for file in self.files.collection]
-        )
-        mean = dataset.groupby("time.month").mean()
-        std = dataset.groupby("time.month").std()
-        return mean, std
+
+        @self.create_memory().cache
+        def compute_parameters():
+            dataset = xarray.open_mfdataset(
+                [file.to_path() for file in self.files.collection]
+            )
+            mean = dataset.groupby("time.month").mean()
+            std = dataset.groupby("time.month").std()
+            return mean, std
+
+        return compute_parameters()
 
     def apply_scaler(self, ds: xarray.Dataset) -> xarray.Dataset:
         """
