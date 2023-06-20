@@ -63,6 +63,15 @@ def get_neural_network(
 
         cfg = ConvSwin2SRConfig(**kwargs)
         return ConvSwin2SR(cfg)
+    elif class_name.lower() == "convbilinear":
+        from deepr.model.conv_bilinear import ConvBilinear, ConvBilinearConfig
+
+        kwargs["num_channels"] = kwargs.pop("out_channels")
+        image_size = (np.array(kwargs.pop("sample_size"))) / kwargs["upscale"]
+        kwargs["image_size"] = tuple([int(i) for i in image_size])
+
+        cfg = ConvBilinearConfig(**kwargs)
+        return ConvBilinear(cfg)
     elif class_name.split(".")[0].lower() == "diffusers":
         import diffusers
 

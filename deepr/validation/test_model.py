@@ -12,7 +12,7 @@ def test_model(
     torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
 
     mse = evaluate.load("mse", "multilist")
-    for era5, cerra, times in dataset:
+    for era5, cerra, *times in dataset:
         # Predict the noise residual
         with torch.no_grad():
             pred = model(era5, times[:, 0], return_dict=False)[0]
