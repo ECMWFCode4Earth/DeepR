@@ -71,11 +71,10 @@ class MainPipeline:
         features_coll_train, features_coll_val = features_coll_train.split_data(
             val_split_size
         )
+        
         if data_configuration.features_configuration["apply_standardization"]:
-            features_scaler = XarrayStandardScaler(
-                features_coll_train,
-                data_configuration.common_configuration["cache_dir"],
-            )
+            cache_dir = Path(data_configuration.features_configuration["data_dir"]).parent / ".cache"
+            features_scaler = XarrayStandardScaler(features_coll_train, cache_dir)
         else:
             features_scaler = None
 
@@ -83,10 +82,9 @@ class MainPipeline:
         label_collection = data_configuration.get_label()
         label_coll_train, label_coll_test = label_collection.split_data(test_split_size)
         label_coll_train, label_coll_val = label_coll_train.split_data(val_split_size)
-        if data_configuration.features_configuration["apply_standardization"]:
-            label_scaler = XarrayStandardScaler(
-                label_coll_train, data_configuration.common_configuration["cache_dir"]
-            )
+        if data_configuration.label_configuration["apply_standardization"]:
+            cache_dir = Path(data_configuration.labels_configuration["data_dir"]).parent / ".cache"
+            label_scaler = XarrayStandardScaler(label_coll_train, cache_dir)
         else:
             label_scaler = None
 

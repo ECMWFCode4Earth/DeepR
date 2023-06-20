@@ -1,14 +1,14 @@
 from typing import Tuple
-
+from pathlib import Path
 import pandas
 import xarray
 from joblib import Memory
-
+import os
 from deepr.data.files import DataFileCollection
 
 
 class XarrayStandardScaler:
-    def __init__(self, files: DataFileCollection, cache_directory: str):
+    def __init__(self, files: DataFileCollection, cache_directory: Path):
         """
         Initialize the XarrayStandardScaler object.
 
@@ -21,6 +21,7 @@ class XarrayStandardScaler:
         """
         self.files = files
         self.cache_directory = cache_directory
+        os.makedirs(self.cache_directory, exist_ok=True)
         self.average, self.standard_deviation = self.get_parameters()
         self.average.load()
         self.standard_deviation.load()
@@ -34,7 +35,7 @@ class XarrayStandardScaler:
         Memory
             A joblib Memory object with the cache directory.
         """
-        memory = Memory(location=self.cache_directory, verbose=0)
+        memory = Memory(location=str(self.cache_directory), verbose=0)
         return memory
 
     def get_parameters(self) -> Tuple[xarray.Dataset, xarray.Dataset]:
