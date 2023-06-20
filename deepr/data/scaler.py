@@ -52,6 +52,7 @@ class XarrayStandardScaler:
             The dataset containing the standard deviation values of the parameters.
         """
 
+        @self.create_memory().cache
         def compute_parameters():
             dataset = xarray.open_mfdataset(
                 [file.to_path() for file in self.files.collection]
