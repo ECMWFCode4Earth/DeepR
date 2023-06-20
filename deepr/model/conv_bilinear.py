@@ -152,7 +152,7 @@ class ConvBilinear(PreTrainedModel):
         interm = self.agg_cnn(torch.cat([up_pixels_center, h], dim=1))
 
         # Apply Denoising Swin2SR
-        output = self.denoise_model(interm)
+        output = self.denoise_model(interm) + up_pixels_center
 
         if not return_dict:
             return (output,)

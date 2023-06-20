@@ -9,13 +9,13 @@ def test_model(
     push_to_hub: bool = False,
     batch_size: int = 16,
 ):
-    torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
 
     mse = evaluate.load("mse", "multilist")
-    for era5, cerra, *times in dataset:
+    for era5, cerra, *times in dataloader:
         # Predict the noise residual
         with torch.no_grad():
-            pred = model(era5, times[:, 0], return_dict=False)[0]
+            pred = model(era5, return_dict=False)[0]
             mse.add_batches(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),

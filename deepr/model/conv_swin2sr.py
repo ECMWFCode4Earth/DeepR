@@ -203,7 +203,7 @@ class ConvSwin2SR(PreTrainedModel):
         intermediate = self.agg_cnn(torch.cat([up_pixels_center, h], dim=1))
 
         # Apply Denoising Swin2SR
-        return self.swin(
+        (out,) = self.swin(
             pixel_values=intermediate,
             head_mask=head_mask,
             labels=labels,
@@ -211,3 +211,4 @@ class ConvSwin2SR(PreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
+        return (out + up_pixels_center,)
