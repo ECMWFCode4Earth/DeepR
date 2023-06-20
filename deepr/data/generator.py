@@ -16,6 +16,7 @@ class DataGenerator(IterableDataset):
     def __init__(
         self,
         features_files: DataFileCollection,
+        add_auxiliary_features: bool,
         label_files: DataFileCollection,
         features_scaler: XarrayStandardScaler,
         label_scaler: XarrayStandardScaler,
@@ -28,15 +29,20 @@ class DataGenerator(IterableDataset):
         ----------
         features_files : DataFileCollection
             Collection of feature DataFile objects.
+        add_auxiliary_features : bool
+            Flag indicating whether to add auxiliary features.
         label_files : DataFileCollection
             Collection of label DataFile objects.
-        features_scaler: XarrayStandardScaler
-            Scaler object with which to apply the standardization
-        label_scaler: XarrayStandardScaler
-            Scaler object with which to apply the standardization
+        features_scaler : XarrayStandardScaler
+            Scaler object used for feature standardization.
+        label_scaler : XarrayStandardScaler
+            Scaler object used for label standardization.
+        shuffle : bool, optional
+            Flag indicating whether to shuffle the files, by default False.
         """
         super(DataGenerator).__init__()
         self.feature_files = features_files
+        self.add_auxiliary_features = add_auxiliary_features
         self.label_files = label_files
         self.init_date, self.end_date = self.get_dataset_dates()
         self.features_scaler = features_scaler
@@ -63,7 +69,7 @@ class DataGenerator(IterableDataset):
             self.feature_files.collection = shuffled_files_features
             self.label_files.collection = shuffled_files_features
 
-    def __len__(self):
+    def __len__(self) -> int:
         """
         Get the number of samples in the dataset.
 
@@ -74,7 +80,7 @@ class DataGenerator(IterableDataset):
         """
         return self.num_samples
 
-    def get_num_samples(self):
+    def get_num_samples(self) -> int:
         """
         Calculate the total number of samples in the dataset.
 
@@ -93,6 +99,20 @@ class DataGenerator(IterableDataset):
     def _read_file(
         self, time_value: np.datetime64
     ) -> Tuple[torch.Tensor, torch.Tensor, torch.Tensor]:
+        """
+        Read the file for the given time value and return feature, label, and time value tensors.
+
+        Parameters
+        ----------
+        time_value : numpy.datetime64
+            Time value to read the file.
+
+        Returns
+        -------
+        Tuple[torch.Tensor, torch.Tensor, torch.Tensor]
+            Tuple containing feature tensor, label tensor, and time value tensor
+            (if add_auxiliary_features is True).
+        """
         features_ds_batch = self.features_ds.sel(time=time_value)
         if self.features_scaler:
             features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
@@ -100,15 +120,21 @@ class DataGenerator(IterableDataset):
         if self.label_scaler:
             label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
 
-        time_value = pandas.to_datetime(time_value)
-        time_value_batch = numpy.array(
-            [time_value.hour, time_value.day, time_value.month, time_value.year]
-        )
-        return (
-            torch.as_tensor(features_ds_batch.to_array().to_numpy()),
-            torch.as_tensor(label_ds_batch.to_array().to_numpy()),
-            torch.as_tensor(time_value_batch),
-        )
+        if self.add_auxiliary_features:
+            time_value = pandas.to_datetime(time_value)
+            time_value_batch = numpy.array(
+                [time_value.hour, time_value.day, time_value.month, time_value.year]
+            )
+            return (
+                torch.as_tensor(features_ds_batch.to_array().to_numpy()),
+                torch.as_tensor(label_ds_batch.to_array().to_numpy()),
+                torch.as_tensor(time_value_batch),
+            )
+        else:
+            return (
+                torch.as_tensor(features_ds_batch.to_array().to_numpy()),
+                torch.as_tensor(label_ds_batch.to_array().to_numpy()),
+            )
 
     def __iter__(self):
         """
@@ -195,8 +221,8 @@ class DataGenerator(IterableDataset):
 
         Returns
         -------
-            tuple: A tuple containing the input shape, auxiliary shape, and output shape.
-
+        tuple
+            A tuple containing the input shape, auxiliary shape, and output shape.
         """
         features_sample, label_sample, aux_sample = next(self.__iter__())
         input_shape = tuple(features_sample.shape[1:])
