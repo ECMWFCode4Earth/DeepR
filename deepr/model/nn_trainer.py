@@ -19,7 +19,6 @@ def save_samples(
     model,
     era5: torch.Tensor,
     cerra: torch.Tensor,
-    times: torch.Tensor,
     outname: str,
 ):
     """Save a set of samples."""
@@ -27,12 +26,10 @@ def save_samples(
         images = model(era5, return_dict=False)[0]
 
     # Make a grid out of the images
-    sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     return get_figure_model_samples(
         era5.cpu(),
         cerra.cpu(),
         images.cpu(),
-        column_names=sample_names,
         filename=outname,
         figsize=(15, 6.5),
     )
@@ -88,9 +85,9 @@ def train_nn(
     ) = accelerator.prepare(model, optimizer, dataloader, dataloader_val, lr_scheduler)
 
     # Get fixed samples
-    val_era5, val_cerra, val_times = next(iter(val_dataloader))
+    val_era5, val_cerra = next(iter(val_dataloader))
     if config.batch_size > 4:
-        val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
+        val_era5, val_cerra = val_era5[:4], val_cerra[:4]
 
     tf_writter = accelerator.get_tracker("tensorboard").writer
     global_step = 0
@@ -102,7 +99,7 @@ def train_nn(
         )
         progress_bar.set_description(f"Epoch {epoch+1}")
 
-        for era5, cerra, times in train_dataloader:
+        for era5, cerra in train_dataloader:
             # Predict the noise residual
             with accelerator.accumulate(model):
                 cerra_pred = model(era5, return_dict=False)[0]
@@ -134,7 +131,7 @@ def train_nn(
 
         # Evaluate
         loss, true_var, pred_var, bias, mean_pred = [], [], [], [], []
-        for era5, cerra, times in val_dataloader:
+        for era5, cerra in val_dataloader:
             # Predict the noise residual
             with torch.no_grad():
                 cerra_pred = model(era5, return_dict=False)[0]
@@ -166,7 +163,6 @@ def train_nn(
                     accelerator.unwrap_model(model),
                     val_era5,
                     val_cerra,
-                    val_times,
                     outname=f"{samples_dir}/nn_{epoch+1:04d}.png",
                 )
                 tf_writter.add_figure("Predictions", fig, global_step=epoch)
