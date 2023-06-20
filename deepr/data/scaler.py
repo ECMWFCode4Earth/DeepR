@@ -1,9 +1,11 @@
-from typing import Tuple
+import os
 from pathlib import Path
+from typing import Tuple
+
 import pandas
 import xarray
 from joblib import Memory
-import os
+
 from deepr.data.files import DataFileCollection
 
 
