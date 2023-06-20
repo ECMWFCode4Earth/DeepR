@@ -57,6 +57,7 @@ class ConvSwin2SRConfig(Swin2SRConfig):
             mlp_ratio=mlp_ratio,
             qkv_bias=qkv_bias,
             hidden_dropout_prob=hidden_dropout_prob,
+            attention_probs_dropout_prob=attention_probs_dropout_prob,
             drop_path_rate=drop_path_rate,
             hidden_act=hidden_act,
             use_absolute_embeddings=use_absolute_embeddings,
@@ -108,6 +109,7 @@ class ConvSwin2SRConfig(Swin2SRConfig):
             mlp_ratio=self.mlp_ratio,
             qkv_bias=self.qkv_bias,
             hidden_dropout_prob=self.hidden_dropout_prob,
+            attention_probs_dropout_prob=self.attention_probs_dropout_prob,
             drop_path_rate=self.drop_path_rate,
             hidden_act=self.hidden_act,
             use_absolute_embeddings=self.use_absolute_embeddings,
@@ -198,11 +200,11 @@ class ConvSwin2SR(PreTrainedModel):
         for conv in self.cnns:
             h = conv(h)
 
-        self.agg_cnn(torch.cat([up_pixels_center, h], dim=1))
+        intermediate = self.agg_cnn(torch.cat([up_pixels_center, h], dim=1))
 
         # Apply Denoising Swin2SR
         return self.swin(
-            pixel_values=h,
+            pixel_values=intermediate,
             head_mask=head_mask,
             labels=labels,
             output_attentions=output_attentions,
