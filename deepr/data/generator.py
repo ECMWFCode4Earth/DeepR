@@ -224,11 +224,12 @@ class DataGenerator(IterableDataset):
         tuple
             A tuple containing the input shape, auxiliary shape, and output shape.
         """
+        batch = next(self.__iter__())
         if self.add_auxiliary_features:
-            features_sample, label_sample, aux_sample = next(self.__iter__())
+            features_sample, label_sample, aux_sample = batch
             aux_shape = tuple(aux_sample.shape)
         else:
-            features_sample, label_sample = next(self.__iter__())
+            features_sample, label_sample = batch
             aux_shape = None
         input_shape = tuple(features_sample.shape[1:])
         input_channels = features_sample.shape[0]
