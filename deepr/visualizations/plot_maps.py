@@ -1,11 +1,13 @@
-import logging
 from typing import List, Optional, Tuple
 
+import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
 
-logger = logging.getLogger(__name__)
+from deepr.utilities.logger import get_logger
+
+logger = get_logger(__name__)
 
 
 def get_figure_model_samples(
@@ -15,7 +17,7 @@ def get_figure_model_samples(
     column_names: List[str] = None,
     filename: Optional[str] = None,
     figsize: Optional[Tuple[int, int]] = None,
-):
+) -> matplotlib.pyplot.Figure:
     vmax = max(
         float(torch.max(coarse_image)),
         float(torch.max(fine_image)),
