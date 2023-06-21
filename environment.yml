@@ -15,13 +15,13 @@ dependencies:
 - diffusers
 - transformers
 - huggingface_hub
-- evaluate
 # Visualization libraries
 - cartopy
 - matplotlib
 - seaborn
 # Metrics libraries
-- xskillscore
+- evaluate
+- scikit-image
 # Libraries for utilities
 - mlflow
 - pydantic

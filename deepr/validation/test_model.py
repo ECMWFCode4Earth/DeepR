@@ -9,6 +9,8 @@ tmpdir = tempfile.mkdtemp(prefix="test-")
 experiment_name = "Test Neural Network"
 metric_to_repo = {
     "MSE": "mse",
+    "R2": "pearsonr",
+    "SMAPE": "smape",
     "PSNR": "jpxkqx/peak_signal_to_noise_ratio",
     "SSIM": "jpxkqx/structural_similarity_index_measure",
     "SRE": "jpxkqx/signal_to_reconstruction_error",
@@ -26,6 +28,8 @@ def test_model(
 
     # Load metrics
     mse = evaluate.load("mse", "multilist")
+    r2 = evaluate.load("pearsonr", "multilist")
+    smape = evaluate.load("smape", "multilist")
     psnr = evaluate.load("jpxkqx/peak_signal_to_noise_ratio", "multilist")
     ssim = evaluate.load("jpxkqx/structural_similarity_index_measure", "multilist")
     sre = evaluate.load("jpxkqx/signal_to_reconstruction_error", "multilist")
@@ -37,6 +41,14 @@ def test_model(
         with torch.no_grad():
             pred = model(era5, return_dict=False)[0]
             mse.add_batch(
+                references=cerra.reshape((cerra.shape[0], -1)),
+                predictions=pred.reshape((pred.shape[0], -1)),
+            )
+            r2.add_batch(
+                references=cerra.reshape((cerra.shape[0], -1)),
+                predictions=pred.reshape((pred.shape[0], -1)),
+            )
+            smape.add_batch(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),
             )
@@ -52,6 +64,8 @@ def test_model(
     data_range = float(max(max_pred, max_true) - min(min_pred, min_true))
     test_metrics = {
         "MSE": mse.compute()["mse"],
+        "R2": r2.compute()["pearsonr"],
+        "SMAPE": smape.compute()["smape"],
         "PSNR": psnr.compute(data_range=data_range),
         "SSIM": ssim.compute(data_range=data_range, channel_axis=0),  # ignore batch dim
         "SRE": sre.compute()["Signal-to-Reconstruction Error"],
