@@ -1,5 +1,5 @@
 import os
-from typing import Optional
+from typing import Optional, Type
 
 import diffusers
 import torch
@@ -90,9 +90,10 @@ def train_diffusion(
     noise_scheduler: diffusers.SchedulerMixin,
     dataset: torch.utils.data.IterableDataset,
     dataset_val: torch.utils.data.IterableDataset,
+    obs_model: Type[torch.nn.Module] = None,
     dataset_info: dict = None,
 ):
-    hparams = config.__dict__ | dataset_info
+    hparams = config.__dict__  # | dataset_info
 
     # Define important objects
     train_dataloader = torch.utils.data.DataLoader(
@@ -179,6 +180,8 @@ def train_diffusion(
 
             # Predict the noise residual
             with accelerator.accumulate(model):
+                if obs_model is not None:
+                    era5 = model(era5)
                 model_inputs = torch.cat([noisy_images, era5], dim=1)
 
                 # Predict the noise residual
@@ -234,6 +237,8 @@ def train_diffusion(
 
             # Predict the noise residual
             with torch.no_grad():
+                if obs_model is not None:
+                    era5 = model(era5)
                 model_inputs = torch.cat([noisy_images, era5], dim=1)
 
                 # Predict the noise residual

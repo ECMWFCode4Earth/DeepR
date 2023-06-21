@@ -8,7 +8,7 @@ from deepr.data.generator import DataGenerator
 from deepr.data.scaler import XarrayStandardScaler
 from deepr.model.configs import TrainingConfig
 from deepr.model.diffusion_trainer import train_diffusion
-from deepr.model.models import get_hf_scheduler, get_neural_network
+from deepr.model.models import get_hf_scheduler, get_neural_network, load_trained_model
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
@@ -128,6 +128,20 @@ class MainPipeline:
         )
         return data_generator_train, data_generator_val, data_generator_test
 
+    def load_trained_model(self):
+        if self.pipeline_type == "diffusion":
+            model, model_name = None, None
+        elif self.pipeline_type == "end2end":
+            # If running validation on trained model, a "trained_model_dir" is required
+            cfg = self.model_config["neural_network"]
+            model_name = cfg["trained_model_dir"]
+            model = load_trained_model(cfg["class_name"], model_name)
+        else:
+            raise NotImplementedError(
+                f"Pipeline type {self.pipeline_type} not implemented!"
+            )
+        return model, model_name
+
     def train_diffusion(self, dataset: DataGenerator, dataset_val: DataGenerator):
         """
         Train a Deep Diffusion model with the given dataset.
@@ -156,6 +170,9 @@ class MainPipeline:
         )
         scheduler = get_hf_scheduler(**scheduler_cfg)
 
+        obs_model_cfg = self.model_config.pop("trained_obs_model", None)
+        obs_model = load_trained_model(**obs_model_cfg)
+
         # Train the diffusion model
         train_diffusion(
             self.train_config,
@@ -163,7 +180,8 @@ class MainPipeline:
             scheduler,
             dataset,
             dataset_val,
-            self._prepare_data_cfg_log(),
+            obs_model=obs_model,
+            dataset_info=self._prepare_data_cfg_log(),
         )
 
     def train_end2end_nn(
@@ -247,25 +265,25 @@ class MainPipeline:
         test_results : Dict
             The test results of the model.
         """
-        push_to_hf = hf_repo_name is not None and self.train_config.push_to_hub
+        if hf_repo_name is not None and not self.train_config.push_to_hub:
+            hf_repo_name = None
         hparams = self.data_config.get("data_split", None)
         return test_model(
             model,
             dataset,
             hparams=hparams,
-            push_to_hub=push_to_hf,
             batch_size=self.train_config.batch_size,
+            hf_repo_name=hf_repo_name,
         )
 
-    def run_pipeline(self):
-        """
-        Run the pipeline.
+    def run_validation(self):
+        """Run the validation on a trained model."""
+        *_, dataset_test = self.get_dataset()
+        model, repo_name = self.load_trained_model()
+        self.test_model(model, dataset_test, hf_repo_name=repo_name)
 
-        Returns
-        -------
-        data_generator : Tuple[DataGenerator, DataGenerator, DataGenerator]
-            The initialized DataGenerator
-        """
+    def run_pipeline(self):
+        """Run the pipeline."""
         dataset_train, dataset_val, dataset_test = self.get_dataset()
         model, repo_name = self.train_model(dataset_train, dataset_val)
         self.test_model(model, dataset_test, hf_repo_name=repo_name)

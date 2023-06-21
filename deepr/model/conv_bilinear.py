@@ -11,7 +11,7 @@ logger = logging.getLogger(__name__)
 
 
 class ConvBilinearConfig(PretrainedConfig):
-    model_type = "conv_bilineal"
+    model_type = "convbilinear"
 
     attribute_map = {
         "hidden_size": "embed_dim",
@@ -31,8 +31,9 @@ class ConvBilinearConfig(PretrainedConfig):
         conv_kernel_size: List[int] = [],
         conv_stride: List[int] = None,
         conv_padding: List[str] = None,
+        **kwargs,
     ):
-        super().__init__()
+        super().__init__(**kwargs)
 
         assert len(conv_channels) == len(
             conv_kernel_size
@@ -66,7 +67,7 @@ class ConvBilinearConfig(PretrainedConfig):
 
 class ConvBilinear(PreTrainedModel):
     config_class = ConvBilinearConfig
-    base_model_prefix = "convswin2sr"
+    base_model_prefix = "convbilinear"
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = True
 

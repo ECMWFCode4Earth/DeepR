@@ -9,6 +9,15 @@ from deepr.utilities.logger import get_logger
 logger = get_logger(__name__)
 
 
+def load_trained_model(class_name: str, model_dir: str) -> nn.Module:
+    if class_name.lower() == "convbilinear":
+        from deepr.model.conv_bilinear import ConvBilinear
+
+        model = ConvBilinear.from_pretrained(model_dir)
+        return model
+    return None
+
+
 def get_neural_network(
     class_name: str,
     kwargs: dict,
