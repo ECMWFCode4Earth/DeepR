@@ -10,7 +10,7 @@ tmpdir = tempfile.mkdtemp(prefix="test-")
 experiment_name = "Test Neural Network"
 metric_to_repo = {
     "MSE": "mse",
-    "R2": "pearsonr",
+    "R2": "r_squared",
     "SMAPE": "smape",
     "PSNR": "jpxkqx/peak_signal_to_noise_ratio",
     "SSIM": "jpxkqx/structural_similarity_index_measure",
@@ -35,7 +35,7 @@ def compute_and_upload_metrics(
     """
     # Load metrics over all dataset
     mse = evaluate.load("mse", "multilist")
-    r2 = evaluate.load("pearsonr", "multilist")
+    #r2 = evaluate.load("pearsonr", "multilist")
     smape = evaluate.load("smape", "multilist")
     psnr = evaluate.load("jpxkqx/peak_signal_to_noise_ratio", "multilist")
     ssim = evaluate.load("jpxkqx/structural_similarity_index_measure", "multilist")
@@ -51,10 +51,10 @@ def compute_and_upload_metrics(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),
             )
-            r2.add_batch(
-                references=cerra.reshape((cerra.shape[0], -1)),
-                predictions=pred.reshape((pred.shape[0], -1)),
-            )
+            #r2.add_batch(
+            #    references=cerra.reshape((cerra.shape[0], -1)),
+            #    predictions=pred.reshape((pred.shape[0], -1)),
+            #)
             smape.add_batch(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),
@@ -71,7 +71,7 @@ def compute_and_upload_metrics(
     data_range = float(max(max_pred, max_true) - min(min_pred, min_true))
     test_metrics = {
         "MSE": mse.compute()["mse"],
-        "R2": r2.compute()["pearsonr"],
+        #"R2": r2.compute()["pearsonr"],
         "SMAPE": smape.compute()["smape"],
         "PSNR": psnr.compute(data_range=data_range),
         "SSIM": ssim.compute(data_range=data_range, channel_axis=0),  # ignore batch dim
