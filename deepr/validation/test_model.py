@@ -1,5 +1,6 @@
 import tempfile
-
+import os
+from typing import Type
 import evaluate
 import torch
 from tqdm import tqdm
@@ -17,16 +18,22 @@ metric_to_repo = {
 }
 
 
-def test_model(
-    model,
-    dataset: torch.utils.data.IterableDataset,
-    hparams: dict = None,
-    batch_size: int = 4,
-    hf_repo_name: str = None,
+def compute_and_upload_metrics(
+    model: Type[torch.nn.Module], 
+    dataloader: torch.utils.data.DataLoader, 
+    hf_repo_name: str = None
 ):
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
-
-    # Load metrics
+    """ Compute and upload a set of metrics.
+    
+    The metrics computed in this function are:
+    - MSE: Mean Squared Error of the predictions.
+    - R2: Pearson Correlation (R²) coefficient of the predictions.
+    - SMAPE: Symmetric Mean Absolute Percentage Error of the predictions.
+    - PSNR: Peak Signal to Noise Ratio of the predictions.
+    - SSIM: Structural Similarity Index Measure of the predictions.
+    - SRE: Signal to Reconstruction Error of the predictions.
+    """
+    # Load metrics over all dataset
     mse = evaluate.load("mse", "multilist")
     r2 = evaluate.load("pearsonr", "multilist")
     smape = evaluate.load("smape", "multilist")
@@ -73,11 +80,6 @@ def test_model(
     for name, metric_val in test_metrics.items():
         print(f"Test {name}: {metric_val:.2f}")
 
-    if hparams is not None:
-        evaluate.save(tmpdir, experiment=experiment_name, **test_metrics, **hparams)
-    else:
-        evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)
-
     if hf_repo_name is not None:
         for name, metric_val in test_metrics.items():
             evaluate.push_to_hub(
@@ -92,7 +94,22 @@ def test_model(
                 task_name="Super Resolution",
             )
 
+    return test_metrics
+
+
+def test_model(
+    model,
+    dataset: torch.utils.data.IterableDataset,
+    hparams: dict = None,
+    batch_size: int = os.getenv("BATCH_SIZE", 4),
+    hf_repo_name: str = None,
+):
+    dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+
     # TODO: Genereate plots over test dataset.
     # 1 -. Error maps
     # 2 -. Histogram comparison
     # 3 -. Predictions vs ground truth vs bilinear
+
+    test_metrics = compute_and_upload_metrics(model, dataloader, hf_repo_name)
+    evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)
