@@ -19,7 +19,7 @@ def test_model(
     model,
     dataset: torch.utils.data.IterableDataset,
     hparams: dict = None,
-    batch_size: int = 16,
+    batch_size: int = 4,
     hf_repo_name: str = None,
 ):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)

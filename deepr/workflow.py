@@ -33,7 +33,10 @@ class MainPipeline:
         train_config = configuration["training_configuration"]
         self.pipeline_type = train_config["type"]
         self.model_config = train_config["model_configuration"]
-        self.train_config = TrainingConfig(**train_config["training_parameters"])
+        if "training_parameters" in train_config.keys():
+            self.train_config = TrainingConfig(**train_config["training_parameters"])
+        else:
+            self.train_config = None
 
     def _prepare_data_cfg_log(self) -> Dict:
         """
@@ -265,14 +268,12 @@ class MainPipeline:
         test_results : Dict
             The test results of the model.
         """
-        if hf_repo_name is not None and not self.train_config.push_to_hub:
-            hf_repo_name = None
         hparams = self.data_config.get("data_split", None)
         return test_model(
             model,
             dataset,
             hparams=hparams,
-            batch_size=self.train_config.batch_size,
+            batch_size=8,
             hf_repo_name=hf_repo_name,
         )
 
