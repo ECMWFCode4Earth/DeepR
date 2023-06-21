@@ -15,6 +15,11 @@ def load_trained_model(class_name: str, model_dir: str) -> nn.Module:
 
         model = ConvBilinear.from_pretrained(model_dir)
         return model
+    elif class_name.lower() == "convswin2sr":
+        from deepr.model.conv_swin2sr import ConvSwin2SR
+        
+        model = ConvSwin2SR.from_pretrained(model_dir)
+        return model
     return None
 
 
