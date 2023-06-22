@@ -115,7 +115,7 @@ def train_nn(
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         log_with=[LoggerType.TENSORBOARD, aim_tracker],
-        project_dir=os.path.join(config.output_dir, "logs")
+        project_dir=os.path.join(config.output_dir, "logs"),
     )
 
     if accelerator.is_main_process:
@@ -223,7 +223,9 @@ def train_nn(
                     val_cerra,
                     output_name=f"{samples_dir}/nn_{epoch+1:04d}.png",
                 )
-                tfboard_tracker.writer.add_figure("Predictions", fig, global_step=epoch)
+                tfboard_tracker.writer.add_figure(
+                    "Predictions", fig, global_step=epoch + 1
+                )
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 if config.push_to_hub:
