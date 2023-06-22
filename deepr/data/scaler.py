@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from typing import Tuple
 
-import torch
 import pandas
+import torch
 import xarray
 from joblib import Memory
 
@@ -55,9 +55,21 @@ class XarrayStandardScaler:
 
         @self.create_memory().cache
         def compute_parameters():
-            dataset = xarray.open_mfdataset(
-                [file.to_path() for file in self.files.collection]
-            )
+            datasets = []
+            for file in self.files.collection:
+                dataset = xarray.open_dataset(file.to_path())
+                dataset = dataset.sel(
+                    latitude=slice(
+                        file.spatial_coverage["latitude"][0],
+                        file.spatial_coverage["latitude"][1],
+                    ),
+                    longitude=slice(
+                        file.spatial_coverage["longitude"][0],
+                        file.spatial_coverage["longitude"][1],
+                    ),
+                )
+                datasets.append(dataset)
+            dataset = xarray.concat(datasets, dim="time")
             mean = dataset.groupby("time.month").mean()
             std = dataset.groupby("time.month").std()
             return mean, std
@@ -90,10 +102,22 @@ class XarrayStandardScaler:
         )
         return ds_scaled
 
-    def inverse_transform(
+    def apply_inverse_scaler(
         self, data: torch.Tensor, month: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Inverse the standard scaling to the input dataset.
-        """
+        """Inverse the standard scaling to the input dataset."""
+        data_indexes = []
+        for index in range(data.shape[0]):
+            data_index = data[index, :, :, :]
+            std_index = (
+                self.standard_deviation.sel(month=month[index], method="nearest")
+                .to_array()
+                .values
+            )
+            mean_index = (
+                self.average.sel(month=month[index], method="nearest").to_array().values
+            )
+            data_index_inverse = (data_index * std_index) + mean_index
+            data_indexes.append(data_index_inverse.unsqueeze(1))
+        data = torch.cat(data_indexes, dim=0)
         return data

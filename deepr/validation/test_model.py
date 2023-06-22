@@ -1,11 +1,12 @@
 import os
 import tempfile
 from typing import Type
-from deepr.data.scaler import XarrayStandardScaler
 
 import evaluate
 import torch
 from tqdm import tqdm
+
+from deepr.data.scaler import XarrayStandardScaler
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
@@ -51,8 +52,8 @@ def compute_and_upload_metrics(
         with torch.no_grad():
             pred = model(era5, return_dict=False)[0]
             if label_scaler is not None:
-                pred = label_scaler.inverse_transform(pred, times[:, 2])
-                cerra = label_scaler.inverse_transform(cerra, times[:, 2])
+                pred = label_scaler.apply_inverse_scaler(pred, times[:, 2])
+                cerra = label_scaler.apply_inverse_scaler(cerra, times[:, 2])
 
             mse.add_batch(
                 references=cerra.reshape((cerra.shape[0], -1)),
