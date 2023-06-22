@@ -258,11 +258,11 @@ class MainPipeline:
         test_results : Dict
             The test results of the model.
         """
-        hparams = self.data_config.get("data_split", None)
+        #hparams = self.data_config.get("data_split", None)
         return test_model(
             model,
             dataset,
-            hparams=hparams,
+            #hparams=hparams,
             batch_size=8,
             hf_repo_name=hf_repo_name,
             label_scaler=self.label_scaler

@@ -123,22 +123,22 @@ def compute_errors_vs_baseline(
         with torch.no_grad():
             pred = model(era5, return_dict=False)[0]
 
-        pred_bil = torch.nn.functional.interpolate(
+        pred_bi = torch.nn.functional.interpolate(
             era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
         )
 
         if label_scaler is not None:
-            pred = label_scaler.inverse_transform(pred, times[:, 2])
-            pred_bil = label_scaler.inverse_transform(pred_bil, times[:, 2])
-            cerra = label_scaler.inverse_transform(cerra, times[:, 2])
+            pred = label_scaler.apply_inverse_scaler(pred, times[:, 2])
+            pred_bi = label_scaler.apply_inverse_scaler(pred_bi, times[:, 2])
+            cerra = label_scaler.apply_inverse_scaler(cerra, times[:, 2])
 
         error = pred - cerra
-        error_bi = pred_bil - cerra
+        error_bi = pred_bi - cerra
         count += pred.shape[0]
-        errors += error
-        abs_errors += error**2
-        errors_bi += error_bi
-        abs_errors_bi += error_bi**2
+        errors += torch.sum(torch.abs(error), (0, 1))
+        abs_errors += torch.sum(error ** 2, (0, 1))
+        errors_bi += torch.sum(torch.abs(error_bi), (0, 1))
+        abs_errors_bi += torch.sum(error_bi ** 2, (0, 1))
 
     mae = errors / count
     mse = abs_errors / count
@@ -168,10 +168,10 @@ def test_model(
     )
     names = [model.__class__.__name__, baseline]
     plot_model_maps_comparison(
-        mse, mse_base, names, f"{local_dir}/mse_vs_{baseline}.png"
+        mse, mse_base, names, "MSE (ºC)", f"{local_dir}/mse_vs_{baseline}.png"
     )
     plot_model_maps_comparison(
-        mae, mae_base, names, f"{local_dir}/mae_vs_{baseline}.png"
+        mae, mae_base, names, "MAE (ºC)", f"{local_dir}/mae_vs_{baseline}.png"
     )
 
     # TODO: Genereate plots over test dataset.
