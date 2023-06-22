@@ -105,7 +105,22 @@ class XarrayStandardScaler:
     def apply_inverse_scaler(
         self, data: torch.Tensor, month: torch.Tensor
     ) -> torch.Tensor:
-        """Inverse the standard scaling to the input dataset."""
+        """
+        Inverse the standard scaling to the input dataset.
+
+        Parameters
+        ----------
+        data : torch.Tensor
+            The input dataset that was previously scaled.
+        month : torch.Tensor
+            The month tensor used for selecting scaling parameters.
+
+        Returns
+        -------
+        torch.Tensor
+            The dataset with standard scaling inverted.
+
+        """
         data_indexes = []
         for index in range(data.shape[0]):
             data_index = data[index, :, :, :]
