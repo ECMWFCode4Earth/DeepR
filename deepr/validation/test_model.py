@@ -1,6 +1,7 @@
 import os
 import tempfile
 from typing import Type
+from deepr.data.scaler import XarrayStandardScaler
 
 import evaluate
 import torch
@@ -23,6 +24,7 @@ def compute_and_upload_metrics(
     model: Type[torch.nn.Module],
     dataloader: torch.utils.data.DataLoader,
     hf_repo_name: str = None,
+    label_scaler: XarrayStandardScaler = None,
 ):
     """Compute and upload a set of metrics.
 
@@ -44,10 +46,14 @@ def compute_and_upload_metrics(
 
     progress_bar = tqdm(total=len(dataloader), desc="Batch ")
     max_pred, min_pred, max_true, min_true = -999, 999, -999, 999
-    for era5, cerra, *times in dataloader:
+    for era5, cerra, times in dataloader:
         # Predict the noise residual
         with torch.no_grad():
             pred = model(era5, return_dict=False)[0]
+            if label_scaler is not None:
+                pred = label_scaler.inverse_transform(pred, times[:, 2])
+                cerra = label_scaler.inverse_transform(cerra, times[:, 2])
+
             mse.add_batch(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),
@@ -104,6 +110,7 @@ def test_model(
     hparams: dict = None,
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
+    label_scaler: XarrayStandardScaler = None,
 ):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
 
@@ -112,5 +119,7 @@ def test_model(
     # 2 -. Histogram comparison
     # 3 -. Predictions vs ground truth vs bilinear
 
-    test_metrics = compute_and_upload_metrics(model, dataloader, hf_repo_name)
+    test_metrics = compute_and_upload_metrics(
+        model, dataloader, hf_repo_name, label_scaler
+    )
     evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)

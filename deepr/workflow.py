@@ -37,6 +37,8 @@ class MainPipeline:
             self.train_config = TrainingConfig(**train_config["training_parameters"])
         else:
             self.train_config = None
+        self.features_scaler = None
+        self.label_scaler = None
 
     def _prepare_data_cfg_log(self) -> Dict:
         """
@@ -84,9 +86,7 @@ class MainPipeline:
 
         if data_configuration.features_configuration["apply_standardization"]:
             cache_dir = Path.home() / ".cache_reanalysis_scales" / "features_scale"
-            features_scaler = XarrayStandardScaler(features_coll_train, cache_dir)
-        else:
-            features_scaler = None
+            self.features_scaler = XarrayStandardScaler(features_coll_train, cache_dir)
 
         logger.info("Get label from data_configuration dictionary.")
         label_collection = data_configuration.get_label()
@@ -94,9 +94,7 @@ class MainPipeline:
         label_coll_train, label_coll_val = label_coll_train.split_data(val_split_size)
         if data_configuration.label_configuration["apply_standardization"]:
             cache_dir = Path.home() / ".cache_reanalysis_scales" / "label_scale"
-            label_scaler = XarrayStandardScaler(label_coll_train, cache_dir)
-        else:
-            label_scaler = None
+            self.label_scaler = XarrayStandardScaler(label_coll_train, cache_dir)
 
         # Define DataGenerators
         logger.info("Define the DataGenerator object.")
@@ -104,22 +102,22 @@ class MainPipeline:
             features_coll_train,
             data_configuration.features_configuration["add_auxiliary"],
             label_coll_train,
-            features_scaler,
-            label_scaler,
+            self.features_scaler,
+            self.label_scaler,
         )
         data_generator_val = DataGenerator(
             features_coll_val,
             data_configuration.features_configuration["add_auxiliary"],
             label_coll_val,
-            features_scaler,
-            label_scaler,
+            self.features_scaler,
+            self.label_scaler,
         )
         data_generator_test = DataGenerator(
             features_coll_test,
-            data_configuration.features_configuration["add_auxiliary"],
+            True,
             label_coll_test,
-            features_scaler,
-            label_scaler,
+            self.features_scaler,
+            self.label_scaler,
         )
         return data_generator_train, data_generator_val, data_generator_test
 
@@ -267,6 +265,7 @@ class MainPipeline:
             hparams=hparams,
             batch_size=8,
             hf_repo_name=hf_repo_name,
+            label_scaler=self.label_scaler
         )
 
     def run_validation(self):
