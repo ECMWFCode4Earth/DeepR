@@ -88,3 +88,39 @@ def get_figure_model_samples(
         plt.close()
 
     return fig
+
+
+def plot_model_maps_comparison(
+    matrix1: torch.Tensor,
+    matrix2: torch.Tensor,
+    matrix_names: List[str] = None,
+    filename: Optional[str] = None,
+):
+    vmax = max(float(torch.max(matrix1)), float(torch.max(matrix2)))
+    vmin = min(float(torch.min(matrix1)), float(torch.min(matrix2)))
+    v_kwargs = {"vmax": vmax, "vmin": vmin}
+    fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(12, 8))
+    plt.tight_layout()
+
+    ax1.imshow(matrix1.numpy(), **v_kwargs)
+    im = ax2.imshow(matrix2.numpy(), **v_kwargs)
+
+    ax1.get_xaxis().set_ticks([])
+    ax1.get_yaxis().set_ticks([])
+    ax2.get_xaxis().set_ticks([])
+    ax2.get_yaxis().set_ticks([])
+
+    if matrix_names is not None:
+        ax1.set_ylabel(matrix_names[0], fontsize=14)
+        ax2.set_ylabel(matrix_names[1], fontsize=14)
+
+    fig.subplots_adjust(bottom=0.05)
+    cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.05])
+    fig.colorbar(im, cax=cbar_ax, orientation="horizontal")
+
+    if filename is not None:
+        logger.info(f"Samples from model have been saved to {filename}")
+        plt.savefig(filename, bbox_inches="tight", transparent=True)
+        plt.close()
+
+    return fig

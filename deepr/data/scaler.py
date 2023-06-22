@@ -2,8 +2,8 @@ import os
 from pathlib import Path
 from typing import Tuple
 
-import torch
 import pandas
+import torch
 import xarray
 from joblib import Memory
 
@@ -93,7 +93,5 @@ class XarrayStandardScaler:
     def inverse_transform(
         self, data: torch.Tensor, month: torch.Tensor
     ) -> torch.Tensor:
-        """
-        Inverse the standard scaling to the input dataset.
-        """
+        """Inverse the standard scaling to the input dataset."""
         return data

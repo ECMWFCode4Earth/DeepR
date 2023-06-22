@@ -265,17 +265,21 @@ class MainPipeline:
             hparams=hparams,
             batch_size=8,
             hf_repo_name=hf_repo_name,
-            label_scaler=self.label_scaler
+            label_scaler=self.label_scaler,
         )
 
     def run_validation(self):
         """Run the validation on a trained model."""
         *_, dataset_test = self.get_dataset()
         model, repo_name = self.load_trained_model()
-        self.test_model(model, dataset_test, hf_repo_name=repo_name)
+        self.test_model(
+            model, dataset_test, hf_repo_name=repo_name, label_scaler=self.label_scaler
+        )
 
     def run_pipeline(self):
         """Run the pipeline."""
         dataset_train, dataset_val, dataset_test = self.get_dataset()
         model, repo_name = self.train_model(dataset_train, dataset_val)
-        self.test_model(model, dataset_test, hf_repo_name=repo_name)
+        self.test_model(
+            model, dataset_test, hf_repo_name=repo_name, label_scaler=self.label_scaler
+        )

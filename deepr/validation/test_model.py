@@ -1,11 +1,14 @@
 import os
 import tempfile
 from typing import Type
-from deepr.data.scaler import XarrayStandardScaler
 
 import evaluate
 import torch
+from huggingface_hub import Repository
 from tqdm import tqdm
+
+from deepr.data.scaler import XarrayStandardScaler
+from deepr.visualizations.plot_maps import plot_model_maps_comparison
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
@@ -104,15 +107,72 @@ def compute_and_upload_metrics(
     return test_metrics
 
 
+def compute_errors_vs_baseline(
+    model: Type[torch.nn.Module],
+    dataloader: torch.utils.data.DataLoader,
+    baseline: str = "bucubic",
+    label_scaler: XarrayStandardScaler = None,
+):
+    count = 0
+    errors = torch.zeros(dataloader.dataset.output_shape)
+    abs_errors = torch.zeros(dataloader.dataset.output_shape)
+    errors_bi = torch.zeros(dataloader.dataset.output_shape)
+    abs_errors_bi = torch.zeros(dataloader.dataset.output_shape)
+    for era5, cerra, times in dataloader:
+        # Predict the noise residual
+        with torch.no_grad():
+            pred = model(era5, return_dict=False)[0]
+
+        pred_bil = torch.nn.functional.interpolate(
+            era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
+        )
+
+        if label_scaler is not None:
+            pred = label_scaler.inverse_transform(pred, times[:, 2])
+            pred_bil = label_scaler.inverse_transform(pred_bil, times[:, 2])
+            cerra = label_scaler.inverse_transform(cerra, times[:, 2])
+
+        error = pred - cerra
+        error_bi = pred_bil - cerra
+        count += pred.shape[0]
+        errors += error
+        abs_errors += error**2
+        errors_bi += error_bi
+        abs_errors_bi += error_bi**2
+
+    mae = errors / count
+    mse = abs_errors / count
+    mae_bi = errors_bi / count
+    mse_bi = abs_errors_bi / count
+
+    return mae, mse, mae_bi, mse_bi
+
+
 def test_model(
     model,
     dataset: torch.utils.data.IterableDataset,
-    hparams: dict = None,
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
 ):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+
+    local_dir = f"hf-{model.__class__.__name__}-evaluation"
+    repo = Repository(local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN"))
+    repo.git_pull()
+
+    # Compute errors
+    baseline = "bicubic"
+    mae, mse, mae_base, mse_base = compute_errors_vs_baseline(
+        model, dataloader, baseline, label_scaler
+    )
+    names = [model.__class__.__name__, baseline]
+    plot_model_maps_comparison(
+        mse, mse_base, names, f"{local_dir}/mse_vs_{baseline}.png"
+    )
+    plot_model_maps_comparison(
+        mae, mae_base, names, f"{local_dir}/mae_vs_{baseline}.png"
+    )
 
     # TODO: Genereate plots over test dataset.
     # 1 -. Error maps
@@ -123,3 +183,5 @@ def test_model(
         model, dataloader, hf_repo_name, label_scaler
     )
     evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)
+
+    repo.push_to_hub(repo_id=hf_repo_name, commit_message="Tests", blocking=True)
