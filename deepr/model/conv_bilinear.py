@@ -23,7 +23,7 @@ class ConvBilinearConfig(PretrainedConfig):
         self,
         num_channels: int = 1,
         num_layers: int = 3,
-        hidden_kernel: int = 64,
+        hidden_kernel: int = 5,
         hidden_ch: int = 64,
         upscale: int = 1,
         image_size: Tuple[int] = None,

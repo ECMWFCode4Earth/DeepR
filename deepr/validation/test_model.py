@@ -1,6 +1,7 @@
-import tempfile
 import os
+import tempfile
 from typing import Type
+
 import evaluate
 import torch
 from tqdm import tqdm
@@ -19,12 +20,12 @@ metric_to_repo = {
 
 
 def compute_and_upload_metrics(
-    model: Type[torch.nn.Module], 
-    dataloader: torch.utils.data.DataLoader, 
-    hf_repo_name: str = None
+    model: Type[torch.nn.Module],
+    dataloader: torch.utils.data.DataLoader,
+    hf_repo_name: str = None,
 ):
-    """ Compute and upload a set of metrics.
-    
+    """Compute and upload a set of metrics.
+
     The metrics computed in this function are:
     - MSE: Mean Squared Error of the predictions.
     - R2: Pearson Correlation (R²) coefficient of the predictions.
@@ -35,7 +36,7 @@ def compute_and_upload_metrics(
     """
     # Load metrics over all dataset
     mse = evaluate.load("mse", "multilist")
-    #r2 = evaluate.load("pearsonr", "multilist")
+    # r2 = evaluate.load("pearsonr", "multilist")
     smape = evaluate.load("smape", "multilist")
     psnr = evaluate.load("jpxkqx/peak_signal_to_noise_ratio", "multilist")
     ssim = evaluate.load("jpxkqx/structural_similarity_index_measure", "multilist")
@@ -51,10 +52,10 @@ def compute_and_upload_metrics(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),
             )
-            #r2.add_batch(
+            # r2.add_batch(
             #    references=cerra.reshape((cerra.shape[0], -1)),
             #    predictions=pred.reshape((pred.shape[0], -1)),
-            #)
+            # )
             smape.add_batch(
                 references=cerra.reshape((cerra.shape[0], -1)),
                 predictions=pred.reshape((pred.shape[0], -1)),
@@ -71,7 +72,7 @@ def compute_and_upload_metrics(
     data_range = float(max(max_pred, max_true) - min(min_pred, min_true))
     test_metrics = {
         "MSE": mse.compute()["mse"],
-        #"R2": r2.compute()["pearsonr"],
+        # "R2": r2.compute()["pearsonr"],
         "SMAPE": smape.compute()["smape"],
         "PSNR": psnr.compute(data_range=data_range),
         "SSIM": ssim.compute(data_range=data_range, channel_axis=0),  # ignore batch dim

@@ -2,9 +2,11 @@ import os
 from typing import Dict
 
 import matplotlib.pyplot
+import numpy as np
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
+from accelerate.tracking import AimTracker
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
@@ -106,11 +108,14 @@ def train_nn(
         num_training_steps=(len(dataloader) * config.num_epochs),
     )
 
+    run_name = f"Train Super-Resolution NN ({model.__class__.__name__})"
+
+    aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        log_with=[LoggerType.TENSORBOARD],
-        project_dir=os.path.join(config.output_dir, "logs"),
+        log_with=[LoggerType.TENSORBOARD, aim_tracker],
+        project_dir=os.path.join(config.output_dir, "logs")
     )
 
     if accelerator.is_main_process:
@@ -121,7 +126,8 @@ def train_nn(
             repo.git_pull()
         elif config.output_dir is not None:
             os.makedirs(config.output_dir, exist_ok=True)
-        accelerator.init_trackers("Train Super-Resolution NN", config=hparams)
+        accelerator.init_trackers(run_name, config=hparams)
+        tfboard_tracker = accelerator.get_tracker("tensorboard")
 
     (
         model,
@@ -136,7 +142,10 @@ def train_nn(
     if config.batch_size > 4:
         val_era5, val_cerra = val_era5[:4], val_cerra[:4]
 
-    tf_writer = accelerator.get_tracker("tensorboard").writer
+    tfboard_tracker.writer.add_graph(model, val_era5)
+    print(
+        f"Number of parameters: {sum([np.prod(m.size()) for m in model.parameters()])}"
+    )
     global_step = 0
     # Now you train the model
     for epoch in range(config.num_epochs):
@@ -172,8 +181,10 @@ def train_nn(
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
-            tf_writer.add_histogram("cerra prediction", cerra_pred, global_step)
-            tf_writer.add_histogram("cerra", cerra, global_step)
+            tfboard_tracker.writer.add_histogram(
+                "cerra prediction", cerra_pred, global_step
+            )
+            tfboard_tracker.writer.add_histogram("cerra", cerra, global_step)
             global_step += 1
 
         # Evaluate
@@ -212,7 +223,7 @@ def train_nn(
                     val_cerra,
                     output_name=f"{samples_dir}/nn_{epoch+1:04d}.png",
                 )
-                tf_writer.add_figure("Predictions", fig, global_step=epoch)
+                tfboard_tracker.writer.add_figure("Predictions", fig, global_step=epoch)
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 if config.push_to_hub:
