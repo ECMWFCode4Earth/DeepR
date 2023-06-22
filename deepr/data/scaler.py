@@ -119,5 +119,5 @@ class XarrayStandardScaler:
             )
             data_index_inverse = (data_index * std_index) + mean_index
             data_indexes.append(data_index_inverse.unsqueeze(1))
-        data = torch.cat(data_indexes, dim=0)
-        return data
+        data_inverse = torch.cat(data_indexes, dim=0)
+        return data_inverse
