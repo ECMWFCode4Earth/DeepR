@@ -191,7 +191,7 @@ def test_model(
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
-    baseline: str = "bicubic",
+    baseline: str = "nearest",
 ):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
     scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler

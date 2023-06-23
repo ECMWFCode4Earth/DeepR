@@ -14,10 +14,14 @@ def get_figure_model_samples(
     coarse_image: torch.Tensor,
     fine_image: torch.Tensor,
     prediction: torch.Tensor,
+    baseline: torch.Tensor,
     column_names: List[str] = None,
     filename: Optional[str] = None,
     figsize: Optional[Tuple[int, int]] = None,
 ) -> matplotlib.pyplot.Figure:
+    if baseline is not None:
+        prediction = torch.cat([prediction, baseline], dim=0)
+
     vmax = max(
         float(torch.max(coarse_image)),
         float(torch.max(fine_image)),
@@ -67,7 +71,11 @@ def get_figure_model_samples(
             axs[0, i].set_ylabel("ERA5 (Low-res)", fontsize=14)
             axs[1, i].set_ylabel("CERRA (High-res)", fontsize=14)
             for r in range(n_realizations):
-                axs[2 + r, i].set_ylabel("Prediction (High-res)", fontsize=14)
+                if baseline is not None and r == n_realizations - 1:
+                    label = "Bicubic Int."
+                else:
+                    label = "Prediction (High-res)"
+                axs[2 + r, i].set_ylabel(label, fontsize=14)
 
     if column_names is not None:
         for c, col_name in enumerate(column_names):
@@ -78,8 +86,8 @@ def get_figure_model_samples(
         cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.05])
         fig.colorbar(im, cax=cbar_ax, orientation="horizontal")
     else:
-        fig.subplots_adjust(right=0.85)
-        cbar_ax = fig.add_axes([0.90, 0.15, 0.05, 0.7])
+        fig.subplots_adjust(right=0.95)
+        cbar_ax = fig.add_axes([0.97, 0.15, 0.05, 0.7])
         fig.colorbar(im, cax=cbar_ax, orientation="vertical")
 
     if filename is not None:

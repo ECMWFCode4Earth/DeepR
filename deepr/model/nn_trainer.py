@@ -46,13 +46,18 @@ def save_samples(
     with torch.no_grad():
         images = model(era5, return_dict=False)[0]
 
+    pred_baseline = torch.nn.functional.interpolate(
+        era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
+    )
+
     # Make a grid out of the images
     return get_figure_model_samples(
         era5.cpu(),
         cerra.cpu(),
         images.cpu(),
+        baseline=pred_baseline.cpu(),
         filename=output_name,
-        figsize=(15, 6.5),
+        figsize=(15, 10),
     )
 
 

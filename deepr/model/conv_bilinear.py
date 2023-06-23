@@ -1,5 +1,5 @@
 import logging
-from collections import OrderedDict
+from math import ceil, log2
 from typing import List, Optional, Tuple
 
 import numpy as np
@@ -13,56 +13,63 @@ logger = logging.getLogger(__name__)
 class ConvBilinearConfig(PretrainedConfig):
     model_type = "convbilinear"
 
-    attribute_map = {
-        "hidden_size": "embed_dim",
-        "num_attention_heads": "num_heads",
-        "num_hidden_layers": "num_layers",
-    }
+    attribute_map = {"hidden_size": "embed_dim"}
 
     def __init__(
         self,
         num_channels: int = 1,
-        num_layers: int = 3,
-        hidden_kernel: int = 5,
-        hidden_ch: int = 64,
         upscale: int = 1,
+        interpolation_method: str = "bicubic",
         image_size: Tuple[int] = None,
-        conv_channels: List[int] = [],
-        conv_kernel_size: List[int] = [],
-        conv_stride: List[int] = None,
-        conv_padding: List[str] = None,
+        upblock_channels: List[int] = [64, 32],
+        upblock_kernel_size: List[int] = [5, 3],
         **kwargs,
     ):
         super().__init__(**kwargs)
-
-        assert len(conv_channels) == len(
-            conv_kernel_size
-        ), "Unconsistent number of layers inferred."
-
-        if conv_padding is not None:
-            assert len(conv_padding) == len(
-                conv_channels
-            ), "Unconsistent number of layers inferred."
-        else:
-            conv_padding = ["same"] * len(conv_channels)
-
-        if conv_stride is not None:
-            assert len(conv_stride) == len(
-                conv_channels
-            ), "Unconsistent number of layers inferred."
-        else:
-            conv_stride = [1] * len(conv_channels)
-
         self.num_channels = num_channels
-        self.num_layers = num_layers
         self.upscale = upscale
         self.image_size = image_size
-        self.conv_channels = conv_channels
-        self.conv_kernel_size = conv_kernel_size
-        self.conv_stride = conv_stride
-        self.conv_padding = conv_padding
-        self.hidden_kernel = hidden_kernel
-        self.hidden_ch = hidden_ch
+        self.upblock_channels = upblock_channels
+        self.upblock_kernel_size = upblock_kernel_size
+        self.interpolation_method = interpolation_method
+        self.upscale_power2 = int(ceil(log2(upscale)))
+
+
+class UpConvBlock(nn.Module):
+    def __init__(
+        self,
+        in_channel: int,
+        out_channel: int,
+        interm_channels: List[int] = [64, 32],
+        kernel_size: List[int] = [5, 3],
+        upscale_ratio: int = 2,
+    ):
+        super(UpConvBlock, self).__init__()
+        n_channels = out_channel * (upscale_ratio**2)
+
+        self.conv1 = nn.Conv2d(
+            in_channel, interm_channels[0], kernel_size=5, padding="same"
+        )
+        self.conv2 = nn.Conv2d(
+            interm_channels[0], interm_channels[1], kernel_size=3, padding="same"
+        )
+        self.conv3 = nn.Conv2d(
+            interm_channels[1], n_channels, kernel_size=1, padding="same"
+        )
+        self.conv4 = nn.ConvTranspose2d(
+            n_channels, out_channel, kernel_size=2, padding=0, stride=upscale_ratio
+        )
+        self.relu = nn.ReLU()
+
+    def forward(self, x: torch.Tensor) -> torch.Tensor:
+        out = self.conv1(x)
+        out = self.relu(out)
+        out = self.conv2(out)
+        out = self.relu(out)
+        out = self.conv3(out)
+        out = self.relu(out)
+        out = self.conv4(out)
+        return out
 
 
 class ConvBilinear(PreTrainedModel):
@@ -70,56 +77,42 @@ class ConvBilinear(PreTrainedModel):
     base_model_prefix = "convbilinear"
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = True
+    upscale_ratio_upconv = 2
 
     def __init__(self, config: ConvBilinearConfig):
         super().__init__(config)
 
         self.input_pixels_shape = np.array(config.image_size)
+        self.output_pixels_shape = self.input_pixels_shape * self.config.upscale
+        self.input_upconv_shape = self.output_pixels_shape / (
+            self.upscale_ratio_upconv**self.config.upscale_power2
+        )
+        kernel_size = (np.array([44, 60]) - self.input_upconv_shape + 1).astype(int)
+
+        self.preprocess_model = nn.Conv2d(
+            config.num_channels,
+            config.num_channels * self.upscale_ratio_upconv**2,
+            kernel_size=tuple(kernel_size),
+            padding=0,
+        )
 
         convs: List[nn.Module] = []
-        in_channels = config.num_channels
-        for i in range(len(config.conv_kernel_size)):
+        in_channels = config.num_channels * self.upscale_ratio_upconv**2
+        for i in range(self.config.upscale_power2):
+            j = self.config.upscale_power2 - i - 1
+            out_channel = config.num_channels * (self.upscale_ratio_upconv**2) ** j
             convs.append(
-                nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=config.conv_channels[i],
-                    kernel_size=config.conv_kernel_size[i],
-                    stride=config.conv_stride[i],
-                    padding=config.conv_padding[i],
+                UpConvBlock(
+                    in_channel=in_channels,
+                    out_channel=out_channel,
+                    interm_channels=config.upblock_channels,
+                    kernel_size=config.upblock_kernel_size,
+                    upscale_ratio=self.upscale_ratio_upconv,
                 )
             )
-            in_channels = config.conv_channels[i]
-        convs.append(
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=config.num_channels,
-                # 12 are the non-overlapping ERA5 pixels in each dimension
-                kernel_size=(12 * config.upscale + 1, 12 * config.upscale + 1),
-            )
-        )
-
+            in_channels = out_channel
         self.cnns = nn.ModuleList(convs)
-        self.agg_cnn = nn.Conv2d(
-            in_channels=2 * config.num_channels,
-            out_channels=config.num_channels,
-            kernel_size=1,
-            padding="same",
-        )
 
-        layers = []
-        for i in range(config.num_layers):
-            in_ch = config.num_channels if i == 0 else config.hidden_ch
-            out_ch = (
-                config.hidden_ch if i < config.num_layers - 1 else config.num_channels
-            )
-            layers.append(
-                (
-                    f"conv{i}",
-                    nn.Conv2d(in_ch, out_ch, config.hidden_kernel, padding="same"),
-                )
-            )
-            layers.append((f"relu{i}", nn.ReLU()))
-        self.denoise_model = nn.Sequential(OrderedDict(layers))
         super().post_init()
 
     def forward(
@@ -127,35 +120,26 @@ class ConvBilinear(PreTrainedModel):
         pixel_values: Optional[torch.FloatTensor] = None,
         return_dict: Optional[bool] = None,
     ):
-        extra_pixels = pixel_values.shape[-2:] - self.input_pixels_shape
-        up_extra_pixels = self.config.upscale * extra_pixels
-        lat_pixels_one_side = int(up_extra_pixels[0] // 2)
-        lon_pixels_one_side = int(up_extra_pixels[1] // 2)
+        # Baseline interpoletion
+        extra_pixels = pixel_values.shape[-2:] - np.array(self.config.image_size)
+        lat_pixels_one_side = int(extra_pixels[0] // 2)
+        lon_pixels_one_side = int(extra_pixels[1] // 2)
+        to_lat = -lat_pixels_one_side if lat_pixels_one_side > 0 else None
+        to_lon = -lon_pixels_one_side if lon_pixels_one_side > 0 else None
 
-        up_pixels = torch.nn.functional.interpolate(
-            pixel_values, mode="bicubic", scale_factor=self.config.upscale
+        out_baseline = torch.nn.functional.interpolate(
+            pixel_values[..., lat_pixels_one_side:to_lat, lon_pixels_one_side:to_lon],
+            mode=self.config.interpolation_method,
+            scale_factor=self.config.upscale,
         )
 
-        # From upscaled image concatenate 2 channels.
-        h = up_pixels
-
-        # Channel 1: select center of image
-        up_pixels_center = up_pixels[
-            ...,
-            lat_pixels_one_side:-lat_pixels_one_side,
-            lon_pixels_one_side:-lon_pixels_one_side,
-        ]
-
-        # Channel 2: apply convolutions
+        # Use Transposed Convolutions to generate a target matrix.
+        h = self.preprocess_model(pixel_values)
         for conv in self.cnns:
             h = conv(h)
-
-        interm = self.agg_cnn(torch.cat([up_pixels_center, h], dim=1))
-
-        # Apply Denoising Swin2SR
-        output = self.denoise_model(interm) + up_pixels_center
+        out_upconv = h
 
         if not return_dict:
-            return (output,)
+            return (out_upconv + out_baseline,)
 
-        return output
+        return out_upconv + out_baseline

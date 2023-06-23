@@ -3,7 +3,6 @@ from typing import List, Optional
 
 import numpy as np
 import torch
-import torch.nn as nn
 from transformers import PreTrainedModel, Swin2SRConfig, Swin2SRForImageSuperResolution
 
 logger = logging.getLogger(__name__)
@@ -40,10 +39,7 @@ class ConvSwin2SRConfig(Swin2SRConfig):
         img_range: float = 1.0,
         resi_connection: str = "1conv",
         upsampler: str = "pixelshuffle",
-        conv_channels: List[int] = [],
-        conv_kernel_size: List[int] = [],
-        conv_stride: List[int] = None,
-        conv_padding: List[str] = None,
+        interpolation_method: str = "bicubic",
         **kwargs,
     ):
         super().__init__(
@@ -69,29 +65,7 @@ class ConvSwin2SRConfig(Swin2SRConfig):
             upsampler=upsampler,
             **kwargs,
         )
-
-        assert len(conv_channels) == len(
-            conv_kernel_size
-        ), "Unconsistent number of layers inferred."
-
-        if conv_padding is not None:
-            assert len(conv_padding) == len(
-                conv_channels
-            ), "Unconsistent number of layers inferred."
-        else:
-            conv_padding = ["same"] * len(conv_channels)
-
-        if conv_stride is not None:
-            assert len(conv_stride) == len(
-                conv_channels
-            ), "Unconsistent number of layers inferred."
-        else:
-            conv_stride = [1] * len(conv_channels)
-
-        self.conv_channels = conv_channels
-        self.conv_kernel_size = conv_kernel_size
-        self.conv_stride = conv_stride
-        self.conv_padding = conv_padding
+        self.interpolation_method = interpolation_method
 
     def swin2sr_kwargs(self):
         logger.info(
@@ -127,43 +101,12 @@ class ConvSwin2SR(PreTrainedModel):
     base_model_prefix = "convswin2sr"
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = True
-    _scale_factor = 5
 
     def __init__(self, config: ConvSwin2SRConfig):
         super().__init__(config)
         self.config = config
 
-        self.input_pixels_shape = np.array(self.config.image_size) / self._scale_factor
-
-        in_channels = config.num_channels
-        convs: List[nn.Module] = []
-        for i in range(len(config.conv_kernel_size)):
-            convs.append(
-                nn.Conv2d(
-                    in_channels=in_channels,
-                    out_channels=config.conv_channels[i],
-                    kernel_size=config.conv_kernel_size[i],
-                    stride=config.conv_stride[i],
-                    padding=config.conv_padding[i],
-                )
-            )
-            in_channels = config.conv_channels[i]
-        convs.append(
-            nn.Conv2d(
-                in_channels=in_channels,
-                out_channels=self.config.num_channels,
-                # 12 are the non-overlapping ERA5 pixels in each dimension
-                kernel_size=(12 * self._scale_factor + 1, 12 * self._scale_factor + 1),
-            )
-        )
-
-        self.cnns = nn.ModuleList(convs)
-        self.agg_cnn = nn.Conv2d(
-            in_channels=2 * self.config.num_channels,
-            out_channels=self.config.num_channels,
-            kernel_size=1,
-            padding="same",
-        )
+        # self.cnns = nn.ModuleList(convs)
 
         self.swin = Swin2SRForImageSuperResolution(config.swin2sr_kwargs())
         super().post_init()
@@ -177,38 +120,37 @@ class ConvSwin2SR(PreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ):
-        extra_pixels = pixel_values.shape[-2:] - self.input_pixels_shape
-        up_extra_pixels = self._scale_factor * extra_pixels
-        lat_pixels_one_side = int(up_extra_pixels[0] // 2)
-        lon_pixels_one_side = int(up_extra_pixels[1] // 2)
-
-        up_pixels = torch.nn.functional.interpolate(
-            pixel_values, mode="bicubic", scale_factor=self._scale_factor
+        in_extra_pixels = (
+            np.array(list(pixel_values.shape[-2:])) - self.config.image_size
         )
 
-        # From upscaled image concatenate 2 channels.
-        h = up_pixels
+        lat_pixels_one_side = int(in_extra_pixels[0] // 2)
+        lon_pixels_one_side = int(in_extra_pixels[1] // 2)
+        to_lat = -lat_pixels_one_side if lat_pixels_one_side > 0 else None
+        to_lon = -lon_pixels_one_side if lon_pixels_one_side > 0 else None
 
-        # Channel 1: select center of image
-        up_pixels_center = up_pixels[
-            ...,
-            lat_pixels_one_side:-lat_pixels_one_side,
-            lon_pixels_one_side:-lon_pixels_one_side,
-        ]
+        out_lat_pixels_one_side = lat_pixels_one_side * self.config.upscale
+        out_lon_pixels_one_side = lon_pixels_one_side * self.config.upscale
+        out_to_lat = -out_lat_pixels_one_side if out_lat_pixels_one_side > 0 else None
+        out_to_lon = -out_lat_pixels_one_side if out_lat_pixels_one_side > 0 else None
 
-        # Channel 2: apply convolutions
-        for conv in self.cnns:
-            h = conv(h)
-
-        intermediate = self.agg_cnn(torch.cat([up_pixels_center, h], dim=1))
+        out_baseline = torch.nn.functional.interpolate(
+            pixel_values[..., lat_pixels_one_side:to_lat, lon_pixels_one_side:to_lon],
+            mode=self.config.interpolation_method,
+            scale_factor=5,
+        )
 
         # Apply Denoising Swin2SR
         (out,) = self.swin(
-            pixel_values=intermediate,
+            pixel_values=pixel_values,
             head_mask=head_mask,
             labels=labels,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
             return_dict=return_dict,
         )
-        return (out + up_pixels_center,)
+
+        out_center = out[
+            ..., out_lat_pixels_one_side:out_to_lat, out_lon_pixels_one_side:out_to_lon
+        ]
+        return (out_center + out_baseline,)
