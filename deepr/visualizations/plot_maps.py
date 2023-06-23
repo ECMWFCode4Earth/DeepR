@@ -90,15 +90,24 @@ def get_figure_model_samples(
     return fig
 
 
-def plot_model_maps_comparison(
+def plot_2_maps_comparison(
     matrix1: torch.Tensor,
     matrix2: torch.Tensor,
     matrix_names: List[str] = None,
     metric_name: str = None,
     filename: Optional[str] = None,
+    **kwargs,
 ):
-    vmax = max(float(torch.max(matrix1)), float(torch.max(matrix2)))
-    vmin = min(float(torch.min(matrix1)), float(torch.min(matrix2)))
+    if "vmax" not in kwargs:
+        vmax = max(float(torch.max(matrix1)), float(torch.max(matrix2)))
+    else:
+        vmax = kwargs["vmax"]
+
+    if "vmin" not in kwargs:
+        vmin = min(float(torch.min(matrix1)), float(torch.min(matrix2)))
+    else:
+        vmin = kwargs["vmin"]
+
     v_kwargs = {"vmax": vmax, "vmin": vmin}
     fig, (ax1, ax2) = plt.subplots(1, 2, figsize=(14, 5))
     plt.tight_layout()
@@ -115,7 +124,58 @@ def plot_model_maps_comparison(
         ax1.set_title(matrix_names[0].capitalize(), fontsize=18)
         ax2.set_title(matrix_names[1].capitalize(), fontsize=18)
 
-    fig.subplots_adjust(bottom=0.05)
+    fig.subplots_adjust(bottom=0.02)
+    cbar_ax = fig.add_axes([0.15, 0.02, 0.7, 0.02])
+    fig.colorbar(im, cax=cbar_ax, orientation="horizontal", label=metric_name)
+
+    if filename is not None:
+        logger.info(f"Samples from model have been saved to {filename}")
+        plt.savefig(filename, bbox_inches="tight", transparent=True)
+        plt.close()
+
+    return fig
+
+
+def plot_3_maps(
+    matrix1: torch.Tensor,
+    matrix2: torch.Tensor,
+    matrix3: torch.Tensor,
+    matrix_names: List[str] = None,
+    metric_name: str = None,
+    filename: Optional[str] = None,
+    **kwargs,
+):
+    if "vmax" not in kwargs:
+        vmax = max(float(torch.max(matrix1)), float(torch.max(matrix2)))
+    else:
+        vmax = kwargs["vmax"]
+
+    if "vmin" not in kwargs:
+        vmin = min(float(torch.min(matrix1)), float(torch.min(matrix2)))
+    else:
+        vmin = kwargs["vmin"]
+
+    v_kwargs = {"vmax": vmax, "vmin": vmin}
+    fig, (ax1, ax2, ax3) = plt.subplots(1, 3, figsize=(14, 5))
+    plt.tight_layout()
+
+    ax1.imshow(matrix1.numpy(), **v_kwargs)
+    ax2.imshow(matrix2.numpy(), **v_kwargs)
+    im = ax3.imshow(matrix3.numpy(), **v_kwargs)
+
+    ax1.get_xaxis().set_ticks([])
+    ax1.get_yaxis().set_ticks([])
+    ax2.get_xaxis().set_ticks([])
+    ax2.get_yaxis().set_ticks([])
+    ax3.get_xaxis().set_ticks([])
+    ax3.get_yaxis().set_ticks([])
+
+    if matrix_names is not None:
+        ax1.set_title(matrix_names[0].capitalize(), fontsize=18)
+        ax2.set_title(matrix_names[1].capitalize(), fontsize=18)
+        ax3.set_title(matrix_names[2].capitalize(), fontsize=18)
+
+    fig.subplots_adjust(bottom=0.02)
     cbar_ax = fig.add_axes([0.15, 0.02, 0.7, 0.02])
     fig.colorbar(im, cax=cbar_ax, orientation="horizontal", label=metric_name)
 

@@ -40,7 +40,7 @@ class DataGenerator(IterableDataset):
         shuffle : bool, optional
             Flag indicating whether to shuffle the files, by default False.
         """
-        super(DataGenerator).__init__()
+        super(DataGenerator, self).__init__()
         self.feature_files = features_files
         self.add_auxiliary_features = add_auxiliary_features
         self.label_files = label_files

@@ -1,6 +1,7 @@
 import os
 import tempfile
-from typing import Type
+from pathlib import Path
+from typing import Callable, Type
 
 import evaluate
 import torch
@@ -8,7 +9,7 @@ from huggingface_hub import Repository
 from tqdm import tqdm
 
 from deepr.data.scaler import XarrayStandardScaler
-from deepr.visualizations.plot_maps import plot_model_maps_comparison
+from deepr.visualizations.plot_maps import plot_2_maps_comparison, plot_3_maps
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
@@ -27,7 +28,7 @@ def compute_and_upload_metrics(
     model: Type[torch.nn.Module],
     dataloader: torch.utils.data.DataLoader,
     hf_repo_name: str = None,
-    label_scaler: XarrayStandardScaler = None,
+    scaler_func: Callable = None,
 ):
     """Compute and upload a set of metrics.
 
@@ -53,9 +54,9 @@ def compute_and_upload_metrics(
         # Predict the noise residual
         with torch.no_grad():
             pred = model(era5, return_dict=False)[0]
-            if label_scaler is not None:
-                pred = label_scaler.apply_inverse_scaler(pred, times[:, 2])
-                cerra = label_scaler.apply_inverse_scaler(cerra, times[:, 2])
+            if scaler_func is not None:
+                pred = scaler_func(pred, times[:, 2])
+                cerra = scaler_func(cerra, times[:, 2])
 
             mse.add_batch(
                 references=cerra.reshape((cerra.shape[0], -1)),
@@ -110,14 +111,14 @@ def compute_and_upload_metrics(
 def compute_errors_vs_baseline(
     model: Type[torch.nn.Module],
     dataloader: torch.utils.data.DataLoader,
-    baseline: str = "bucubic",
-    label_scaler: XarrayStandardScaler = None,
+    baseline: str = "bicubic",
+    scaler_func: Callable = None,
 ):
     count = 0
-    errors = torch.zeros(dataloader.dataset.output_shape)
     abs_errors = torch.zeros(dataloader.dataset.output_shape)
-    errors_bi = torch.zeros(dataloader.dataset.output_shape)
+    sq_errors = torch.zeros(dataloader.dataset.output_shape)
     abs_errors_bi = torch.zeros(dataloader.dataset.output_shape)
+    sq_errors_bi = torch.zeros(dataloader.dataset.output_shape)
     for era5, cerra, times in dataloader:
         # Predict the noise residual
         with torch.no_grad():
@@ -127,25 +128,54 @@ def compute_errors_vs_baseline(
             era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
         )
 
-        if label_scaler is not None:
-            pred = label_scaler.apply_inverse_scaler(pred, times[:, 2])
-            pred_bi = label_scaler.apply_inverse_scaler(pred_bi, times[:, 2])
-            cerra = label_scaler.apply_inverse_scaler(cerra, times[:, 2])
+        if scaler_func is not None:
+            pred = scaler_func(pred, times[:, 2])
+            pred_bi = scaler_func(pred_bi, times[:, 2])
+            cerra = scaler_func(cerra, times[:, 2])
 
+        count += era5.shape[0]
         error = pred - cerra
         error_bi = pred_bi - cerra
-        count += pred.shape[0]
-        errors += torch.sum(torch.abs(error), (0, 1))
-        abs_errors += torch.sum(error ** 2, (0, 1))
-        errors_bi += torch.sum(torch.abs(error_bi), (0, 1))
-        abs_errors_bi += torch.sum(error_bi ** 2, (0, 1))
+        abs_errors += torch.sum(torch.abs(error), (0, 1))
+        sq_errors += torch.sum(error**2, (0, 1))
+        abs_errors_bi += torch.sum(torch.abs(error_bi), (0, 1))
+        sq_errors_bi += torch.sum(error_bi**2, (0, 1))
 
-    mae = errors / count
-    mse = abs_errors / count
-    mae_bi = errors_bi / count
-    mse_bi = abs_errors_bi / count
+    mae = abs_errors / count
+    mse = sq_errors / count
+    mae_bi = abs_errors_bi / count
+    mse_bi = sq_errors_bi / count
 
     return mae, mse, mae_bi, mse_bi
+
+
+def show_samples(
+    model,
+    dataloader: torch.utils.data.DataLoader,
+    local_dir: str,
+    scaler_func: Callable = None,
+    baseline: str = "bicubic",
+):
+    era5, cerra, times = next(iter(dataloader))
+    with torch.no_grad():
+        pred_nn = model(era5, return_dict=False)[0]
+    samples_base = torch.nn.functional.interpolate(
+        era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
+    )
+
+    if scaler_func is not None:
+        cerra = scaler_func(cerra, times[:, 2])
+        samples_base = scaler_func(samples_base, times[:, 2])
+        pred_nn = scaler_func(pred_nn, times[:, 2])
+
+    plot_3_maps(
+        cerra[0, 0],
+        samples_base[0, 0],
+        pred_nn[0, 0],
+        ["CERRA", baseline.capitalize(), model.__class__.__name__],
+        "Temperature (ºC)",
+        Path(local_dir) / "pred_comparison.png",
+    )
 
 
 def test_model(
@@ -154,24 +184,28 @@ def test_model(
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
+    baseline: str = "bicubic",
 ):
     dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+    scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler
 
     local_dir = f"hf-{model.__class__.__name__}-evaluation"
     repo = Repository(local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN"))
     repo.git_pull()
 
-    # Compute errors
-    baseline = "bicubic"
+    # Show samples compared with other models
+    show_samples(model, dataloader, local_dir, scaler_func, baseline)
+
+    # Obtain error maps
     mae, mse, mae_base, mse_base = compute_errors_vs_baseline(
-        model, dataloader, baseline, label_scaler
+        model, dataloader, baseline, scaler_func
     )
     names = [model.__class__.__name__, baseline]
-    plot_model_maps_comparison(
-        mse, mse_base, names, "MSE (ºC)", f"{local_dir}/mse_vs_{baseline}.png"
+    plot_2_maps_comparison(
+        mse, mse_base, names, "MSE (ºC)", f"{local_dir}/mse_vs_{baseline}.png", vmin=0
     )
-    plot_model_maps_comparison(
-        mae, mae_base, names, "MAE (ºC)", f"{local_dir}/mae_vs_{baseline}.png"
+    plot_2_maps_comparison(
+        mae, mae_base, names, "MAE (ºC)", f"{local_dir}/mae_vs_{baseline}.png", vmin=0
     )
 
     # TODO: Genereate plots over test dataset.
@@ -180,7 +214,7 @@ def test_model(
     # 3 -. Predictions vs ground truth vs bilinear
 
     test_metrics = compute_and_upload_metrics(
-        model, dataloader, hf_repo_name, label_scaler
+        model, dataloader, hf_repo_name, scaler_func
     )
     evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)
 
