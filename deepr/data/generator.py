@@ -1,4 +1,5 @@
 import random
+from dataclasses import dataclass, field
 from typing import Tuple
 
 import numpy
@@ -12,62 +13,66 @@ from deepr.data.configuration import DataFileCollection
 from deepr.data.scaler import XarrayStandardScaler
 
 
+@dataclass
 class DataGenerator(IterableDataset):
-    def __init__(
-        self,
-        features_files: DataFileCollection,
-        add_auxiliary_features: bool,
-        label_files: DataFileCollection,
-        features_scaler: XarrayStandardScaler,
-        label_scaler: XarrayStandardScaler,
-        shuffle: bool = False,
-    ):
-        """
-        Initialize the DataGenerator class.
+    feature_files: DataFileCollection
+    add_auxiliary_features: bool
+    label_files: DataFileCollection
+    features_scaler: XarrayStandardScaler
+    label_scaler: XarrayStandardScaler
+    shuffle: bool = False
+    file_index: int = field(default=0, init=False)
+    label_ds: xarray.Dataset = field(default=None, init=False)
+    features_ds: xarray.Dataset = field(default=None, init=False)
+    number_files: int = field(init=False)
+    num_samples: int = field(init=False)
+    init_date: str = field(init=False)
+    end_date: str = field(init=False)
+    input_shape: Tuple[int] = field(init=False)
+    input_channels: int = field(init=False)
+    aux_shape: Tuple[int] = field(init=False)
+    output_shape: Tuple[int] = field(init=False)
+    output_channels: int = field(init=False)
+    """
+    Initialize the DataGenerator class.
 
-        Parameters
-        ----------
-        features_files : DataFileCollection
-            Collection of feature DataFile objects.
-        add_auxiliary_features : bool
-            Flag indicating whether to add auxiliary features.
-        label_files : DataFileCollection
-            Collection of label DataFile objects.
-        features_scaler : XarrayStandardScaler
-            Scaler object used for feature standardization.
-        label_scaler : XarrayStandardScaler
-            Scaler object used for label standardization.
-        shuffle : bool, optional
-            Flag indicating whether to shuffle the files, by default False.
-        """
-        super(DataGenerator, self).__init__()
-        self.feature_files = features_files
-        self.add_auxiliary_features = add_auxiliary_features
-        self.label_files = label_files
-        self.init_date, self.end_date = self.get_dataset_dates()
-        self.features_scaler = features_scaler
-        self.label_scaler = label_scaler
+    Parameters
+    ----------
+    features_files : DataFileCollection
+        Collection of feature DataFile objects.
+    add_auxiliary_features : bool
+        Flag indicating whether to add auxiliary features.
+    label_files : DataFileCollection
+        Collection of label DataFile objects.
+    features_scaler : XarrayStandardScaler
+        Scaler object used for feature standardization.
+    label_scaler : XarrayStandardScaler
+        Scaler object used for label standardization.
+    shuffle : bool, optional
+        Flag indicating whether to shuffle the files, by default False.
+    """
+
+    def __post_init__(self):
         self.number_files = len(self.label_files.collection)
-        self.file_index = 0
         self.num_samples = self.get_num_samples()
-        self.label_ds = None
-        self.features_ds = None
-        (
-            self.input_shape,
-            self.input_channels,
-            self.aux_shape,
-            self.output_shape,
-            self.output_channels,
-        ) = self.get_shapes()
-        self.shuffle = shuffle
-        if self.shuffle:
-            combined_files = list(
-                zip(self.feature_files.collection, self.label_files.collection)
-            )
-            random.shuffle(combined_files)
-            shuffled_files_features, shuffled_files_labels = zip(*combined_files)
-            self.feature_files.collection = shuffled_files_features
-            self.label_files.collection = shuffled_files_features
+        if self.number_files > 0:
+            self.init_date, self.end_date = self.get_dataset_dates()
+
+            (
+                self.input_shape,
+                self.input_channels,
+                self.aux_shape,
+                self.output_shape,
+                self.output_channels,
+            ) = self.get_shapes()
+            if self.shuffle:
+                combined_files = list(
+                    zip(self.feature_files.collection, self.label_files.collection)
+                )
+                random.shuffle(combined_files)
+                shuffled_files_features, shuffled_files_labels = zip(*combined_files)
+                self.feature_files.collection = shuffled_files_features
+                self.label_files.collection = shuffled_files_features
 
     def __len__(self) -> int:
         """

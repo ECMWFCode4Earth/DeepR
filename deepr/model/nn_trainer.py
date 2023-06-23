@@ -167,11 +167,19 @@ def train_nn(
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
+            pred_baseline = torch.nn.functional.interpolate(
+                era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
+            )
+            loss_base = F.l1_loss(pred_baseline, cerra)
             progress_bar.update(1)
             pred_var = cerra_pred.var(keepdim=True, dim=0).mean().item()
             true_var = cerra.var(keepdim=True, dim=0).mean().item()
+            lo = loss.detach().item()
+            l_base = loss_base.detach().item()
             logs = {
-                "loss_vs_step": loss.detach().item(),
+                "loss_vs_step": lo,
+                "bicubic_loss_vs_step": l_base,
+                "improvement_vs_step": (l_base - lo) / l_base * 100,
                 "lr_vs_step": lr_scheduler.get_last_lr()[0],
                 "step": global_step,
                 "bias_perc_vs_step": (cerra - cerra_pred).mean().item()

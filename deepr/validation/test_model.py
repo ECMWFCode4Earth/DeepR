@@ -9,7 +9,10 @@ from huggingface_hub import Repository
 from tqdm import tqdm
 
 from deepr.data.scaler import XarrayStandardScaler
-from deepr.visualizations.plot_maps import plot_2_maps_comparison, plot_3_maps
+from deepr.visualizations.plot_maps import (
+    plot_2_maps_comparison,
+    plot_2_model_comparison,
+)
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
@@ -119,6 +122,7 @@ def compute_errors_vs_baseline(
     sq_errors = torch.zeros(dataloader.dataset.output_shape)
     abs_errors_bi = torch.zeros(dataloader.dataset.output_shape)
     sq_errors_bi = torch.zeros(dataloader.dataset.output_shape)
+    progress_bar = tqdm(total=len(dataloader), desc="Batch ")
     for era5, cerra, times in dataloader:
         # Predict the noise residual
         with torch.no_grad():
@@ -140,6 +144,8 @@ def compute_errors_vs_baseline(
         sq_errors += torch.sum(error**2, (0, 1))
         abs_errors_bi += torch.sum(torch.abs(error_bi), (0, 1))
         sq_errors_bi += torch.sum(error_bi**2, (0, 1))
+        progress_bar.update(1)
+    progress_bar.close()
 
     mae = abs_errors / count
     mse = sq_errors / count
@@ -168,13 +174,14 @@ def show_samples(
         samples_base = scaler_func(samples_base, times[:, 2])
         pred_nn = scaler_func(pred_nn, times[:, 2])
 
-    plot_3_maps(
+    plot_2_model_comparison(
         cerra[0, 0],
         samples_base[0, 0],
         pred_nn[0, 0],
-        ["CERRA", baseline.capitalize(), model.__class__.__name__],
-        "Temperature (ºC)",
-        Path(local_dir) / "pred_comparison.png",
+        matrix_names=["CERRA", baseline.capitalize(), model.__class__.__name__],
+        metric_name="ºC",
+        date=f"{times[0, 0]:d}H {times[0, 1]:d}-{times[0, 2]:d}-{times[0, 3]:d}",
+        filename=Path(local_dir) / "pred_comparison.png",
     )
 
 
@@ -190,8 +197,11 @@ def test_model(
     scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler
 
     local_dir = f"hf-{model.__class__.__name__}-evaluation"
-    repo = Repository(local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN"))
-    repo.git_pull()
+    if hf_repo_name is not None:
+        repo = Repository(
+            local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN")
+        )
+        repo.git_pull()
 
     # Show samples compared with other models
     show_samples(model, dataloader, local_dir, scaler_func, baseline)
@@ -208,14 +218,14 @@ def test_model(
         mae, mae_base, names, "MAE (ºC)", f"{local_dir}/mae_vs_{baseline}.png", vmin=0
     )
 
-    # TODO: Genereate plots over test dataset.
-    # 1 -. Error maps
-    # 2 -. Histogram comparison
-    # 3 -. Predictions vs ground truth vs bilinear
-
     test_metrics = compute_and_upload_metrics(
         model, dataloader, hf_repo_name, scaler_func
     )
     evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)
 
-    repo.push_to_hub(repo_id=hf_repo_name, commit_message="Tests", blocking=True)
+    if hf_repo_name is not None:
+        repo.push_to_hub(
+            repo_id=hf_repo_name,
+            commit_message=f"Tests on {dataset.init_date}-{dataset.end_date}",
+            blocking=True,
+        )

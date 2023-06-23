@@ -72,8 +72,11 @@ class MainPipeline:
         data_configuration = DataConfiguration(self.data_config)
         data_splits = data_configuration.common_configuration["data_split"]
 
-        test_split_size = data_splits["test"]
-        val_split_size = data_splits["validation"] / (1 - test_split_size)
+        test_split_size = data_splits.get("test", 0.0)
+        if test_split_size < 1.0:
+            val_split_size = data_splits.get("validation", 0.0) / (1 - test_split_size)
+        else:
+            val_split_size = 0.0
 
         logger.info("Get features from data_configuration dictionary.")
         features_collection = data_configuration.get_features()
@@ -258,14 +261,14 @@ class MainPipeline:
         test_results : Dict
             The test results of the model.
         """
-        #hparams = self.data_config.get("data_split", None)
+        # hparams = self.data_config.get("data_split", None)
         return test_model(
             model,
             dataset,
-            #hparams=hparams,
+            # hparams=hparams,
             batch_size=8,
             hf_repo_name=hf_repo_name,
-            label_scaler=self.label_scaler
+            label_scaler=self.label_scaler,
         )
 
     def run_validation(self):
