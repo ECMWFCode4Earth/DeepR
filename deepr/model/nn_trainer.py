@@ -14,7 +14,9 @@ from tqdm import tqdm
 
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
+from deepr.model.loss import compute_loss
 from deepr.visualizations.plot_maps import get_figure_model_samples
+
 
 repo_name = "predictia/europe_reanalysis_downscaler_{model}"
 
@@ -167,7 +169,8 @@ def train_nn(
             # Predict the noise residual
             with accelerator.accumulate(model):
                 cerra_pred = model(era5, return_dict=False)[0]
-                loss = F.l1_loss(cerra_pred, cerra)
+                l1, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
+                loss = l1 + l_lowres + l_blurred
                 accelerator.backward(loss)
 
                 accelerator.clip_grad_norm_(model.parameters(), 1.0)
@@ -178,7 +181,8 @@ def train_nn(
             pred_baseline = torch.nn.functional.interpolate(
                 era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
             )
-            loss_base = F.l1_loss(pred_baseline, cerra)
+            l1_base, l_lowres_base, l_blurred_base = compute_loss(cerra_pred, cerra)
+            loss_base = l1_base + l_lowres_base + l_blurred_base
             progress_bar.update(1)
             pred_var = cerra_pred.var(keepdim=True, dim=0).mean().item()
             true_var = cerra.var(keepdim=True, dim=0).mean().item()
@@ -186,7 +190,10 @@ def train_nn(
             l_base = loss_base.detach().item()
             logs = {
                 "loss_vs_step": lo,
-                "bicubic_loss_vs_step": l_base,
+                "l1_pred_vs_step": l1,
+                "l1_lowres_vs_step": l_lowres,
+                "l1_blurred_vs_step": l_blurred,
+                "baseline_loss_vs_step": l_base,
                 "improvement_vs_step": (l_base - lo) / l_base * 100,
                 "lr_vs_step": lr_scheduler.get_last_lr()[0],
                 "step": global_step,
@@ -204,12 +211,17 @@ def train_nn(
             global_step += 1
 
         # Evaluate
-        loss, true_var, pred_var, bias, mean_pred = [], [], [], [], []
+        loss, l1_pred, l1_lowres, l1_blurred = [], [], [], []
+        true_var, pred_var, bias, mean_pred = [], [], [], []
         for era5, cerra in val_dataloader:
             # Predict the noise residual
             with torch.no_grad():
                 cerra_pred = model(era5, return_dict=False)[0]
-                loss.append(F.l1_loss(cerra_pred, cerra))
+                l_pred, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
+                loss.append(l_pred + l_lowres + l_blurred)
+                l1_pred.append(l_pred)
+                l1_lowres.append(l_lowres)
+                l1_blurred.append(l_blurred)
 
             pred_var.append(cerra_pred.var(keepdim=True, dim=0).mean().item())
             true_var.append(cerra.var(keepdim=True, dim=0).mean().item())
@@ -219,6 +231,9 @@ def train_nn(
 
         logs = {
             "val_loss_vs_epoch": sum(loss) / len(loss),
+            "val_l1_vs_epoch": sum(l1_pred) / len(l1_pred),
+            "val_l1_lowres_vs_epoch": sum(l1_lowres) / len(l1_lowres),
+            "val_l1_blurred_vs_epoch": sum(l1_blurred) / len(l1_blurred),
             "val_bias_perc_vs_epoch": sum(bias) / sum(mean_pred),
             "val_mean_var_ratio_vs_epoch": sum(true_var) / sum(pred_var),
             "epoch": epoch,
