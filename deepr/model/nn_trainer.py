@@ -4,7 +4,6 @@ from typing import Dict
 import matplotlib.pyplot
 import numpy as np
 import torch
-import torch.nn.functional as F
 from accelerate import Accelerator
 from accelerate.tracking import AimTracker
 from accelerate.utils import LoggerType
@@ -16,7 +15,6 @@ from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
 from deepr.model.loss import compute_loss
 from deepr.visualizations.plot_maps import get_figure_model_samples
-
 
 repo_name = "predictia/europe_reanalysis_downscaler_{model}"
 
@@ -178,7 +176,7 @@ def train_nn(
                 lr_scheduler.step()
                 optimizer.zero_grad()
 
-            pred_baseline = torch.nn.functional.interpolate(
+            torch.nn.functional.interpolate(
                 era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
             )
             l1_base, l_lowres_base, l_blurred_base = compute_loss(cerra_pred, cerra)
