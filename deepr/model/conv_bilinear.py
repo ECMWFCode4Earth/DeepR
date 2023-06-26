@@ -20,6 +20,7 @@ class ConvBilinearConfig(PretrainedConfig):
         num_channels: int = 1,
         upscale: int = 1,
         interpolation_method: str = "bicubic",
+        input_shape: Tuple[int] = None,
         image_size: Tuple[int] = None,
         upblock_channels: List[int] = [64, 32],
         upblock_kernel_size: List[int] = [5, 3],
@@ -28,7 +29,8 @@ class ConvBilinearConfig(PretrainedConfig):
         super().__init__(**kwargs)
         self.num_channels = num_channels
         self.upscale = upscale
-        self.image_size = image_size
+        self.input_shape = input_shape
+        self.image_size = tuple(map(lambda x: x // self.upscale, self.sample_size))
         self.upblock_channels = upblock_channels
         self.upblock_kernel_size = upblock_kernel_size
         self.interpolation_method = interpolation_method
@@ -82,12 +84,17 @@ class ConvBilinear(PreTrainedModel):
     def __init__(self, config: ConvBilinearConfig):
         super().__init__(config)
 
-        self.input_pixels_shape = np.array(config.image_size)
-        self.output_pixels_shape = self.input_pixels_shape * self.config.upscale
-        self.input_upconv_shape = self.output_pixels_shape / (
+        self.input_upconv_shape = np.array(config.sample_size) / (
             self.upscale_ratio_upconv**self.config.upscale_power2
         )
-        kernel_size = (np.array([44, 60]) - self.input_upconv_shape + 1).astype(int)
+        kernel_size = (
+            np.array(config.input_shape) - self.input_upconv_shape + 1
+        ).astype(int)
+        extra_pixels = np.array(config.input_shape) - config.image_size
+        self.from_lat = int(extra_pixels[0] // 2)
+        self.from_lon = int(extra_pixels[1] // 2)
+        self.to_lat = -self.from_lat if self.from_lat > 0 else None
+        self.to_lon = -self.from_lon if self.from_lon > 0 else None
 
         self.preprocess_model = nn.Conv2d(
             config.num_channels,
@@ -121,14 +128,8 @@ class ConvBilinear(PreTrainedModel):
         return_dict: Optional[bool] = None,
     ):
         # Baseline interpoletion
-        extra_pixels = pixel_values.shape[-2:] - np.array(self.config.image_size)
-        lat_pixels_one_side = int(extra_pixels[0] // 2)
-        lon_pixels_one_side = int(extra_pixels[1] // 2)
-        to_lat = -lat_pixels_one_side if lat_pixels_one_side > 0 else None
-        to_lon = -lon_pixels_one_side if lon_pixels_one_side > 0 else None
-
         out_baseline = torch.nn.functional.interpolate(
-            pixel_values[..., lat_pixels_one_side:to_lat, lon_pixels_one_side:to_lon],
+            pixel_values[..., self.from_lat : self.to_lat, self.from_lon : self.to_lon],
             mode=self.config.interpolation_method,
             scale_factor=self.config.upscale,
         )

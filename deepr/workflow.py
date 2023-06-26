@@ -204,6 +204,7 @@ class MainPipeline:
             **model_cfg,
             out_channels=dataset_train.output_channels,
             sample_size=dataset_train.output_shape,
+            input_shape=dataset_train.input_shape,
         )
 
         return train_nn(

@@ -26,6 +26,7 @@ def load_trained_model(class_name: str, model_dir: str) -> nn.Module:
 def get_neural_network(
     class_name: str,
     kwargs: dict,
+    input_shape: Tuple[int] = None,
     sample_size: Tuple[int] = None,
     out_channels: int = None,
 ) -> nn.Module:
@@ -40,6 +41,8 @@ def get_neural_network(
         The name of the neural network class to use.
     kwargs : dict
         Dictionary of keyword arguments to pass to the neural network constructor.
+    input_shape : Optional[tuple]
+        Sample size of the input samples.
     sample_size : Optional[tuple]
         Sample size of the target samples.
     out_channels : Optional[int]
@@ -81,8 +84,8 @@ def get_neural_network(
         from deepr.model.conv_bilinear import ConvBilinear, ConvBilinearConfig
 
         kwargs["num_channels"] = kwargs.pop("out_channels")
-        image_size = (np.array(kwargs.pop("sample_size"))) / kwargs["upscale"]
-        kwargs["image_size"] = tuple([int(i) for i in image_size])
+        if input_shape is not None:
+            kwargs["input_shape"] = input_shape
 
         cfg = ConvBilinearConfig(**kwargs)
         return ConvBilinear(cfg)
