@@ -2,7 +2,7 @@ import torch
 import torch.nn.functional as F
 from torchvision.transforms import GaussianBlur
 
-blur = torch.GaussianBlur(5)
+blur = GaussianBlur(5)
 pooling = torch.nn.AvgPool2d(kernel_size=5)
 
 
