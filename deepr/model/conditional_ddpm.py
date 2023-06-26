@@ -2,7 +2,7 @@ from inspect import signature
 from typing import List, Optional, Tuple, Union
 
 import torch
-from diffusers.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
+from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 from diffusers.utils import randn_tensor
 
 
