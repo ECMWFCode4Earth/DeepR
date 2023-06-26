@@ -16,7 +16,7 @@ from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
-repo_name = "predictia/europe_reanalysis_downscaler_swin2sr"
+repo_name = "predictia/europe_reanalysis_downscaler_{model}"
 
 
 def save_samples(
@@ -126,7 +126,9 @@ def train_nn(
     if accelerator.is_main_process:
         if config.push_to_hub:
             repo = Repository(
-                config.output_dir, clone_from=repo_name, token=os.getenv("HF_TOKEN")
+                config.output_dir,
+                clone_from=repo_name.format(model=model.__class__.__name__.lower()),
+                token=os.getenv("HF_TOKEN"),
             )
             repo.git_pull()
         elif config.output_dir is not None:
@@ -242,11 +244,7 @@ def train_nn(
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 if config.push_to_hub:
-                    repo.push_to_hub(
-                        repo_id=repo_name,
-                        commit_message=f"Epoch {epoch+1}",
-                        blocking=True,
-                    )
+                    repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
                 else:
                     model.save_pretrained(config.output_dir)
 

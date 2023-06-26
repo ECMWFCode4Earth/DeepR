@@ -10,7 +10,7 @@ from transformers import PretrainedConfig, PreTrainedModel
 logger = logging.getLogger(__name__)
 
 
-class ConvBilinearConfig(PretrainedConfig):
+class ConvBaselineConfig(PretrainedConfig):
     model_type = "convbilinear"
 
     attribute_map = {"hidden_size": "embed_dim"}
@@ -74,14 +74,14 @@ class UpConvBlock(nn.Module):
         return out
 
 
-class ConvBilinear(PreTrainedModel):
-    config_class = ConvBilinearConfig
-    base_model_prefix = "convbilinear"
+class ConvBaseline(PreTrainedModel):
+    config_class = ConvBaselineConfig
+    base_model_prefix = "convbaseline"
     main_input_name = "pixel_values"
     supports_gradient_checkpointing = True
     upscale_ratio_upconv = 2
 
-    def __init__(self, config: ConvBilinearConfig):
+    def __init__(self, config: ConvBaselineConfig):
         super().__init__(config)
 
         self.input_upconv_shape = np.array(config.sample_size) / (

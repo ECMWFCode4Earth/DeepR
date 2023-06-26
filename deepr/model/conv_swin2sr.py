@@ -1,8 +1,10 @@
 import logging
+from math import ceil, log2
 from typing import List, Optional
 
 import numpy as np
 import torch
+from torch import nn
 from transformers import PreTrainedModel, Swin2SRConfig, Swin2SRForImageSuperResolution
 
 logger = logging.getLogger(__name__)
@@ -42,8 +44,12 @@ class ConvSwin2SRConfig(Swin2SRConfig):
         interpolation_method: str = "bicubic",
         **kwargs,
     ):
+        self.interpolation_method = interpolation_method
+        self.image_size = tuple(map(lambda x: x // upscale, kwargs["sample_size"]))
+        self.real_upscale = upscale
+        upscale_power2 = int(ceil(log2(upscale)))
         super().__init__(
-            image_size=image_size,
+            image_size=self.image_size,
             patch_size=patch_size,
             num_channels=num_channels,
             embed_dim=embed_dim,
@@ -59,13 +65,12 @@ class ConvSwin2SRConfig(Swin2SRConfig):
             use_absolute_embeddings=use_absolute_embeddings,
             initializer_range=initializer_range,
             layer_norm_eps=layer_norm_eps,
-            upscale=upscale,
+            upscale=2**upscale_power2,
             img_range=img_range,
             resi_connection=resi_connection,
             upsampler=upsampler,
             **kwargs,
         )
-        self.interpolation_method = interpolation_method
 
     def swin2sr_kwargs(self):
         logger.info(
@@ -106,7 +111,24 @@ class ConvSwin2SR(PreTrainedModel):
         super().__init__(config)
         self.config = config
 
-        # self.cnns = nn.ModuleList(convs)
+        # Define center region to upscale
+        extra_pixels = np.array(config.input_shape) - config.image_size
+        self.from_lat = int(extra_pixels[0] // 2)
+        self.from_lon = int(extra_pixels[1] // 2)
+        self.to_lat = -self.from_lat if self.from_lat > 0 else None
+        self.to_lon = -self.from_lon if self.from_lon > 0 else None
+
+        # Set preprocess layer to match the output shapes
+        self.input_upconv_shape = np.array(config.sample_size) / config.upscale
+        kernel_size = (
+            np.array(config.input_shape) - self.input_upconv_shape + 1
+        ).astype(int)
+        self.preprocess_model = nn.Conv2d(
+            config.num_channels,
+            config.num_channels,
+            kernel_size=tuple(kernel_size),
+            padding=0,
+        )
 
         self.swin = Swin2SRForImageSuperResolution(config.swin2sr_kwargs())
         super().post_init()
@@ -120,37 +142,25 @@ class ConvSwin2SR(PreTrainedModel):
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ):
-        in_extra_pixels = (
-            np.array(list(pixel_values.shape[-2:])) - self.config.image_size
-        )
-
-        lat_pixels_one_side = int(in_extra_pixels[0] // 2)
-        lon_pixels_one_side = int(in_extra_pixels[1] // 2)
-        to_lat = -lat_pixels_one_side if lat_pixels_one_side > 0 else None
-        to_lon = -lon_pixels_one_side if lon_pixels_one_side > 0 else None
-
-        out_lat_pixels_one_side = lat_pixels_one_side * self.config.upscale
-        out_lon_pixels_one_side = lon_pixels_one_side * self.config.upscale
-        out_to_lat = -out_lat_pixels_one_side if out_lat_pixels_one_side > 0 else None
-        out_to_lon = -out_lat_pixels_one_side if out_lat_pixels_one_side > 0 else None
-
         out_baseline = torch.nn.functional.interpolate(
-            pixel_values[..., lat_pixels_one_side:to_lat, lon_pixels_one_side:to_lon],
+            pixel_values[..., self.from_lat : self.to_lat, self.from_lon : self.to_lon],
             mode=self.config.interpolation_method,
-            scale_factor=5,
+            scale_factor=self.config.real_upscale,
         )
+
+        h = self.preprocess_model(pixel_values)
 
         # Apply Denoising Swin2SR
-        (out,) = self.swin(
-            pixel_values=pixel_values,
+        (out_swin2sr,) = self.swin(
+            pixel_values=h,
             head_mask=head_mask,
             labels=labels,
             output_attentions=output_attentions,
             output_hidden_states=output_hidden_states,
-            return_dict=return_dict,
+            return_dict=False,
         )
 
-        out_center = out[
-            ..., out_lat_pixels_one_side:out_to_lat, out_lon_pixels_one_side:out_to_lon
-        ]
-        return (out_center + out_baseline,)
+        if not return_dict:
+            return (out_baseline + out_swin2sr,)
+
+        return out_baseline + out_swin2sr

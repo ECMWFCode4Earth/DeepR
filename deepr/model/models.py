@@ -1,7 +1,6 @@
 from typing import Tuple
 
 import diffusers
-import numpy as np
 from torch import nn
 
 from deepr.utilities.logger import get_logger
@@ -75,20 +74,20 @@ def get_neural_network(
         from deepr.model.conv_swin2sr import ConvSwin2SR, ConvSwin2SRConfig
 
         kwargs["num_channels"] = kwargs.pop("out_channels")
-        image_size = (np.array(kwargs.pop("sample_size"))) / kwargs["upscale"]
-        kwargs["image_size"] = tuple([int(i) for i in image_size])
+        if input_shape is not None:
+            kwargs["input_shape"] = input_shape
 
         cfg = ConvSwin2SRConfig(**kwargs)
         return ConvSwin2SR(cfg)
-    elif class_name.lower() == "convbilinear":
-        from deepr.model.conv_bilinear import ConvBilinear, ConvBilinearConfig
+    elif class_name.lower() == "convbaseline":
+        from deepr.model.conv_baseline import ConvBaseline, ConvBaselineConfig
 
         kwargs["num_channels"] = kwargs.pop("out_channels")
         if input_shape is not None:
             kwargs["input_shape"] = input_shape
 
-        cfg = ConvBilinearConfig(**kwargs)
-        return ConvBilinear(cfg)
+        cfg = ConvBaselineConfig(**kwargs)
+        return ConvBaseline(cfg)
     elif class_name.split(".")[0].lower() == "diffusers":
         import diffusers
 
