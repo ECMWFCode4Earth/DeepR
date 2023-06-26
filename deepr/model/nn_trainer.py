@@ -97,6 +97,7 @@ def train_nn(
     datasets and configuration.
     """
     hparams = config.__dict__
+    model_name = model.__class__.__name__
 
     # Define important objects
     dataloader = torch.utils.data.DataLoader(
@@ -113,7 +114,7 @@ def train_nn(
         num_training_steps=(len(dataloader) * config.num_epochs),
     )
 
-    run_name = f"Train Super-Resolution NN ({model.__class__.__name__})"
+    run_name = f"Train Super-Resolution NN ({model_name})"
 
     aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
     accelerator = Accelerator(
@@ -127,7 +128,7 @@ def train_nn(
         if config.push_to_hub:
             repo = Repository(
                 config.output_dir,
-                clone_from=repo_name.format(model=model.__class__.__name__.lower()),
+                clone_from=repo_name.format(model=model_name.lower()),
                 token=os.getenv("HF_TOKEN"),
             )
             repo.git_pull()
@@ -236,7 +237,7 @@ def train_nn(
                     accelerator.unwrap_model(model),
                     val_era5,
                     val_cerra,
-                    output_name=f"{samples_dir}/nn_{epoch+1:04d}.png",
+                    output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
                 )
                 tfboard_tracker.writer.add_figure(
                     "Predictions", fig, global_step=epoch + 1
