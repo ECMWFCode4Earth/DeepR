@@ -6,6 +6,14 @@ Global reanalysis downscaling to regional scales by means of deep learning techn
 
 ![project-photo-description.png](docs%2F_static%2Fproject-photo-description.png)
 
+## Project Outputs
+
+Models trained on Mediterranean area with t2m data from ERA5 and CERRA.
+
+- [Baseline Neural Network](https://huggingface.co/predictia/europe_reanalysis_downscaler_convbaseline): An Up Convolutional Neural Network (CNN) to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
+- [Conv2D + Swin2SR](https://huggingface.co/predictia/europe_reanalysis_downscaler_convswin2sr): A combination of CNN and a Swin2SR transformers to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
+- [Denoising Diffusion Probabilistic Model](https://huggingface.co/predictia/europe_reanalysis_downscaler_diffuser): A diffusion model to denoise the ERA5 image using any of the previous methods to guide the generation process.
+
 ## Workflow for developers/contributors
 
 For best experience create a new conda environment (e.g. DEVELOP) with Python 3.10:
