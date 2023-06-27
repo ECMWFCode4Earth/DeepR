@@ -118,6 +118,8 @@ def train_nn(
 
     aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
     accelerator = Accelerator(
+        cpu=config.device == "cpu",
+        device_placement=True,
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
         log_with=[LoggerType.TENSORBOARD, aim_tracker],
