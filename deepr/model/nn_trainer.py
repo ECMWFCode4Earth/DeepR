@@ -4,7 +4,7 @@ from typing import Dict
 import matplotlib.pyplot
 import numpy as np
 import torch
-from accelerate import Accelerator
+from accelerate import Accelerator, find_executable_batch_size
 from accelerate.tracking import AimTracker
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
@@ -61,7 +61,9 @@ def save_samples(
     )
 
 
+@find_executable_batch_size()
 def train_nn(
+    batch_size: int,
     config: TrainingConfig,
     model,
     train_dataset: DataGenerator,
@@ -100,11 +102,9 @@ def train_nn(
     model_name = model.__class__.__name__
 
     # Define important objects
-    dataloader = torch.utils.data.DataLoader(
-        train_dataset, config.batch_size, pin_memory=True
-    )
+    dataloader = torch.utils.data.DataLoader(train_dataset, batch_size, pin_memory=True)
     dataloader_val = torch.utils.data.DataLoader(
-        val_dataset, config.batch_size, pin_memory=True
+        val_dataset, batch_size, pin_memory=True
     )
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -149,7 +149,7 @@ def train_nn(
 
     # Get fixed samples
     val_era5, val_cerra = next(iter(val_dataloader))
-    if config.batch_size > 4:
+    if batch_size > 4:
         val_era5, val_cerra = val_era5[:4], val_cerra[:4]
 
     tfboard_tracker.writer.add_graph(model, val_era5)

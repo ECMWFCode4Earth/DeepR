@@ -8,7 +8,6 @@ logger = logging.getLogger(__name__)
 
 @dataclass
 class TrainingConfig:
-    batch_size: int = 16
     num_epochs: int = 50
     num_samples: int = 3
     gradient_accumulation_steps = 1
