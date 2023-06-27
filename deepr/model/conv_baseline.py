@@ -30,7 +30,8 @@ class ConvBaselineConfig(PretrainedConfig):
         self.num_channels = num_channels
         self.upscale = upscale
         self.input_shape = input_shape
-        self.image_size = tuple(map(lambda x: x // self.upscale, self.sample_size))
+        if hasattr(self, "sample_size"):
+            self.image_size = tuple(map(lambda x: x // self.upscale, self.sample_size))
         self.upblock_channels = upblock_channels
         self.upblock_kernel_size = upblock_kernel_size
         self.interpolation_method = interpolation_method
