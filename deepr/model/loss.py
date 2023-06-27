@@ -7,7 +7,7 @@ pooling = torch.nn.AvgPool2d(kernel_size=5)
 
 
 def compute_loss(prediction: torch.Tensor, target: torch.Tensor) -> torch.Tensor:
-    """Computation of 3 different loss terms.
+    """Loss terms' computation.
 
     The first loss term is the L1 loss of the predictions with the references. The 2nd
     loss term refers to the L1 loss between the downsampled prediction and reference.

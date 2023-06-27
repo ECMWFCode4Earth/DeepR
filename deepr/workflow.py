@@ -166,7 +166,7 @@ class MainPipeline:
         )
         scheduler = get_hf_scheduler(**scheduler_cfg)
 
-        obs_model_cfg = self.model_config.pop("trained_obs_model", None)
+        obs_model_cfg = self.model_config.pop("trained_obs_model", {})
         obs_model = load_trained_model(**obs_model_cfg)
 
         # Train the diffusion model

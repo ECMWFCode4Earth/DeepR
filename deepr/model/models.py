@@ -8,18 +8,35 @@ from deepr.utilities.logger import get_logger
 logger = get_logger(__name__)
 
 
-def load_trained_model(class_name: str, model_dir: str) -> nn.Module:
-    if class_name.lower() == "convbilinear":
-        from deepr.model.conv_bilinear import ConvBilinear
+def load_trained_model(class_name: str = None, model_dir: str = None) -> nn.Module:
+    """Load a trained model and return it in evaluation mode.
 
-        model = ConvBilinear.from_pretrained(model_dir)
-        return model
+    Args:
+    ----
+        class_name (str): Name of the model class. Options are
+        model_dir (str): Directory where the model is stored.
+
+    Returns:
+    -------
+        nn.Module: the model in evaluation mode.
+    """
+    if class_name is None or model_dir is None:
+        return None
+    elif class_name.lower() == "convbaseline":
+        from deepr.model.conv_bilinear import ConvBaseline
+
+        model = ConvBaseline.from_pretrained(model_dir)
     elif class_name.lower() == "convswin2sr":
         from deepr.model.conv_swin2sr import ConvSwin2SR
 
         model = ConvSwin2SR.from_pretrained(model_dir)
-        return model
-    return None
+    else:
+        logger.warning(
+            f"The class_name {class_name} is not implemented. Options are 'convbaseline' and 'convswin2sr'."
+        )
+        return None
+    model.eval()
+    return model
 
 
 def get_neural_network(

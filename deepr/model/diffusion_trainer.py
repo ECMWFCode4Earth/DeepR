@@ -2,6 +2,7 @@ import os
 from typing import Optional, Type
 
 import diffusers
+import numpy as np
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
@@ -178,11 +179,19 @@ def train_diffusion(
             if hour_emb is not None:
                 hour_emb = hour_emb.to(config.device).squeeze()
 
+            # Get ERA5 of the same shape as CERRA: A) trained model, B) baseline interp.
+            if obs_model is not None:
+                up_era5 = obs_model(era5)
+            else:
+                up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
+                l_lat, l_lon = (np.array(up_era5.shape[-2:]) - cerra.shape[-2:]) // 2
+                r_lat = None if l_lat == 0 else -l_lat
+                r_lon = None if l_lon == 0 else -l_lon
+                up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
+
             # Predict the noise residual
             with accelerator.accumulate(model):
-                if obs_model is not None:
-                    era5 = model(era5)
-                model_inputs = torch.cat([noisy_images, era5], dim=1)
+                model_inputs = torch.cat([noisy_images, up_era5], dim=1)
 
                 # Predict the noise residual
                 noise_pred = model(
