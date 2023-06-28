@@ -4,7 +4,7 @@ import os
 import xarray
 
 input_directory = (
-    "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/C3S-CDS/ERA5/"
+    "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/C3S-CDS/ERA5"
 )
 output_directory = (
     "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/"
