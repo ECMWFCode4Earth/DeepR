@@ -119,7 +119,6 @@ def train_diffusion(
 
     @find_executable_batch_size()
     def inner_training_loop(batch_size: int, model: torch.nn.Module):
-
         if accelerator.is_main_process:
             if config.push_to_hub:
                 repo = Repository(
@@ -185,7 +184,9 @@ def train_diffusion(
                     up_era5 = obs_model(era5)
                 else:
                     up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
-                    l_lat, l_lon = (np.array(up_era5.shape[-2:]) - cerra.shape[-2:]) // 2
+                    l_lat, l_lon = (
+                        np.array(up_era5.shape[-2:]) - cerra.shape[-2:]
+                    ) // 2
                     r_lat = None if l_lat == 0 else -l_lat
                     r_lon = None if l_lon == 0 else -l_lon
                     up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
@@ -196,7 +197,10 @@ def train_diffusion(
 
                     # Predict the noise residual
                     noise_pred = model(
-                        model_inputs, timesteps, return_dict=False, class_labels=hour_emb
+                        model_inputs,
+                        timesteps,
+                        return_dict=False,
+                        class_labels=hour_emb,
                     )[0]
                     loss = F.mse_loss(noise_pred, noise)
                     accelerator.backward(loss)
@@ -253,7 +257,10 @@ def train_diffusion(
 
                     # Predict the noise residual
                     noise_pred = model(
-                        model_inputs, timesteps, return_dict=False, class_labels=hour_emb
+                        model_inputs,
+                        timesteps,
+                        return_dict=False,
+                        class_labels=hour_emb,
                     )[0]
                     loss.append(F.mse_loss(noise_pred, noise))
 

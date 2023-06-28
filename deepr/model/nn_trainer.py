@@ -20,6 +20,7 @@ repo_name = "predictia/europe_reanalysis_downscaler_{model}"
 
 logger = logging.get_logger(__name__, log_level="INFO")
 
+
 def save_samples(
     model,
     era5: torch.Tensor,
@@ -272,7 +273,7 @@ def train_nn(
                         repo.push_to_hub(
                             commit_message=f"Epoch {epoch+1}", blocking=True
                         )
-                    
+
         return model
 
     trained_model = innner_training_loop(model)
