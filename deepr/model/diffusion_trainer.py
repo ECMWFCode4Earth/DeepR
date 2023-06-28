@@ -106,7 +106,6 @@ def train_diffusion(
 
     @find_executable_batch_size()
     def inner_training_loop(batch_size: int, model: torch.nn.Module):
-<<<<<<< HEAD
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
 
@@ -124,8 +123,6 @@ def train_diffusion(
             num_warmup_steps=config.lr_warmup_steps,
             num_training_steps=(len(train_dataloader) * config.num_epochs),
         )
-=======
->>>>>>> f46ed4cad99f9382e3cbe896299c9413988597f8
         if accelerator.is_main_process:
             if config.push_to_hub:
                 repo = Repository(
