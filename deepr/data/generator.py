@@ -118,28 +118,27 @@ class DataGenerator(IterableDataset):
             Tuple containing feature tensor, label tensor, and time value tensor
             (if add_auxiliary_features is True).
         """
-        features_ds_batch = self.features_ds.sel(time=time_value)
-        if self.features_scaler:
-            features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
+        tensors = []
+
+        if self.features_ds is not None:
+            features_ds_batch = self.features_ds.sel(time=time_value)
+            if self.features_scaler:
+                features_ds_batch = self.features_scaler.apply_scaler(features_ds_batch)
+            tensors.append(torch.as_tensor(features_ds_batch.to_array().to_numpy()))
+
         label_ds_batch = self.label_ds.sel(time=time_value)
         if self.label_scaler:
             label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
+        tensors.append(torch.as_tensor(label_ds_batch.to_array().to_numpy()))
 
         if self.add_auxiliary_features:
             time_value = pandas.to_datetime(time_value)
             time_value_batch = numpy.array(
                 [time_value.hour, time_value.day, time_value.month, time_value.year]
             )
-            return (
-                torch.as_tensor(features_ds_batch.to_array().to_numpy()),
-                torch.as_tensor(label_ds_batch.to_array().to_numpy()),
-                torch.as_tensor(time_value_batch),
-            )
-        else:
-            return (
-                torch.as_tensor(features_ds_batch.to_array().to_numpy()),
-                torch.as_tensor(label_ds_batch.to_array().to_numpy()),
-            )
+            tensors.append(torch.as_tensor(time_value_batch))
+
+        return tuple(tensors)
 
     def __iter__(self):
         """
@@ -185,9 +184,10 @@ class DataGenerator(IterableDataset):
         The feature datasets are merged into a single dataset using xarray.merge().
         """
         label_file = self.label_files.collection[self.file_index]
-        features_files = self.feature_files.find_data(
-            **{"temporal_coverage": label_file.temporal_coverage}
-        )
+        if self.feature_files is not None:
+            features_files = self.feature_files.find_data(
+                **{"temporal_coverage": label_file.temporal_coverage}
+            )
 
         label_ds = xarray.open_dataset(label_file.to_path())
         self.label_ds = label_ds.sel(
@@ -200,21 +200,25 @@ class DataGenerator(IterableDataset):
                 label_file.spatial_coverage["longitude"][1],
             ),
         )
-        features_datasets = []
-        for features_file in features_files.collection:
-            features_ds = xarray.open_dataset(features_file.to_path())
-            features_ds = features_ds.sel(
-                latitude=slice(
-                    features_file.spatial_coverage["latitude"][0],
-                    features_file.spatial_coverage["latitude"][1],
-                ),
-                longitude=slice(
-                    features_file.spatial_coverage["longitude"][0],
-                    features_file.spatial_coverage["longitude"][1],
-                ),
-            )
-            features_datasets.append(features_ds)
-        self.features_ds = xarray.merge(features_datasets)
+
+        if self.feature_files is not None:
+            features_datasets = []
+            for features_file in features_files.collection:
+                features_ds = xarray.open_dataset(features_file.to_path())
+                features_ds = features_ds.sel(
+                    latitude=slice(
+                        features_file.spatial_coverage["latitude"][0],
+                        features_file.spatial_coverage["latitude"][1],
+                    ),
+                    longitude=slice(
+                        features_file.spatial_coverage["longitude"][0],
+                        features_file.spatial_coverage["longitude"][1],
+                    ),
+                )
+                features_datasets.append(features_ds)
+            self.features_ds = xarray.merge(features_datasets)
+        else:
+            self.features_ds = None
 
         self.file_index += 1
 
@@ -231,10 +235,17 @@ class DataGenerator(IterableDataset):
         """
         batch = next(self.__iter__())
         if self.add_auxiliary_features:
-            features_sample, label_sample, aux_sample = batch
+            if len(batch) == 3:
+                features_sample, label_sample, aux_sample = batch
+            if len(batch) == 2:  # auto-encoder
+                label_sample, aux_sample = batch
+                features_sample = label_sample
             aux_shape = tuple(aux_sample.shape)
         else:
-            features_sample, label_sample = batch
+            if len(batch) == 2:
+                features_sample, label_sample = batch
+            else:  # auto-encoder
+                features_sample = label_sample = batch[0]
             aux_shape = None
         input_shape = tuple(features_sample.shape[1:])
         input_channels = features_sample.shape[0]

@@ -76,9 +76,9 @@ def save_samples(
     sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
     images = images.transpose(1, 3).transpose(2, 3)
     figure = get_figure_model_samples(
-        era5.cpu(),
         cerra.cpu(),
         images.cpu(),
+        input_image=era5.cpu(),
         column_names=sample_names,
         filename=outname,
     )
@@ -96,19 +96,6 @@ def train_diffusion(
 ):
     hparams = config.__dict__  # | dataset_info
 
-    # Define important objects
-    train_dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
-    val_dataloader = torch.utils.data.DataLoader(
-        dataset_val, batch_size, pin_memory=True
-    )
-
-    optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
-    lr_scheduler = get_cosine_schedule_with_warmup(
-        optimizer=optimizer,
-        num_warmup_steps=config.lr_warmup_steps,
-        num_training_steps=(len(train_dataloader) * config.num_epochs),
-    )
-
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
@@ -119,7 +106,23 @@ def train_diffusion(
 
     @find_executable_batch_size()
     def inner_training_loop(batch_size: int, model: torch.nn.Module):
+        nonlocal accelerator  # Ensure they can be used in our context
+        accelerator.free_memory()  # Free all lingering references
 
+        # Define important objects
+        train_dataloader = torch.utils.data.DataLoader(
+            dataset, batch_size, pin_memory=True
+        )
+        val_dataloader = torch.utils.data.DataLoader(
+            dataset_val, batch_size, pin_memory=True
+        )
+
+        optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
+        lr_scheduler = get_cosine_schedule_with_warmup(
+            optimizer=optimizer,
+            num_warmup_steps=config.lr_warmup_steps,
+            num_training_steps=(len(train_dataloader) * config.num_epochs),
+        )
         if accelerator.is_main_process:
             if config.push_to_hub:
                 repo = Repository(
@@ -185,7 +188,9 @@ def train_diffusion(
                     up_era5 = obs_model(era5)
                 else:
                     up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
-                    l_lat, l_lon = (np.array(up_era5.shape[-2:]) - cerra.shape[-2:]) // 2
+                    l_lat, l_lon = (
+                        np.array(up_era5.shape[-2:]) - cerra.shape[-2:]
+                    ) // 2
                     r_lat = None if l_lat == 0 else -l_lat
                     r_lon = None if l_lon == 0 else -l_lon
                     up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
@@ -196,7 +201,10 @@ def train_diffusion(
 
                     # Predict the noise residual
                     noise_pred = model(
-                        model_inputs, timesteps, return_dict=False, class_labels=hour_emb
+                        model_inputs,
+                        timesteps,
+                        return_dict=False,
+                        class_labels=hour_emb,
                     )[0]
                     loss = F.mse_loss(noise_pred, noise)
                     accelerator.backward(loss)
@@ -253,7 +261,10 @@ def train_diffusion(
 
                     # Predict the noise residual
                     noise_pred = model(
-                        model_inputs, timesteps, return_dict=False, class_labels=hour_emb
+                        model_inputs,
+                        timesteps,
+                        return_dict=False,
+                        class_labels=hour_emb,
                     )[0]
                     loss.append(F.mse_loss(noise_pred, noise))
 

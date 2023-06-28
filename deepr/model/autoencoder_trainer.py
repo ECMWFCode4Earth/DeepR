@@ -11,21 +11,18 @@ from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from tqdm import tqdm
 
+import torch.nn.functional as F
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
-from deepr.model.loss import compute_loss
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
-repo_name = "predictia/europe_reanalysis_downscaler_{model}"
+repo_name = "predictia/cerra_tas_vqvae"
 
 logger = logging.get_logger(__name__, log_level="INFO")
 
 
 def save_samples(
-    model,
-    era5: torch.Tensor,
-    cerra: torch.Tensor,
-    output_name: str,
+    model, cerra: torch.Tensor, output_name: str,
 ) -> matplotlib.pyplot.Figure:
     """
     Save a set of samples.
@@ -34,8 +31,6 @@ def save_samples(
     ----------
     model : nn.Module
         The model used for generating samples.
-    era5 : torch.Tensor
-        The ERA5 data tensor.
     cerra : torch.Tensor
         The CERRA data tensor.
     output_name : str
@@ -43,27 +38,18 @@ def save_samples(
 
     Returns
     -------
-    None
+        Figure: The figure.
     """
     with torch.no_grad():
-        images = model(era5, return_dict=False)[0]
+        cerra_pred = model(cerra, return_dict=False)[0]
 
-    pred_baseline = torch.nn.functional.interpolate(
-        era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
-    )
-
-    # Make a grid out of the images
+    figsize = 3 + 4.5 * cerra.shape[0], 8
     return get_figure_model_samples(
-        cerra.cpu(),
-        images.cpu(),
-        input_image=era5.cpu(),
-        baseline=pred_baseline.cpu(),
-        filename=output_name,
-        figsize=(15, 10),
+        cerra.cpu(), cerra_pred.cpu(), filename=output_name, figsize=figsize
     )
 
 
-def train_nn(
+def train_autoencoder(
     config: TrainingConfig,
     model,
     train_dataset: DataGenerator,
@@ -100,18 +86,19 @@ def train_nn(
     """
     hparams = config.__dict__
     model_name = model.__class__.__name__
-    run_name = f"Train Super-Resolution NN ({model_name})"
-    aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
+    run_name = f"Train VQ-VAE NN"
+
+    #aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
     accelerator = Accelerator(
         cpu=config.device == "cpu",
         device_placement=True,
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        log_with=[LoggerType.TENSORBOARD, aim_tracker],
+        log_with=[LoggerType.TENSORBOARD], # aim_tracker
         project_dir=os.path.join(config.output_dir, "logs"),
     )
 
-    @find_executable_batch_size()
+    @find_executable_batch_size(starting_batch_size=4)
     def innner_training_loop(batch_size: int, model):
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
@@ -155,11 +142,10 @@ def train_nn(
         )
 
         # Get fixed samples
-        val_era5, val_cerra = next(iter(val_dataloader))
+        val_cerra, = next(iter(val_dataloader))
         if batch_size > 4:
-            val_era5, val_cerra = val_era5[:4], val_cerra[:4]
+            val_cerra = val_cerra[:4]
 
-        tfboard_tracker.writer.add_graph(model, val_era5)
         logger.info(
             f"Number of parameters: {sum([np.prod(m.size()) for m in model.parameters()])}"
         )
@@ -172,41 +158,34 @@ def train_nn(
             )
             progress_bar.set_description(f"Epoch {epoch+1}")
 
-            for era5, cerra in train_dataloader:
+            for cerra, in train_dataloader:
                 # Predict the noise residual
                 with accelerator.accumulate(model):
-                    cerra_pred = model(era5, return_dict=False)[0]
-                    l1, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
-                    loss = l1 + l_lowres + l_blurred
-                    accelerator.backward(loss)
+                    # Encode, quantize and decode
+                    z = model.encoder(cerra)
+                    h = model.quant_conv(z)
+                    quant, emb_loss, (perplexity, min_encodings, min_encoding_indices) = model.quantize(h)
+                    quant2 = model.post_quant_conv(quant)
+                    cerra_pred = model.decoder(quant2)
 
+                    # Calculate the loss
+                    rec_loss = F.mse_loss(cerra, cerra_pred)
+                    loss = emb_loss + rec_loss
+                    
+                    accelerator.backward(loss)
                     accelerator.clip_grad_norm_(model.parameters(), 1.0)
                     optimizer.step()
                     lr_scheduler.step()
                     optimizer.zero_grad()
 
-                torch.nn.functional.interpolate(
-                    era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
-                )
-                l1_base, l_lowres_base, l_blurred_base = compute_loss(cerra_pred, cerra)
-                loss_base = l1_base + l_lowres_base + l_blurred_base
                 progress_bar.update(1)
-                pred_var = cerra_pred.var(keepdim=True, dim=0).mean().item()
-                true_var = cerra.var(keepdim=True, dim=0).mean().item()
                 lo = loss.detach().item()
-                l_base = loss_base.detach().item()
                 logs = {
                     "loss_vs_step": lo,
-                    "l1_pred_vs_step": l1,
-                    "l1_lowres_vs_step": l_lowres,
-                    "l1_blurred_vs_step": l_blurred,
-                    "baseline_loss_vs_step": l_base,
-                    "improvement_vs_step": (l_base - lo) / l_base * 100,
+                    "loss_emb_vs_step": emb_loss.detach().item(),
+                    "loss_recon_vs_step": rec_loss.detach().item(),
                     "lr_vs_step": lr_scheduler.get_last_lr()[0],
                     "step": global_step,
-                    "bias_perc_vs_step": (cerra - cerra_pred).mean().item()
-                    / cerra.mean().item(),
-                    "mean_var_ratio_vs_step": true_var / pred_var,
                     "epoch": epoch,
                 }
                 progress_bar.set_postfix(**logs)
@@ -218,31 +197,29 @@ def train_nn(
                 global_step += 1
 
             # Evaluate
-            loss, l1_pred, l1_lowres, l1_blurred = [], [], [], []
-            true_var, pred_var, bias, mean_pred = [], [], [], []
-            for era5, cerra in val_dataloader:
+            loss, loss_emb, loss_recs = [], [], []
+            for cerra, in val_dataloader:
                 # Predict the noise residual
                 with torch.no_grad():
-                    cerra_pred = model(era5, return_dict=False)[0]
-                    l_pred, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
-                    loss.append(l_pred + l_lowres + l_blurred)
-                    l1_pred.append(l_pred)
-                    l1_lowres.append(l_lowres)
-                    l1_blurred.append(l_blurred)
+                    # Encode, quantize and decode
+                    z = model.encoder(cerra)
+                    h = model.quant_conv(z)
+                    quant, emb_loss, (perp, min_encs, min_enc_idx) = model.quantize(h)
+                    quant2 = model.post_quant_conv(quant)
+                    cerra_pred = model.decoder(quant2)
+                    
+                    rec_loss = F.mse_loss(cerra, cerra_pred)
+                   
+                    loss.append(emb_loss + rec_loss)
+                    loss_emb.append(emb_loss)
+                    loss_recs.append(rec_loss)
 
-                pred_var.append(cerra_pred.var(keepdim=True, dim=0).mean().item())
-                true_var.append(cerra.var(keepdim=True, dim=0).mean().item())
-                bias.append((cerra - cerra_pred).mean().item())
-                mean_pred.append(cerra_pred.mean().item())
                 progress_bar.update(1)
 
             logs = {
                 "val_loss_vs_epoch": sum(loss) / len(loss),
-                "val_l1_vs_epoch": sum(l1_pred) / len(l1_pred),
-                "val_l1_lowres_vs_epoch": sum(l1_lowres) / len(l1_lowres),
-                "val_l1_blurred_vs_epoch": sum(l1_blurred) / len(l1_blurred),
-                "val_bias_perc_vs_epoch": sum(bias) / sum(mean_pred),
-                "val_mean_var_ratio_vs_epoch": sum(true_var) / sum(pred_var),
+                "val_loss_emb_vs_epoch": sum(loss_emb) / len(loss_emb),
+                "val_loss_recon_vs_epoch": sum(loss_recs) / len(loss_recs),
                 "epoch": epoch,
             }
             accelerator.log(logs, step=epoch)
@@ -258,7 +235,6 @@ def train_nn(
                     os.makedirs(samples_dir, exist_ok=True)
                     fig = save_samples(
                         accelerator.unwrap_model(model),
-                        val_era5,
                         val_cerra,
                         output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
                     )
@@ -273,7 +249,7 @@ def train_nn(
                         repo.push_to_hub(
                             commit_message=f"Epoch {epoch+1}", blocking=True
                         )
-
+                    
         return model
 
     trained_model = innner_training_loop(model)

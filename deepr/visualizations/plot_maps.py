@@ -11,10 +11,10 @@ logger = get_logger(__name__)
 
 
 def get_figure_model_samples(
-    coarse_image: torch.Tensor,
     fine_image: torch.Tensor,
     prediction: torch.Tensor,
-    baseline: torch.Tensor,
+    input_image: torch.Tensor = None,
+    baseline: torch.Tensor = None,
     column_names: List[str] = None,
     filename: Optional[str] = None,
     figsize: Optional[Tuple[int, int]] = None,
@@ -22,21 +22,25 @@ def get_figure_model_samples(
     if baseline is not None:
         prediction = torch.cat([prediction, baseline], dim=0)
 
+    n_extras = 2 if input_image is not None else 1
+
     vmax = max(
-        float(torch.max(coarse_image)),
         float(torch.max(fine_image)),
         float(torch.max(prediction)),
+        -9999.0 if input_image is None else float(torch.max(input_image)),
+        -9999.0 if input_image is None else float(torch.max(baseline)),
     )
     vmin = min(
-        float(torch.min(coarse_image)),
         float(torch.min(fine_image)),
         float(torch.min(prediction)),
+        9999.0 if input_image is None else float(torch.min(input_image)),
+        9999.0 if input_image is None else float(torch.min(baseline)),
     )
     v_kwargs = {"vmax": vmax, "vmin": vmin}
 
-    n_samples = int(coarse_image.shape[0])
+    n_samples = int(fine_image.shape[0])
 
-    if n_samples != int(fine_image.shape[0]):
+    if input_image is not None and n_samples != int(input_image.shape[0]):
         raise ValueError("Inconsistent number of samples between images.")
     elif int(prediction.shape[0]) % n_samples != 0:
         raise ValueError("Inconsistent number of samples between predictions.")
@@ -44,16 +48,20 @@ def get_figure_model_samples(
         n_realizations = prediction.shape[0] // n_samples
 
     if figsize is None:
-        figsize = (4.5 * (n_realizations + 2), 4.8 * n_samples)
-    fig, axs = plt.subplots(n_realizations + 2, n_samples, figsize=figsize)
+        figsize = (4.5 * (n_realizations + n_extras), 4.8 * n_samples)
+    fig, axs = plt.subplots(n_realizations + n_extras, n_samples, figsize=figsize)
     plt.tight_layout()
     if n_samples == 1:
         axs = axs[np.newaxis, ...]
     for i in range(n_samples):
-        axs[0, i].imshow(coarse_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
-        axs[1, i].imshow(fine_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
+        if input_image is not None:
+            axs[0, i].imshow(input_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
+            axs[1, i].imshow(fine_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
+        else:
+            axs[0, i].imshow(fine_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)
+
         for r in range(n_realizations):
-            im = axs[2 + r, i].imshow(
+            im = axs[n_extras + r, i].imshow(
                 prediction[i + r * n_samples, 0].numpy()[..., np.newaxis], **v_kwargs
             )
 
@@ -63,19 +71,23 @@ def get_figure_model_samples(
         axs[1, i].get_yaxis().set_ticks([])
 
         for r in range(n_realizations):
-            axs[2 + r, i].get_xaxis().set_ticks([])
-            axs[2 + r, i].get_yaxis().set_ticks([])
+            axs[n_extras + r, i].get_xaxis().set_ticks([])
+            axs[n_extras + r, i].get_yaxis().set_ticks([])
 
         # Titles
         if i == 0:
-            axs[0, i].set_ylabel("ERA5 (Low-res)", fontsize=14)
-            axs[1, i].set_ylabel("CERRA (High-res)", fontsize=14)
+            if input_image is not None:
+                axs[0, i].set_ylabel("ERA5 (Low-res)", fontsize=14)
+                axs[1, i].set_ylabel("CERRA (High-res)", fontsize=14)
+            else:
+                axs[0, i].set_ylabel("CERRA (High-res)", fontsize=14)
+
             for r in range(n_realizations):
                 if baseline is not None and r == n_realizations - 1:
                     label = "Bicubic Int."
                 else:
                     label = "Prediction (High-res)"
-                axs[2 + r, i].set_ylabel(label, fontsize=14)
+                axs[n_extras + r, i].set_ylabel(label, fontsize=14)
 
     if column_names is not None:
         for c, col_name in enumerate(column_names):

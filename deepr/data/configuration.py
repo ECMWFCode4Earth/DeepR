@@ -17,9 +17,21 @@ class DataConfiguration:
             Data configuration dictionary containing features_configuration, label_configuration,
             and common_configuration.
         """
-        self.features_configuration = data_configuration["features_configuration"]
-        self.label_configuration = data_configuration["label_configuration"]
-        self.common_configuration = data_configuration["common_configuration"]
+        self.features_configuration = data_configuration.get(
+            "features_configuration", None
+        )
+        self.label_configuration = data_configuration.get("label_configuration", None)
+        self.common_configuration = data_configuration.get("common_configuration", None)
+
+    def _get_data_splits(self):
+        if self.common_configuration is None:
+            return 0.0, 0.0
+
+        data_split = self.common_configuration["data_split"]
+        test_split_size = data_split.get("test", 0.0)
+        val_split_size = data_split.get("validation", 0.0) / (1 - test_split_size)
+
+        return val_split_size, test_split_size
 
     def get_dates(self) -> List[str]:
         """
@@ -52,6 +64,9 @@ class DataConfiguration:
         FileNotFoundError
             If no file was found for the defined features_configuration.
         """
+        if self.features_configuration is None:
+            return None, None, None
+
         # Get the dates for the features
         features_dates = self.get_dates()
 
@@ -80,9 +95,19 @@ class DataConfiguration:
                 "No file was found for the defined features_configuration."
             )
 
-        return features_files
+        if self.common_configuration is not None:
+            val_split, test_split = self._get_data_splits()
+            features_coll_train, features_coll_test = features_files.split_data(
+                test_split
+            )
+            features_coll_train, features_coll_val = features_coll_train.split_data(
+                val_split
+            )
+            return features_coll_train, features_coll_val, features_coll_test
+        else:
+            return features_files, None, None
 
-    def get_label(self) -> DataFileCollection:
+    def get_labels(self) -> DataFileCollection:
         """
         Get the list of label files based on the label_configuration.
 
@@ -96,6 +121,9 @@ class DataConfiguration:
         FileNotFoundError
             If no file was found for the defined label_configuration.
         """
+        if self.label_configuration is None:
+            return None, None, None
+
         # Get the dates for the labels
         label_dates = self.get_dates()
 
@@ -120,4 +148,10 @@ class DataConfiguration:
                 "No file was found for the defined label_configuration."
             )
 
-        return label_files
+        if self.common_configuration is not None:
+            val_split, test_split = self._get_data_splits()
+            label_coll_train, label_coll_test = label_files.split_data(test_split)
+            label_coll_train, label_coll_val = label_coll_train.split_data(val_split)
+            return label_coll_train, label_coll_val, label_coll_test
+        else:
+            return label_files, None, None

@@ -6,6 +6,7 @@ from torch import nn
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
 from deepr.data.scaler import XarrayStandardScaler
+from deepr.model.autoencoder_trainer import train_autoencoder
 from deepr.model.configs import TrainingConfig
 from deepr.model.diffusion_trainer import train_diffusion
 from deepr.model.models import get_hf_scheduler, get_neural_network, load_trained_model
@@ -74,53 +75,46 @@ class MainPipeline:
 
         test_split_size = data_splits.get("test", 0.0)
         if test_split_size < 1.0:
-            val_split_size = data_splits.get("validation", 0.0) / (1 - test_split_size)
+            data_splits.get("validation", 0.0) / (1 - test_split_size)
         else:
-            val_split_size = 0.0
+            pass
 
         logger.info("Get features from data_configuration dictionary.")
-        features_collection = data_configuration.get_features()
-        features_coll_train, features_coll_test = features_collection.split_data(
-            test_split_size
-        )
-        features_coll_train, features_coll_val = features_coll_train.split_data(
-            val_split_size
-        )
+        train_features, val_features, test_features = data_configuration.get_features()
 
-        if data_configuration.features_configuration["apply_standardization"]:
+        if (
+            train_features is not None
+            and data_configuration.features_configuration["apply_standardization"]
+        ):
             cache_dir = Path.home() / ".cache_reanalysis_scales" / "features_scale"
-            self.features_scaler = XarrayStandardScaler(features_coll_train, cache_dir)
+            self.features_scaler = XarrayStandardScaler(train_features, cache_dir)
 
         logger.info("Get label from data_configuration dictionary.")
-        label_collection = data_configuration.get_label()
-        label_coll_train, label_coll_test = label_collection.split_data(test_split_size)
-        label_coll_train, label_coll_val = label_coll_train.split_data(val_split_size)
-        if data_configuration.label_configuration["apply_standardization"]:
+        train_label, val_label, test_label = data_configuration.get_labels()
+
+        if (
+            train_label is not None
+            and data_configuration.label_configuration["apply_standardization"]
+        ):
             cache_dir = Path.home() / ".cache_reanalysis_scales" / "label_scale"
-            self.label_scaler = XarrayStandardScaler(label_coll_train, cache_dir)
+            self.label_scaler = XarrayStandardScaler(train_label, cache_dir)
 
         # Define DataGenerators
         logger.info("Define the DataGenerator object.")
+        f_cfg = data_configuration.features_configuration
+        add_aux = False if f_cfg is None else f_cfg.get("add_auxiliary", False)
         data_generator_train = DataGenerator(
-            features_coll_train,
-            data_configuration.features_configuration["add_auxiliary"],
-            label_coll_train,
+            train_features,
+            add_aux,
+            train_label,
             self.features_scaler,
             self.label_scaler,
         )
         data_generator_val = DataGenerator(
-            features_coll_val,
-            data_configuration.features_configuration["add_auxiliary"],
-            label_coll_val,
-            self.features_scaler,
-            self.label_scaler,
+            val_features, add_aux, val_label, self.features_scaler, self.label_scaler
         )
         data_generator_test = DataGenerator(
-            features_coll_test,
-            True,
-            label_coll_test,
-            self.features_scaler,
-            self.label_scaler,
+            test_features, True, test_label, self.features_scaler, self.label_scaler
         )
         return data_generator_train, data_generator_val, data_generator_test
 
@@ -215,6 +209,18 @@ class MainPipeline:
             self._prepare_data_cfg_log(),
         )
 
+    def train_autoencoder(
+        self, dataset_train: DataGenerator, dataset_val: DataGenerator
+    ):
+        model_cfg = self.model_config.pop("neural_network")
+        model_cfg["kwargs"]["in_channels"] = dataset_train.input_channels
+        model_cfg["kwargs"]["out_channels"] = dataset_train.output_channels
+        model_cfg["kwargs"]["sample_size"] = dataset_train.output_shape
+
+        # Instantiate objects
+        model = get_neural_network(**model_cfg)
+        return train_autoencoder(self.train_config, model, dataset_train, dataset_val)
+
     def train_model(
         self,
         dataset_train: DataGenerator,
@@ -239,6 +245,8 @@ class MainPipeline:
             return self.train_diffusion(dataset_train, dataset_val)
         elif self.pipeline_type == "end2end":
             return self.train_end2end_nn(dataset_train, dataset_val)
+        elif self.pipeline_type == "autoencoder":
+            return self.train_autoencoder(dataset_train, dataset_val)
         else:
             raise NotImplementedError(
                 f"The training procedure {self.pipeline_type} is not supported."
