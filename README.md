@@ -12,6 +12,7 @@ Models trained on Mediterranean area with t2m data from ERA5 and CERRA.
 
 - [Baseline Neural Network](https://huggingface.co/predictia/europe_reanalysis_downscaler_convbaseline): An Up Convolutional Neural Network (CNN) to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
 - [Conv2D + Swin2SR](https://huggingface.co/predictia/europe_reanalysis_downscaler_convswin2sr): A combination of CNN and a Swin2SR transformers to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
+- [CERRA VQ-VAE 2](https://huggingface.co/predictia/cerra_tas_vqvae): A Vector Quantized Variational AutoEncoder (VQ-VAE) 2 to be used for latent diffusion models (LDM) and reduce the dimensionality of diffusion processes.
 - [Denoising Diffusion Probabilistic Model](https://huggingface.co/predictia/europe_reanalysis_downscaler_diffuser): A diffusion model to denoise the ERA5 image using any of the previous methods to guide the generation process.
 
 ## Workflow for developers/contributors
