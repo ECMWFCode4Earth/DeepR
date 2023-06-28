@@ -4,15 +4,15 @@ import os
 import xarray
 
 input_directory = (
-    "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/C3S-CDS/CERRA"
+    "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/C3S-CDS/ERA5"
 )
 output_directory = (
     "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/"
-    "C3S-CDS/CERRA/subdomain"
+    "C3S-CDS/ERA5/subdomain"
 )
 os.makedirs(output_directory, exist_ok=True)
 
-spatial_coverage = {"latitude": [44.95, 37], "longitude": [-6.85, 5.1]}
+spatial_coverage = {"latitude": [46.45, 35.50], "longitude": [-8.35, 6.6]}
 
 input_files = glob.glob(f"{input_directory}/*.nc")
 input_files.sort()
