@@ -17,6 +17,7 @@ spatial_coverage = {"latitude": [66.25, 29], "longitude": [-19.25, 38]}
 input_files = glob.glob(f"{input_directory}/*.nc")
 
 for input_file in input_files:
+    print(f"Processing input_file: {input_file}")
     input_data = xarray.open_dataset(input_file)
     input_data_sel = input_data.sel(
         latitude=slice(
@@ -29,4 +30,5 @@ for input_file in input_files:
         ),
     )
     output_file = input_file.replace(input_directory, output_directory)
+    print(f"Writing processed data to {output_file}")
     input_data_sel.to_netcdf(output_file)
