@@ -12,7 +12,7 @@ output_directory = (
 )
 os.makedirs(output_directory, exist_ok=True)
 
-spatial_coverage = {"latitude": [59.6, 35.65], "longitude": [-10, 29.95]}
+spatial_coverage = {"latitude": [44.95, 37], "longitude": [-6.85, 5.1]}
 
 input_files = glob.glob(f"{input_directory}/*.nc")
 input_files.sort()
