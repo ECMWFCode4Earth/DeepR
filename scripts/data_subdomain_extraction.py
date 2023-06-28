@@ -3,13 +3,8 @@ import os
 
 import xarray
 
-input_directory = (
-    "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/C3S-CDS/ERA5"
-)
-output_directory = (
-    "/gpfs/projects/meteo/WORK/PROYECTOS/2023_ecmwfcode4earth/DeepR/data/"
-    "C3S-CDS/ERA5/subdomain"
-)
+input_directory = "/input_directory"
+output_directory = "/output_directory"
 os.makedirs(output_directory, exist_ok=True)
 
 spatial_coverage = {"latitude": [46.45, 35.50], "longitude": [-8.35, 6.6]}
