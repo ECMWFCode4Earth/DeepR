@@ -1,12 +1,13 @@
-FROM continuumio/miniconda3
+FROM pytorch/pytorch:2.0.1-cuda11.7-cudnn8-runtime
 
-WORKDIR /src/DeepR
+ARG DEBIAN_FRONTEND=noninteractive
+ARG PYTHON_VERSION=3.10
 
-COPY environment.yml /src/DeepR/
+WORKDIR /home/deepr
 
-RUN conda install -c conda-forge gcc python=3.10 \
-    && conda env update -n base -f environment.yml
+COPY . .
 
-COPY . /src/DeepR
+RUN conda install -c conda-forge gcc python=${PYTHON_VERSION} && \
+    conda env update -n base -f environment_CUDA.yml
 
 RUN pip install --no-deps -e .
