@@ -57,7 +57,8 @@ class XarrayStandardScaler:
         def compute_parameters():
             datasets = []
             for file in self.files.collection:
-                dataset = xarray.open_dataset(file.to_path())
+                file_path = file.to_path()
+                dataset = xarray.open_dataset(file_path, chunks=16)
                 dataset = dataset.sel(
                     latitude=slice(
                         file.spatial_coverage["latitude"][0],

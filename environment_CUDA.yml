@@ -20,6 +20,7 @@ dependencies:
 - diffusers
 - transformers
 - huggingface_hub
+- aim
 # Visualization libraries
 - cartopy
 - matplotlib
@@ -35,3 +36,5 @@ dependencies:
 # Types for mypy
 - types-requests
 - types-pyyaml
+# Software
+- git-lfs
