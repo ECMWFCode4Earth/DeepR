@@ -188,7 +188,9 @@ def train_nn(
                 cerra_pred_base = torch.nn.functional.interpolate(
                     era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
                 )
-                l1_base, l_lowres_base, l_blurred_base = compute_loss(cerra_pred_base, cerra)
+                l1_base, l_lowres_base, l_blurred_base = compute_loss(
+                    cerra_pred_base, cerra
+                )
                 loss_base = l1_base + l_lowres_base + l_blurred_base
                 progress_bar.update(1)
                 pred_var = cerra_pred.var(keepdim=True, dim=0).mean().item()
