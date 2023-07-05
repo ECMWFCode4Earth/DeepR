@@ -143,7 +143,7 @@ def train_autoencoder(
         )
 
         # Get fixed samples
-        (val_cerra,) = next(iter(val_dataloader))
+        (val_cerra, _) = next(iter(val_dataloader))
         if batch_size > 4:
             val_cerra = val_cerra[:4]
 
@@ -159,7 +159,7 @@ def train_autoencoder(
             )
             progress_bar.set_description(f"Epoch {epoch+1}")
 
-            for (cerra,) in train_dataloader:
+            for cerra, _ in train_dataloader:
                 # Predict the noise residual
                 with accelerator.accumulate(model):
                     # Encode, quantize and decode
@@ -203,7 +203,7 @@ def train_autoencoder(
 
             # Evaluate
             loss, loss_emb, loss_recs = [], [], []
-            for (cerra,) in val_dataloader:
+            for cerra, _ in val_dataloader:
                 # Predict the noise residual
                 with torch.no_grad():
                     # Encode, quantize and decode

@@ -1,3 +1,4 @@
+import os
 from pathlib import Path
 from typing import Dict, Tuple
 
@@ -86,8 +87,13 @@ class MainPipeline:
             train_features is not None
             and data_configuration.features_configuration["apply_standardization"]
         ):
-            cache_dir = Path.home() / ".cache_reanalysis_scales" / "features_scale"
-            self.features_scaler = XarrayStandardScaler(train_features, cache_dir)
+            features_scaler_file = (
+                Path.home() / ".cache_reanalysis_scales" / "features_scale.pkl"
+            )
+            os.makedirs(features_scaler_file.parent, exist_ok=True)
+            self.features_scaler = XarrayStandardScaler(
+                train_features, features_scaler_file
+            )
 
         logger.info("Get label from data_configuration dictionary.")
         train_label, val_label, test_label = data_configuration.get_labels()
@@ -96,8 +102,11 @@ class MainPipeline:
             train_label is not None
             and data_configuration.label_configuration["apply_standardization"]
         ):
-            cache_dir = Path.home() / ".cache_reanalysis_scales" / "label_scale"
-            self.label_scaler = XarrayStandardScaler(train_label, cache_dir)
+            label_scaler_file = (
+                Path.home() / ".cache_reanalysis_scales" / "label_scale.pkl"
+            )
+            os.makedirs(label_scaler_file.parent, exist_ok=True)
+            self.label_scaler = XarrayStandardScaler(train_label, label_scaler_file)
 
         # Define DataGenerators
         logger.info("Define the DataGenerator object.")
