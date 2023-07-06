@@ -14,10 +14,11 @@ from tqdm import tqdm
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
+from deepr.utilities.logger import get_logger
 
 repo_name = "predictia/cerra_tas_vqvae"
 
-logger = logging.get_logger(__name__, log_level="INFO")
+logger = get_logger(__name__)
 
 
 def save_samples(
