@@ -98,7 +98,7 @@ def train_autoencoder(
         project_dir=os.path.join(config.output_dir, "logs"),
     )
 
-    @find_executable_batch_size(starting_batch_size=4)
+    @find_executable_batch_size(starting_batch_size=64)
     def innner_training_loop(batch_size: int, model):
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
@@ -164,7 +164,7 @@ def train_autoencoder(
                     # Encode, quantize and decode
                     z = model.encoder(cerra)
                     h = model.quant_conv(z)
-                    quant, emb_loss, (perplexity, min_encodings, min_encoding_indices) = model.quantize(h)
+                    quant, emb_loss, _ = model.quantize(h)
                     quant2 = model.post_quant_conv(quant)
                     cerra_pred = model.decoder(quant2)
 
@@ -190,10 +190,10 @@ def train_autoencoder(
                 }
                 progress_bar.set_postfix(**logs)
                 accelerator.log(logs, step=global_step)
-                tfboard_tracker.writer.add_histogram(
-                    "cerra prediction", cerra_pred, global_step
-                )
-                tfboard_tracker.writer.add_histogram("cerra", cerra, global_step)
+                #tfboard_tracker.writer.add_histogram(
+                #    "cerra prediction", cerra_pred, global_step
+                #)
+                #tfboard_tracker.writer.add_histogram("cerra", cerra, global_step)
                 global_step += 1
 
             # Evaluate
@@ -237,10 +237,9 @@ def train_autoencoder(
                         accelerator.unwrap_model(model),
                         val_cerra,
                         output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
-                    )
-                    tfboard_tracker.writer.add_figure(
-                        "Predictions", fig, global_step=epoch + 1
-                    )
+                    )                    
+                    if is_last_epoch:
+                        tf_writter.add_figure("Predictions", fig, global_step=epoch)
 
                 if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                     logger.info("Saving model weights...")

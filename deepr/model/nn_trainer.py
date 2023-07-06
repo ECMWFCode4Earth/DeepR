@@ -68,7 +68,7 @@ def train_nn(
     model,
     train_dataset: DataGenerator,
     val_dataset: DataGenerator,
-    dataset_info: Dict = {},
+    hparams: Dict = {},
 ):
     """
     Train a neural network model.
@@ -83,8 +83,8 @@ def train_nn(
         The training dataset.
     val_dataset : DataGenerator
         The validation dataset.
-    dataset_info : Dict, optional
-        Additional dataset information, by default {}.
+    hparams : Dict, optional
+        Hyperparameters.
 
     Returns
     -------
@@ -98,7 +98,10 @@ def train_nn(
     This function performs the training of a neural network model using the provided
     datasets and configuration.
     """
-    hparams = config.__dict__
+    number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
+    if "number_model_params" not in hparams:
+        hparams["number_model_params"] = number_model_params
+
     model_name = model.__class__.__name__
     run_name = f"Train Super-Resolution NN ({model_name})"
     aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
@@ -160,9 +163,7 @@ def train_nn(
             val_era5, val_cerra = val_era5[:4], val_cerra[:4]
 
         tfboard_tracker.writer.add_graph(model, val_era5)
-        logger.info(
-            f"Number of parameters: {sum([np.prod(m.size()) for m in model.parameters()])}"
-        )
+        logger.info(f"Number of parameters: {number_model_params}")
         global_step = 0
         # Now you train the model
         for epoch in range(config.num_epochs):
@@ -225,10 +226,10 @@ def train_nn(
                 with torch.no_grad():
                     cerra_pred = model(era5, return_dict=False)[0]
                     l_pred, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
-                    loss.append(l_pred + l_lowres + l_blurred)
-                    l1_pred.append(l_pred)
-                    l1_lowres.append(l_lowres)
-                    l1_blurred.append(l_blurred)
+                    loss.append((l_pred + l_lowres + l_blurred).mean().item())
+                    l1_pred.append(l_pred.mean().item())
+                    l1_lowres.append(l_lowres.mean().item())
+                    l1_blurred.append(l_blurred.mean().item())
 
                 pred_var.append(cerra_pred.var(keepdim=True, dim=0).mean().item())
                 true_var.append(cerra.var(keepdim=True, dim=0).mean().item())
@@ -262,9 +263,8 @@ def train_nn(
                         val_cerra,
                         output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
                     )
-                    tfboard_tracker.writer.add_figure(
-                        "Predictions", fig, global_step=epoch + 1
-                    )
+                    if is_last_epoch:
+                        tf_writter.add_figure("Predictions", fig, global_step=epoch)
 
                 if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                     logger.info("Saving model weights...")
