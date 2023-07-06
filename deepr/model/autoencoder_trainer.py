@@ -5,7 +5,7 @@ import matplotlib.pyplot
 import numpy as np
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator, find_executable_batch_size, logging
+from accelerate import Accelerator, find_executable_batch_size
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
@@ -13,8 +13,8 @@ from tqdm import tqdm
 
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
-from deepr.visualizations.plot_maps import get_figure_model_samples
 from deepr.utilities.logger import get_logger
+from deepr.visualizations.plot_maps import get_figure_model_samples
 
 repo_name = "predictia/cerra_tas_vqvae"
 
@@ -90,7 +90,7 @@ def train_autoencoder(
     number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = number_model_params
-        
+
     model_name = model.__class__.__name__
     run_name = "Train VQ-VAE NN"
 
