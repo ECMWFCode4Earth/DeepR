@@ -1,0 +1,46 @@
+# Data configuration
+data_configuration:
+  label_configuration:
+    variable: t2m
+    data_name: cerra
+    spatial_resolution: "005deg"
+    spatial_coverage:
+      longitude: [ -6.85, 5.1]
+      latitude: [ 44.95, 37 ]
+    apply_standardization: True
+    data_dir: /PATH/TO/labels/
+  common_configuration:
+    temporal_coverage:
+      start: 1985-01
+      end: 2020-12
+      frequency: MS
+    data_split:
+      test: 0.2
+      validation: 0.3
+# Training configuration
+training_configuration:
+  type: autoencoder
+  model_configuration:
+    neural_network:
+      class_name: diffusers.VQModel
+      kwargs:
+        latent_channels: 1
+        norm_num_groups: 8
+        num_vq_embeddings: 256
+        vq_embed_dim: 32
+        down_block_types: ["DownEncoderBlock2D", "AttnDownEncoderBlock2D", "AttnDownEncoderBlock2D"]
+        up_block_types: ["UpDecoderBlock2D", "AttnUpDecoderBlock2D", "AttnUpDecoderBlock2D"]
+        block_out_channels: [8, 16, 16]
+  training_parameters:
+    num_epochs: 200
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    lr_warmup_steps: 500
+    mixed_precision: "fp16"
+    hour_embed_type: class # none, timestep, positional, cyclical, class
+    output_dir: "vqvae-tiny-small"
+    device: cuda
+    push_to_hub: True
+    seed: 2023
+    save_image_epochs: 5
+    save_model_epochs: 10
