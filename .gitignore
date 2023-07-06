@@ -466,3 +466,4 @@ $RECYCLE.BIN/
 *.lnk
 
 /tests/data/
+resources/*.yml
