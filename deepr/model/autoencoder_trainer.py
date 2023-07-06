@@ -240,7 +240,9 @@ def train_autoencoder(
                         output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
                     )                    
                     if is_last_epoch:
-                        tf_writter.add_figure("Predictions", fig, global_step=epoch)
+                        tfboard_tracker.writer.add_figure(
+                            "Predictions", fig, global_step=epoch
+                        )
 
                 if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                     logger.info("Saving model weights...")
