@@ -86,6 +86,10 @@ def train_autoencoder(
     datasets and configuration.
     """
     hparams = config.__dict__
+    number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
+    if "number_model_params" not in hparams:
+        hparams["number_model_params"] = number_model_params
+        
     model_name = model.__class__.__name__
     run_name = "Train VQ-VAE NN"
 
@@ -147,9 +151,7 @@ def train_autoencoder(
         if batch_size > 4:
             val_cerra = val_cerra[:4]
 
-        logger.info(
-            f"Number of parameters: {sum([np.prod(m.size()) for m in model.parameters()])}"
-        )
+        logger.info(f"Number of parameters: {number_model_params}")
         global_step = 0
         # Now you train the model
         for epoch in range(config.num_epochs):
