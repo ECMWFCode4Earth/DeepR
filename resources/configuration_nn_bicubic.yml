@@ -1,0 +1,57 @@
+# Data configuration
+data_configuration:
+  # Features configuration
+  features_configuration:
+    variables:
+    - t2m
+    data_name: era5
+    add_auxiliary: False
+    spatial_resolution: "025deg"
+    spatial_coverage:
+      longitude: [ -8.35, 6.6]
+      latitude: [ 46.45, 35.50 ]
+    apply_standardization: True
+    data_dir: /PATH/TO/features/
+  # Label configuration
+  label_configuration:
+    variable: t2m
+    data_name: cerra
+    spatial_resolution: "005deg"
+    apply_standardization: True
+    spatial_coverage:
+      longitude: [ -6.85, 5.1]
+      latitude: [ 44.95, 37 ]
+    data_dir: /PATH/TO/labels/
+  # Common data configuration
+  common_configuration:
+    temporal_coverage:
+      start: 1985-01
+      end: 2020-12
+      frequency: MS
+    data_split:
+      test: 0.2
+      validation: 0.3
+# Training configuration
+training_configuration:
+  type: end2end
+  model_configuration:
+    neural_network:
+      class_name: ConvBaseline
+      kwargs:
+        interpolation_method: bicubic
+        num_channels: 1
+        upblock_kernel_size: [5, 3]
+        upblock_channels: [32, 16]
+        upscale: 5
+  training_parameters:
+    num_epochs: 200
+    gradient_accumulation_steps: 1
+    learning_rate: 0.0001
+    lr_warmup_steps: 500
+    mixed_precision: "fp16"
+    output_dir: "convbaseline-1985_2020"
+    device: cpu
+    push_to_hub: True
+    seed: 2023
+    save_image_epochs: 5
+    save_model_epochs: 10

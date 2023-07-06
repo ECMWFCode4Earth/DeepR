@@ -1,0 +1,39 @@
+# Data configuration
+data_configuration:
+  # Features configuration
+  features_configuration:
+    variables:
+    - t2m
+    data_name: era5
+    add_auxiliary: False
+    spatial_resolution: "025deg"
+    spatial_coverage:
+      longitude: [ -8.35, 6.6]
+      latitude: [ 46.45, 35.50 ]
+    apply_standardization: True
+    data_dir: /PATH/TO/features/
+  # Label configuration
+  label_configuration:
+    variable: t2m
+    data_name: cerra
+    spatial_resolution: "005deg"
+    apply_standardization: True
+    spatial_coverage:
+      longitude: [ -6.85, 5.1]
+      latitude: [ 44.95, 37 ]
+    data_dir: /PATH/TO/labels/
+  # Common data configuration
+  common_configuration:
+    temporal_coverage:
+      start: 2018-01
+      end: 2019-12
+      frequency: MS
+    data_split:
+      test: 1
+# Training configuration
+training_configuration:
+  type: end2end
+  model_configuration:
+    neural_network:
+      class_name: ConvSwin2SR
+      trained_model_dir: predictia/europe_reanalysis_downscaler_convswin2sr
