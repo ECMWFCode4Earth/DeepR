@@ -4,14 +4,13 @@ from typing import Dict
 import matplotlib.pyplot
 import numpy as np
 import torch
+import torch.nn.functional as F
 from accelerate import Accelerator, find_executable_batch_size, logging
-from accelerate.tracking import AimTracker
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from tqdm import tqdm
 
-import torch.nn.functional as F
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
@@ -22,7 +21,9 @@ logger = logging.get_logger(__name__, log_level="INFO")
 
 
 def save_samples(
-    model, cerra: torch.Tensor, output_name: str,
+    model,
+    cerra: torch.Tensor,
+    output_name: str,
 ) -> matplotlib.pyplot.Figure:
     """
     Save a set of samples.
@@ -86,15 +87,15 @@ def train_autoencoder(
     """
     hparams = config.__dict__
     model_name = model.__class__.__name__
-    run_name = f"Train VQ-VAE NN"
+    run_name = "Train VQ-VAE NN"
 
-    #aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
+    # aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
     accelerator = Accelerator(
         cpu=config.device == "cpu",
         device_placement=True,
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        log_with=[LoggerType.TENSORBOARD], # aim_tracker
+        log_with=[LoggerType.TENSORBOARD],  # aim_tracker
         project_dir=os.path.join(config.output_dir, "logs"),
     )
 
@@ -142,7 +143,7 @@ def train_autoencoder(
         )
 
         # Get fixed samples
-        val_cerra, = next(iter(val_dataloader))
+        (val_cerra, _) = next(iter(val_dataloader))
         if batch_size > 4:
             val_cerra = val_cerra[:4]
 
@@ -158,20 +159,28 @@ def train_autoencoder(
             )
             progress_bar.set_description(f"Epoch {epoch+1}")
 
-            for cerra, in train_dataloader:
+            for cerra, _ in train_dataloader:
                 # Predict the noise residual
                 with accelerator.accumulate(model):
                     # Encode, quantize and decode
                     z = model.encoder(cerra)
                     h = model.quant_conv(z)
+<<<<<<< HEAD
                     quant, emb_loss, _ = model.quantize(h)
+=======
+                    (
+                        quant,
+                        emb_loss,
+                        (perplexity, min_encodings, min_encoding_indices),
+                    ) = model.quantize(h)
+>>>>>>> c63cfb6dfd6cd3f2d213cff65033100f2ebf1745
                     quant2 = model.post_quant_conv(quant)
                     cerra_pred = model.decoder(quant2)
 
                     # Calculate the loss
                     rec_loss = F.mse_loss(cerra, cerra_pred)
                     loss = emb_loss + rec_loss
-                    
+
                     accelerator.backward(loss)
                     accelerator.clip_grad_norm_(model.parameters(), 1.0)
                     optimizer.step()
@@ -198,7 +207,7 @@ def train_autoencoder(
 
             # Evaluate
             loss, loss_emb, loss_recs = [], [], []
-            for cerra, in val_dataloader:
+            for cerra, _ in val_dataloader:
                 # Predict the noise residual
                 with torch.no_grad():
                     # Encode, quantize and decode
@@ -207,9 +216,9 @@ def train_autoencoder(
                     quant, emb_loss, (perp, min_encs, min_enc_idx) = model.quantize(h)
                     quant2 = model.post_quant_conv(quant)
                     cerra_pred = model.decoder(quant2)
-                    
+
                     rec_loss = F.mse_loss(cerra, cerra_pred)
-                   
+
                     loss.append(emb_loss + rec_loss)
                     loss_emb.append(emb_loss)
                     loss_recs.append(rec_loss)
@@ -248,7 +257,7 @@ def train_autoencoder(
                         repo.push_to_hub(
                             commit_message=f"Epoch {epoch+1}", blocking=True
                         )
-                    
+
         return model
 
     trained_model = innner_training_loop(model)

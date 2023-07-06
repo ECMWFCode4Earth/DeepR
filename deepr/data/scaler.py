@@ -1,17 +1,16 @@
 import os
-from pathlib import Path
+import pickle
 from typing import Tuple
 
 import pandas
 import torch
 import xarray
-from joblib import Memory
 
 from deepr.data.files import DataFileCollection
 
 
 class XarrayStandardScaler:
-    def __init__(self, files: DataFileCollection, cache_directory: Path):
+    def __init__(self, files: DataFileCollection, pickle_file: str):
         """
         Initialize the XarrayStandardScaler object.
 
@@ -19,27 +18,19 @@ class XarrayStandardScaler:
         ----------
         files : DataFileCollection
             Data files from which the XarrayStandardScaler wants to be calculated.
-        cache_directory : str
-            Directory path to store the cache files.
+        pickle_file : str
+            Path to store the pickle file.
         """
         self.files = files
-        self.cache_directory = cache_directory
-        os.makedirs(self.cache_directory, exist_ok=True)
-        self.average, self.standard_deviation = self.get_parameters()
-        self.average.load()
-        self.standard_deviation.load()
+        self.pickle_file = pickle_file
 
-    def create_memory(self):
-        """
-        Create a joblib Memory object with the specified cache directory.
-
-        Returns
-        -------
-        Memory
-            A joblib Memory object with the cache directory.
-        """
-        memory = Memory(location=str(self.cache_directory), verbose=0)
-        return memory
+        if os.path.exists(self.pickle_file):
+            self.load()
+        else:
+            self.average, self.standard_deviation = self.get_parameters()
+            self.average.load()
+            self.standard_deviation.load()
+            self.save()
 
     def get_parameters(self) -> Tuple[xarray.Dataset, xarray.Dataset]:
         """
@@ -52,29 +43,25 @@ class XarrayStandardScaler:
         std : xarray.Dataset
             The dataset containing the standard deviation values of the parameters.
         """
-
-        @self.create_memory().cache
-        def compute_parameters():
-            datasets = []
-            for file in self.files.collection:
-                dataset = xarray.open_dataset(file.to_path())
-                dataset = dataset.sel(
-                    latitude=slice(
-                        file.spatial_coverage["latitude"][0],
-                        file.spatial_coverage["latitude"][1],
-                    ),
-                    longitude=slice(
-                        file.spatial_coverage["longitude"][0],
-                        file.spatial_coverage["longitude"][1],
-                    ),
-                )
-                datasets.append(dataset)
-            dataset = xarray.concat(datasets, dim="time")
-            mean = dataset.groupby("time.month").mean()
-            std = dataset.groupby("time.month").std()
-            return mean, std
-
-        return compute_parameters()
+        datasets = []
+        for file in self.files.collection:
+            file_path = file.to_path()
+            dataset = xarray.open_dataset(file_path, chunks=16)
+            dataset = dataset.sel(
+                latitude=slice(
+                    file.spatial_coverage["latitude"][0],
+                    file.spatial_coverage["latitude"][1],
+                ),
+                longitude=slice(
+                    file.spatial_coverage["longitude"][0],
+                    file.spatial_coverage["longitude"][1],
+                ),
+            )
+            datasets.append(dataset)
+        dataset = xarray.concat(datasets, dim="time")
+        mean = dataset.groupby("time.month").mean()
+        std = dataset.groupby("time.month").std()
+        return mean, std
 
     def apply_scaler(self, ds: xarray.Dataset) -> xarray.Dataset:
         """
@@ -136,3 +123,15 @@ class XarrayStandardScaler:
             data_indexes.append(data_index_inverse.unsqueeze(1))
         data_inverse = torch.cat(data_indexes, dim=0)
         return data_inverse
+
+    def load(self):
+        """Load an XarrayStandardScaler object from a pickle file."""
+        with open(self.pickle_file, "rb") as f:
+            scaler = pickle.load(f)
+        self.average = scaler.average
+        self.standard_deviation = scaler.standard_deviation
+
+    def save(self):
+        """Save the XarrayStandardScaler object to a pickle file."""
+        with open(self.pickle_file, "wb") as f:
+            pickle.dump(self, f)

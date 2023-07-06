@@ -256,8 +256,17 @@ def train_diffusion(
                 # Predict the noise residual
                 with torch.no_grad():
                     if obs_model is not None:
-                        era5 = model(era5)
-                    model_inputs = torch.cat([noisy_images, era5], dim=1)
+                        up_era5 = obs_model(era5)
+                    else:
+                        up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
+                        l_lat, l_lon = (
+                            np.array(up_era5.shape[-2:]) - cerra.shape[-2:]
+                        ) // 2
+                        r_lat = None if l_lat == 0 else -l_lat
+                        r_lon = None if l_lon == 0 else -l_lon
+                        up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
+
+                    model_inputs = torch.cat([noisy_images, up_era5], dim=1)
 
                     # Predict the noise residual
                     noise_pred = model(
