@@ -165,15 +165,7 @@ def train_autoencoder(
                     # Encode, quantize and decode
                     z = model.encoder(cerra)
                     h = model.quant_conv(z)
-<<<<<<< HEAD
                     quant, emb_loss, _ = model.quantize(h)
-=======
-                    (
-                        quant,
-                        emb_loss,
-                        (perplexity, min_encodings, min_encoding_indices),
-                    ) = model.quantize(h)
->>>>>>> c63cfb6dfd6cd3f2d213cff65033100f2ebf1745
                     quant2 = model.post_quant_conv(quant)
                     cerra_pred = model.decoder(quant2)
 
