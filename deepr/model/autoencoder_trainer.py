@@ -143,7 +143,7 @@ def train_autoencoder(
         )
 
         # Get fixed samples
-        (val_cerra, ) = next(iter(val_dataloader))
+        (val_cerra,) = next(iter(val_dataloader))
         if batch_size > 4:
             val_cerra = val_cerra[:4]
 
@@ -159,7 +159,7 @@ def train_autoencoder(
             )
             progress_bar.set_description(f"Epoch {epoch+1}")
 
-            for cerra, in train_dataloader:
+            for (cerra,) in train_dataloader:
                 # Predict the noise residual
                 with accelerator.accumulate(model):
                     # Encode, quantize and decode
@@ -191,15 +191,15 @@ def train_autoencoder(
                 }
                 progress_bar.set_postfix(**logs)
                 accelerator.log(logs, step=global_step)
-                #tfboard_tracker.writer.add_histogram(
+                # tfboard_tracker.writer.add_histogram(
                 #    "cerra prediction", cerra_pred, global_step
-                #)
-                #tfboard_tracker.writer.add_histogram("cerra", cerra, global_step)
+                # )
+                # tfboard_tracker.writer.add_histogram("cerra", cerra, global_step)
                 global_step += 1
 
             # Evaluate
             loss, loss_emb, loss_recs = [], [], []
-            for cerra, in val_dataloader:
+            for (cerra,) in val_dataloader:
                 # Predict the noise residual
                 with torch.no_grad():
                     # Encode, quantize and decode
@@ -238,7 +238,7 @@ def train_autoencoder(
                         accelerator.unwrap_model(model),
                         val_cerra,
                         output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
-                    )                    
+                    )
                     if is_last_epoch:
                         tfboard_tracker.writer.add_figure(
                             "Predictions", fig, global_step=epoch
