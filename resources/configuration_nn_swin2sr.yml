@@ -11,7 +11,7 @@ data_configuration:
       longitude: [ -8.35, 6.6]
       latitude: [ 46.45, 35.50 ]
     apply_standardization: True
-    data_dir: /home/santacruzm/Git/DeepR/tests/data/features/
+    data_dir: /PATH/TO/features/
   # Label configuration
   label_configuration:
     variable: t2m
@@ -21,7 +21,7 @@ data_configuration:
     spatial_coverage:
       longitude: [ -6.85, 5.1]
       latitude: [ 44.95, 37 ]
-    data_dir: /home/santacruzm/Git/DeepR/tests/data/labels/
+    data_dir: /PATH/TO/labels/
   # Common data configuration
   common_configuration:
     temporal_coverage:
