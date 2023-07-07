@@ -23,7 +23,7 @@ def load_trained_model(class_name: str = None, model_dir: str = None) -> nn.Modu
     if class_name is None or model_dir is None:
         return None
     elif class_name.lower() == "convbaseline":
-        from deepr.model.conv_bilinear import ConvBaseline
+        from deepr.model.conv_baseline import ConvBaseline
 
         model = ConvBaseline.from_pretrained(model_dir)
     elif class_name.lower() == "convswin2sr":

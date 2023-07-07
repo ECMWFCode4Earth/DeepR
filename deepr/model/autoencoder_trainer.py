@@ -87,7 +87,7 @@ def train_autoencoder(
     datasets and configuration.
     """
     hparams = config.__dict__
-    number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
+    number_model_params = int(sum([np.prod(m.size()) for m in model.parameters()]))
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = number_model_params
 
@@ -105,7 +105,7 @@ def train_autoencoder(
     )
 
     @find_executable_batch_size(starting_batch_size=64)
-    def innner_training_loop(batch_size: int, model):
+    def inner_training_loop(batch_size: int, model):
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
 
@@ -257,7 +257,7 @@ def train_autoencoder(
 
         return model
 
-    trained_model = innner_training_loop(model)
+    trained_model = inner_training_loop(model)
     accelerator.end_training()
 
     return trained_model, repo_name

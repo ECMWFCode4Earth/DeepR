@@ -111,7 +111,7 @@ def compute_and_upload_metrics(
     return test_metrics
 
 
-def compute_errors_vs_baseline(
+def compute_model_and_baseline_errors(
     model: Type[torch.nn.Module],
     dataloader: torch.utils.data.DataLoader,
     baseline: str = "bicubic",
@@ -188,6 +188,7 @@ def show_samples(
 def test_model(
     model,
     dataset: torch.utils.data.IterableDataset,
+    config: dict,
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
@@ -207,7 +208,7 @@ def test_model(
     show_samples(model, dataloader, local_dir, scaler_func, baseline)
 
     # Obtain error maps
-    mae, mse, mae_base, mse_base = compute_errors_vs_baseline(
+    mae, mse, mae_base, mse_base = compute_model_and_baseline_errors(
         model, dataloader, baseline, scaler_func
     )
     names = [model.__class__.__name__, baseline]

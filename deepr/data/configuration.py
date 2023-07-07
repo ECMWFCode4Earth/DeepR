@@ -29,8 +29,11 @@ class DataConfiguration:
 
         data_split = self.common_configuration["data_split"]
         test_split_size = data_split.get("test", 0.0)
-        val_split_size = data_split.get("validation", 0.0) / (1 - test_split_size)
-
+        val_split_size = (
+            data_split.get("validation", 0.0) / (1 - test_split_size)
+            if test_split_size != 1
+            else 0
+        )
         return val_split_size, test_split_size
 
     def get_dates(self) -> List[str]:
