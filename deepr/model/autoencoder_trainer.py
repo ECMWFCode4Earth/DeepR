@@ -5,7 +5,7 @@ import matplotlib.pyplot
 import numpy as np
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator, find_executable_batch_size, logging
+from accelerate import Accelerator, find_executable_batch_size
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
@@ -13,11 +13,12 @@ from tqdm import tqdm
 
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
+from deepr.utilities.logger import get_logger
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
 repo_name = "predictia/cerra_tas_vqvae"
 
-logger = logging.get_logger(__name__, log_level="INFO")
+logger = get_logger(__name__)
 
 
 def save_samples(
@@ -86,10 +87,10 @@ def train_autoencoder(
     datasets and configuration.
     """
     hparams = config.__dict__
-    number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
+    number_model_params = int(sum([np.prod(m.size()) for m in model.parameters()]))
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = number_model_params
-        
+
     model_name = model.__class__.__name__
     run_name = "Train VQ-VAE NN"
 
@@ -104,7 +105,7 @@ def train_autoencoder(
     )
 
     @find_executable_batch_size(starting_batch_size=64)
-    def innner_training_loop(batch_size: int, model):
+    def inner_training_loop(batch_size: int, model):
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
 
@@ -256,7 +257,7 @@ def train_autoencoder(
 
         return model
 
-    trained_model = innner_training_loop(model)
+    trained_model = inner_training_loop(model)
     accelerator.end_training()
 
     return trained_model, repo_name

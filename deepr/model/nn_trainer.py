@@ -4,7 +4,7 @@ from typing import Dict
 import matplotlib.pyplot
 import numpy as np
 import torch
-from accelerate import Accelerator, find_executable_batch_size, logging
+from accelerate import Accelerator, find_executable_batch_size
 from accelerate.tracking import AimTracker
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
@@ -14,11 +14,12 @@ from tqdm import tqdm
 from deepr.data.generator import DataGenerator
 from deepr.model.configs import TrainingConfig
 from deepr.model.loss import compute_loss
+from deepr.utilities.logger import get_logger
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
 repo_name = "predictia/europe_reanalysis_downscaler_{model}"
 
-logger = logging.get_logger(__name__, log_level="INFO")
+logger = get_logger(__name__)
 
 
 def save_samples(

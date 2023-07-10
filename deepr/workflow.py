@@ -261,7 +261,7 @@ class MainPipeline:
                 f"The training procedure {self.pipeline_type} is not supported."
             )
 
-    def test_model(self, model, dataset, hf_repo_name: str = None):
+    def test_model(self, model, dataset, config: dict, hf_repo_name: str = None):
         """
         Test a trained model with the given dataset.
 
@@ -271,6 +271,8 @@ class MainPipeline:
             The trained model to test.
         dataset : DataGenerator
             The dataset to test the model on.
+        config: dict
+            The configuration of the validation process.
         hf_repo_name : str, optional
             The name of the Hugging Face repository to push the model to, by default None.
 
@@ -283,6 +285,7 @@ class MainPipeline:
         return test_model(
             model,
             dataset,
+            config,
             # hparams=hparams,
             batch_size=8,
             hf_repo_name=hf_repo_name,
