@@ -303,7 +303,7 @@ def train_diffusion(
             if accelerator.is_main_process:
                 is_last_epoch = epoch == config.num_epochs - 1
 
-                if epoch == 0:
+                if epoch < 0: # Never
                     tf_writter.add_graph(
                         accelerator.unwrap_model(model), (model_inputs, timesteps)
                     )
