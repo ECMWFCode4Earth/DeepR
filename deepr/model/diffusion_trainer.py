@@ -5,7 +5,7 @@ import diffusers
 import numpy as np
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator, find_executable_batch_size
+from accelerate import Accelerator, find_executable_batch_size, logging
 from diffusers import DDPMScheduler
 from diffusers.models.embeddings import get_timestep_embedding
 from diffusers.optimization import get_cosine_schedule_with_warmup
@@ -17,6 +17,8 @@ from deepr.model.configs import TrainingConfig
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
 repo_name = "predictia/europe_reanalysis_downscaler_diffuser"
+
+logger = logging.get_logger(__name__, log_level="INFO")
 
 
 def get_hour_embedding(
@@ -95,6 +97,9 @@ def train_diffusion(
     dataset_info: dict = None,
 ):
     hparams = config.__dict__  # | dataset_info
+    number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
+    if "number_model_params" not in hparams:
+        hparams["number_model_params"] = number_model_params
 
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
@@ -149,6 +154,7 @@ def train_diffusion(
             val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
 
         tf_writter = accelerator.get_tracker("tensorboard").writer
+        logger.info(f"Number of parameters: {number_model_params}")
         global_step = 0
         # Now you train the model
         for epoch in range(config.num_epochs):
