@@ -99,7 +99,7 @@ def train_diffusion(
     hparams = config.__dict__  # | dataset_info
     number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
     if "number_model_params" not in hparams:
-        hparams["number_model_params"] = number_model_params
+        hparams["number_model_params"] = int(number_model_params)
 
     accelerator = Accelerator(
         mixed_precision=config.mixed_precision,
