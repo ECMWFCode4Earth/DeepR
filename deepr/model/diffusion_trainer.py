@@ -113,7 +113,7 @@ def train_diffusion(
     def inner_training_loop(batch_size: int, model: torch.nn.Module):
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
-        hparams["batch_size"] = batch_size
+        hparams["batch_size"] = int(batch_size)
 
         # Define important objects
         train_dataloader = torch.utils.data.DataLoader(
