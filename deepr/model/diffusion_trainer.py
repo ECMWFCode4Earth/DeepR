@@ -115,6 +115,7 @@ def train_diffusion(
     @find_executable_batch_size()
     def inner_training_loop(batch_size: int, model: torch.nn.Module):
         nonlocal accelerator  # Ensure they can be used in our context
+        torch.cuda.empty_cache()
         accelerator.free_memory()  # Free all lingering references
         hparams["batch_size"] = int(batch_size)
         # Define important objects
