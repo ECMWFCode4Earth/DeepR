@@ -235,8 +235,6 @@ def train_diffusion(
             }
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
-            tf_writter.add_histogram("noise predicted", noise_pred, global_step)
-            tf_writter.add_histogram("noise", noise, global_step)
             global_step += 1
 
         # Evaluate
