@@ -120,10 +120,10 @@ def train_diffusion(
         hparams["batch_size"] = int(batch_size)
         # Define important objects
         train_dataloader = torch.utils.data.DataLoader(
-            dataset, config.batch_size, pin_memory=True
+            dataset, batch_size, pin_memory=True
         )
         val_dataloader = torch.utils.data.DataLoader(
-            dataset_val, config.batch_size, pin_memory=True
+            dataset_val, batch_size, pin_memory=True
         )
 
         optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
@@ -154,7 +154,7 @@ def train_diffusion(
 
         # Get fixed samples
         val_era5, val_cerra, val_times = next(iter(val_dataloader))
-        if config.batch_size > 4:
+        if batch_size > 4:
             val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
 
         tf_writter = accelerator.get_tracker("tensorboard").writer
