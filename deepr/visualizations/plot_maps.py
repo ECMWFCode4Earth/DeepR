@@ -52,7 +52,7 @@ def get_figure_model_samples(
     fig, axs = plt.subplots(n_realizations + n_extras, n_samples, figsize=figsize)
     plt.tight_layout()
     if n_samples == 1:
-        axs = axs[np.newaxis, ...]
+        axs = axs[..., np.newaxis]
     for i in range(n_samples):
         if input_image is not None:
             axs[0, i].imshow(input_image[i, 0].numpy()[..., np.newaxis], **v_kwargs)

@@ -117,12 +117,49 @@ def compute_model_and_baseline_errors(
     baseline: str = "bicubic",
     scaler_func: Callable = None,
 ):
+    """
+    Compute the model and baseline errors.
+
+    It makes it by comparing the predictions with the ground truth labels.
+
+    Parameters
+    ----------
+    model : Type[torch.nn.Module]
+        The neural network model.
+    dataloader : torch.utils.data.DataLoader
+        The data loader used to fetch the data.
+    baseline : str, optional
+        The mode used for baseline interpolation, by default "bicubic".
+    scaler_func : Callable, optional
+        A scaling function to apply on the data, by default None.
+
+    Returns
+    -------
+    mae : torch.Tensor
+        Mean Absolute Error (MAE) between the model predictions and the
+        ground truth labels.
+    mse : torch.Tensor
+        Mean Squared Error (MSE) between the model predictions and the
+        ground truth labels.
+    mae_bi : torch.Tensor
+        MAE between the baseline predictions and the ground truth labels.
+    mse_bi : torch.Tensor
+        MSE between the baseline predictions and the ground truth labels.
+    improvement : torch.Tensor
+        Percentage of improvement of the error from the model to the baseline.
+
+    """
     count = 0
-    abs_errors = torch.zeros(dataloader.dataset.output_shape)
-    sq_errors = torch.zeros(dataloader.dataset.output_shape)
-    abs_errors_bi = torch.zeros(dataloader.dataset.output_shape)
-    sq_errors_bi = torch.zeros(dataloader.dataset.output_shape)
+    keys = [0, 3, 6, 9, 12, 15, 18, 21, "all"]
+    abs_errors, sq_errors, abs_errors_bi, sq_errors_bi, improvement = {}, {}, {}, {}, {}
+    for key in keys:
+        abs_errors[key] = torch.zeros(dataloader.dataset.output_shape)
+        sq_errors[key] = torch.zeros(dataloader.dataset.output_shape)
+        abs_errors_bi[key] = torch.zeros(dataloader.dataset.output_shape)
+        sq_errors_bi[key] = torch.zeros(dataloader.dataset.output_shape)
+        improvement[key] = torch.zeros(dataloader.dataset.output_shape)
     progress_bar = tqdm(total=len(dataloader), desc="Batch ")
+
     for era5, cerra, times in dataloader:
         # Predict the noise residual
         with torch.no_grad():
@@ -145,6 +182,7 @@ def compute_model_and_baseline_errors(
         abs_errors_bi += torch.sum(torch.abs(error_bi), (0, 1))
         sq_errors_bi += torch.sum(error_bi**2, (0, 1))
         progress_bar.update(1)
+
     progress_bar.close()
 
     mae = abs_errors / count
@@ -152,52 +190,113 @@ def compute_model_and_baseline_errors(
     mae_bi = abs_errors_bi / count
     mse_bi = sq_errors_bi / count
 
-    return mae, mse, mae_bi, mse_bi
+    return mae, mse, mae_bi, mse_bi, improvement
 
 
-def show_samples(
+def sample_observation_versus_prediction(
     model,
     dataloader: torch.utils.data.DataLoader,
     local_dir: str,
     scaler_func: Callable = None,
     baseline: str = "bicubic",
+    number_of_samples: int = 10,
 ):
-    era5, cerra, times = next(iter(dataloader))
-    with torch.no_grad():
-        pred_nn = model(era5, return_dict=False)[0]
-    samples_base = torch.nn.functional.interpolate(
-        era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
-    )
+    """
+    Generate and save a comparison plot of model predictions and baseline samples.
 
-    if scaler_func is not None:
-        cerra = scaler_func(cerra, times[:, 2])
-        samples_base = scaler_func(samples_base, times[:, 2])
-        pred_nn = scaler_func(pred_nn, times[:, 2])
+    Parameters
+    ----------
+    model : object
+        The neural network model used for predictions.
+    dataloader : torch.utils.data.DataLoader
+        The data loader used to fetch the data.
+    local_dir : str
+        The directory where the plot will be saved.
+    scaler_func : Callable, optional
+        A scaling function to apply on the data, by default None.
+    baseline : str, optional
+        The mode used for baseline interpolation, by default "bicubic".
+    number_of_samples : int, optional
+        The number of samples to randomly select and compare, by default 10.
 
-    plot_2_model_comparison(
-        cerra[0, 0],
-        samples_base[0, 0],
-        pred_nn[0, 0],
-        matrix_names=["CERRA", baseline.capitalize(), model.__class__.__name__],
-        metric_name="ºC",
-        date=f"{times[0, 0]:d}H {times[0, 1]:d}-{times[0, 2]:d}-{times[0, 3]:d}",
-        filename=Path(local_dir) / "pred_comparison.png",
-    )
+    Returns
+    -------
+    None
+
+    """
+    samples_get = 0
+    for era5, cerra, times in dataloader:
+        with torch.no_grad():
+            pred_nn = model(era5, return_dict=False)[0]
+        samples_base = torch.nn.functional.interpolate(
+            era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
+        )
+
+        if scaler_func is not None:
+            cerra = scaler_func(cerra, times[:, 2])
+            samples_base = scaler_func(samples_base, times[:, 2])
+            pred_nn = scaler_func(pred_nn, times[:, 2])
+
+        filename = Path(local_dir) / f"pred_comparison_{samples_get}.png"
+        date_str = f"{times[0, 0]:d}H {times[0, 1]:d}-{times[0, 2]:d}-{times[0, 3]:d}"
+        plot_2_model_comparison(
+            cerra[0, 0],
+            samples_base[0, 0],
+            pred_nn[0, 0],
+            matrix_names=["CERRA", baseline.capitalize(), model.__class__.__name__],
+            metric_name="ºC",
+            date=date_str,
+            filename=filename,
+        )
+        samples_get += 1
+        if samples_get == number_of_samples:
+            break
 
 
-def test_model(
+def validate_model(
     model,
     dataset: torch.utils.data.IterableDataset,
     config: dict,
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
-    baseline: str = "nearest",
 ):
+    """
+    Validate the model.
+
+    It makes it by generating evaluation plots, computing error metrics, and uploading
+    metrics to the Hugging Face Model Hub.
+
+    Parameters
+    ----------
+    model : object
+        The neural network model to validate.
+    dataset : torch.utils.data.IterableDataset
+        The dataset used for validation.
+    config : dict
+        Configuration settings for the validation.
+    batch_size : int, optional
+        Batch size for data loading, by default 4.
+    hf_repo_name : str, optional
+        Hugging Face repository name, by default None.
+    label_scaler : XarrayStandardScaler, optional
+        Label scaler object for applying inverse scaling, by default None.
+
+    Returns
+    -------
+    None
+
+    """
+    # Create data loader
     dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+
+    # Define scaler function if label scaler is provided
     scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler
 
-    local_dir = f"hf-{model.__class__.__name__}-evaluation"
+    # Define local directory for saving evaluation results
+    local_dir = f"{config['output_directory']}/hf-{model.__class__.__name__}-evaluation"
+
+    # Clone Hugging Face repository if provided
     if hf_repo_name is not None:
         repo = Repository(
             local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN")
@@ -205,25 +304,42 @@ def test_model(
         repo.git_pull()
 
     # Show samples compared with other models
-    show_samples(model, dataloader, local_dir, scaler_func, baseline)
+    if config["visualizations"]["sample_observation_versus_prediction"] > 0:
+        visualization_local_dir = f"{local_dir}/sample_observation_versus_prediction"
+        os.makedirs(visualization_local_dir, exist_ok=True)
+        sample_observation_versus_prediction(
+            model, dataloader, visualization_local_dir, scaler_func, config["baseline"]
+        )
 
     # Obtain error maps
-    mae, mse, mae_base, mse_base = compute_model_and_baseline_errors(
-        model, dataloader, baseline, scaler_func
+    mae, mse, mae_base, mse_base, improvement = compute_model_and_baseline_errors(
+        model, dataloader, config["baseline"], scaler_func
     )
-    names = [model.__class__.__name__, baseline]
+    names = [model.__class__.__name__, config["baseline"]]
     plot_2_maps_comparison(
-        mse, mse_base, names, "MSE (ºC)", f"{local_dir}/mse_vs_{baseline}.png", vmin=0
+        mse,
+        mse_base,
+        names,
+        "MSE (ºC)",
+        f"{local_dir}/mse_vs_{config['baseline']}.png",
+        vmin=0,
     )
     plot_2_maps_comparison(
-        mae, mae_base, names, "MAE (ºC)", f"{local_dir}/mae_vs_{baseline}.png", vmin=0
+        mae,
+        mae_base,
+        names,
+        "MAE (ºC)",
+        f"{local_dir}/mae_vs_{config['baseline']}.png",
+        vmin=0,
     )
 
+    # Compute and upload metrics to Hugging Face Model Hub
     test_metrics = compute_and_upload_metrics(
         model, dataloader, hf_repo_name, scaler_func
     )
     evaluate.save(tmpdir, experiment=experiment_name, **test_metrics)
 
+    # Push changes to Hugging Face repository if provided
     if hf_repo_name is not None:
         repo.push_to_hub(
             repo_id=hf_repo_name,
