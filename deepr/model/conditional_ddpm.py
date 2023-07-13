@@ -2,6 +2,8 @@ from inspect import signature
 from typing import List, Optional, Tuple, Union
 
 import torch
+import torch.nn.functional as F
+import numpy as np
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 from diffusers.utils import randn_tensor
 
@@ -22,9 +24,9 @@ class cDDPMPipeline(DiffusionPipeline):
         image. Can be one of [`DDPMScheduler`], or [`DDIMScheduler`].
     """
 
-    def __init__(self, unet, scheduler):
+    def __init__(self, unet, scheduler, obs_model=None):
         super().__init__()
-        self.register_modules(unet=unet, scheduler=scheduler)
+        self.register_modules(unet=unet, scheduler=scheduler, obs_model=obs_model)
 
     @torch.no_grad()
     def __call__(
@@ -60,6 +62,17 @@ class cDDPMPipeline(DiffusionPipeline):
                 *self.unet.config.sample_size,
             )
 
+        if self.obs_model is not None:
+            up_images = self.obs_model(images)
+        else:
+            up_images = F.interpolate(images, scale_factor=5, mode="bicubic")
+            l_lat, l_lon = (
+                np.array(up_images.shape[-2:]) - image_shape[-2:]
+            ) // 2
+            r_lat = None if l_lat == 0 else -l_lat
+            r_lon = None if l_lon == 0 else -l_lon
+            up_images = up_images[..., l_lat:r_lat, l_lon:r_lon]
+
         if self.device.type == "mps":
             # randn does not work reproducibly on mps
             latents = randn_tensor(image_shape, generator=generator)
@@ -78,7 +91,7 @@ class cDDPMPipeline(DiffusionPipeline):
         latents = latents * self.scheduler.init_noise_sigma
 
         for t in self.progress_bar(self.scheduler.timesteps):
-            latents_input = torch.cat([latents, images], axis=1)
+            latents_input = torch.cat([latents, up_images], axis=1)
             latents_input = self.scheduler.scale_model_input(latents_input, t)
 
             # 1. predict noise model_output
