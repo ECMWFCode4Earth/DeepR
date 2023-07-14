@@ -30,9 +30,14 @@ def load_trained_model(class_name: str = None, model_dir: str = None) -> nn.Modu
         from deepr.model.conv_swin2sr import ConvSwin2SR
 
         model = ConvSwin2SR.from_pretrained(model_dir)
+    elif class_name.lower() == "cddpm":
+        from deepr.model.conditional_ddpm import cDDPMPipeline
+
+        model = cDDPMPipeline.from_pretrained(model_dir)
     else:
         logger.warning(
-            f"The class_name {class_name} is not implemented. Options are 'convbaseline' and 'convswin2sr'."
+            f"The class_name {class_name} is not implemented. "
+            f"Options are 'convbaseline', 'convswin2sr' and 'cddpm."
         )
         return None
     model.eval()

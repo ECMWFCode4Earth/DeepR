@@ -1,9 +1,9 @@
 from inspect import signature
 from typing import List, Optional, Tuple, Union
 
+import numpy as np
 import torch
 import torch.nn.functional as F
-import numpy as np
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 from diffusers.utils import randn_tensor
 
@@ -66,9 +66,7 @@ class cDDPMPipeline(DiffusionPipeline):
             up_images = self.obs_model(images)
         else:
             up_images = F.interpolate(images, scale_factor=5, mode="bicubic")
-            l_lat, l_lon = (
-                np.array(up_images.shape[-2:]) - image_shape[-2:]
-            ) // 2
+            l_lat, l_lon = (np.array(up_images.shape[-2:]) - image_shape[-2:]) // 2
             r_lat = None if l_lat == 0 else -l_lat
             r_lon = None if l_lon == 0 else -l_lon
             up_images = up_images[..., l_lat:r_lat, l_lon:r_lon]

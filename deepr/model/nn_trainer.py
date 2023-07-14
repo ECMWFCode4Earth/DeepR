@@ -60,7 +60,7 @@ def save_samples(
         input_image=era5.cpu(),
         baseline=pred_baseline.cpu(),
         filename=output_name,
-        figsize=(15, 10),
+        fig_size=(15, 10),
     )
 
 

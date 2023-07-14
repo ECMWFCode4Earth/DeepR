@@ -135,7 +135,9 @@ class MainPipeline:
 
     def load_trained_model(self):
         if self.pipeline_type == "diffusion":
-            model, model_name = None, None
+            cfg = self.model_config["neural_network"]
+            model_name = cfg["trained_model_dir"]
+            model = load_trained_model(cfg["class_name"], model_name)
         elif self.pipeline_type == "end2end":
             # If running validation on trained model, a "trained_model_dir" is required
             cfg = self.model_config["neural_network"]

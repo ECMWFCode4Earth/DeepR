@@ -47,7 +47,7 @@ def save_samples(
 
     figsize = 3 + 4.5 * cerra.shape[0], 8
     return get_figure_model_samples(
-        cerra.cpu(), cerra_pred.cpu(), filename=output_name, figsize=figsize
+        cerra.cpu(), cerra_pred.cpu(), filename=output_name, fig_size=figsize
     )
 
 
@@ -108,6 +108,7 @@ def train_autoencoder(
     def inner_training_loop(batch_size: int, model):
         nonlocal accelerator  # Ensure they can be used in our context
         accelerator.free_memory()  # Free all lingering references
+        torch.cuda.empty_cache()
 
         # Define important objects
         dataloader = torch.utils.data.DataLoader(
