@@ -278,7 +278,7 @@ def train_diffusion(
                     return_dict=False,
                     class_labels=hour_emb,
                 )[0]
-                loss.append(F.mse_loss(noise_pred, noise))
+                loss.append(F.mse_loss(noise_pred, noise).mean().item())
 
             pred_var.append(noise_pred.var(keepdim=True, dim=0).mean().item())
             true_var.append(noise.var(keepdim=True, dim=0).mean().item())
