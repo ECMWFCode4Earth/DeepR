@@ -322,7 +322,6 @@ def train_diffusion(
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
-                    model.save_pretrained(config.output_dir)
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
 
     accelerator.end_training()
