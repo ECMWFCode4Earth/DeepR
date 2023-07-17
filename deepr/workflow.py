@@ -14,7 +14,7 @@ from deepr.model.models import get_hf_scheduler, get_neural_network, load_traine
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-from deepr.validation.test_model import test_model
+from deepr.validation.validation import validate_model
 
 logger = get_logger(__name__)
 
@@ -39,6 +39,7 @@ class MainPipeline:
             self.train_config = TrainingConfig(**train_config["training_parameters"])
         else:
             self.train_config = None
+        self.validation_config = configuration["validation_configuration"]
         self.features_scaler = None
         self.label_scaler = None
 
@@ -123,13 +124,20 @@ class MainPipeline:
             val_features, add_aux, val_label, self.features_scaler, self.label_scaler
         )
         data_generator_test = DataGenerator(
-            test_features, True, test_label, self.features_scaler, self.label_scaler
+            feature_files=test_features,
+            add_auxiliary_features=True,
+            label_files=test_label,
+            features_scaler=self.features_scaler,
+            label_scaler=self.label_scaler,
+            shuffle=True,
         )
         return data_generator_train, data_generator_val, data_generator_test
 
     def load_trained_model(self):
         if self.pipeline_type == "diffusion":
-            model, model_name = None, None
+            cfg = self.model_config["neural_network"]
+            model_name = cfg["trained_model_dir"]
+            model = load_trained_model(cfg["class_name"], model_name)
         elif self.pipeline_type == "end2end":
             # If running validation on trained model, a "trained_model_dir" is required
             cfg = self.model_config["neural_network"]
@@ -261,7 +269,7 @@ class MainPipeline:
                 f"The training procedure {self.pipeline_type} is not supported."
             )
 
-    def test_model(self, model, dataset, config: dict, hf_repo_name: str = None):
+    def validate_model(self, model, dataset, config: dict, hf_repo_name: str = None):
         """
         Test a trained model with the given dataset.
 
@@ -274,19 +282,18 @@ class MainPipeline:
         config: dict
             The configuration of the validation process.
         hf_repo_name : str, optional
-            The name of the Hugging Face repository to push the model to, by default None.
+            The name of the Hugging Face repository to push the model to,
+            by default None.
 
         Returns
         -------
         test_results : Dict
             The test results of the model.
         """
-        # hparams = self.data_config.get("data_split", None)
-        return test_model(
+        return validate_model(
             model,
             dataset,
             config,
-            # hparams=hparams,
             batch_size=8,
             hf_repo_name=hf_repo_name,
             label_scaler=self.label_scaler,
@@ -296,10 +303,14 @@ class MainPipeline:
         """Run the validation on a trained model."""
         *_, dataset_test = self.get_dataset()
         model, repo_name = self.load_trained_model()
-        self.test_model(model, dataset_test, hf_repo_name=repo_name)
+        self.validate_model(
+            model, dataset_test, self.validation_config, hf_repo_name=repo_name
+        )
 
     def run_pipeline(self):
         """Run the pipeline."""
         dataset_train, dataset_val, dataset_test = self.get_dataset()
         model, repo_name = self.train_model(dataset_train, dataset_val)
-        self.test_model(model, dataset_test, hf_repo_name=repo_name)
+        self.validate_model(
+            model, dataset_test, self.validation_config, hf_repo_name=repo_name
+        )

@@ -56,8 +56,15 @@ class DataGenerator(IterableDataset):
         self.number_files = len(self.label_files.collection)
         self.num_samples = self.get_num_samples()
         if self.number_files > 0:
+            if self.shuffle:
+                combined_files = list(
+                    zip(self.feature_files.collection, self.label_files.collection)
+                )
+                combined_files = random.sample(combined_files, len(combined_files))
+                shuffled_files_features, shuffled_files_labels = zip(*combined_files)
+                self.feature_files.collection = shuffled_files_features
+                self.label_files.collection = shuffled_files_labels
             self.init_date, self.end_date = self.get_dataset_dates()
-
             (
                 self.input_shape,
                 self.input_channels,
@@ -65,14 +72,6 @@ class DataGenerator(IterableDataset):
                 self.output_shape,
                 self.output_channels,
             ) = self.get_shapes()
-            if self.shuffle:
-                combined_files = list(
-                    zip(self.feature_files.collection, self.label_files.collection)
-                )
-                random.shuffle(combined_files)
-                shuffled_files_features, shuffled_files_labels = zip(*combined_files)
-                self.feature_files.collection = shuffled_files_features
-                self.label_files.collection = shuffled_files_features
 
     def __len__(self) -> int:
         """

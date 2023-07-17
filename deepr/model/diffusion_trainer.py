@@ -5,7 +5,7 @@ import diffusers
 import numpy as np
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator, logging, find_executable_batch_size
+from accelerate import Accelerator, logging
 from diffusers import DDPMScheduler
 from diffusers.models.embeddings import get_timestep_embedding
 from diffusers.optimization import get_cosine_schedule_with_warmup
@@ -58,9 +58,9 @@ def save_samples(
         beta_start=0.0001,
         beta_end=0.02,
     )
-    pipeline = cDDPMPipeline(
-        unet=model, scheduler=scheduler, obs_model=obs_model
-    ).to(config.device)
+    pipeline = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=obs_model).to(
+        config.device
+    )
 
     hour_emb = get_hour_embedding(
         times[:, :1], config.hour_embed_type, class_embed_size
@@ -195,9 +195,7 @@ def train_diffusion(
                 up_era5 = obs_model(era5)
             else:
                 up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
-                l_lat, l_lon = (
-                    np.array(up_era5.shape[-2:]) - cerra.shape[-2:]
-                ) // 2
+                l_lat, l_lon = (np.array(up_era5.shape[-2:]) - cerra.shape[-2:]) // 2
                 r_lat = None if l_lat == 0 else -l_lat
                 r_lon = None if l_lon == 0 else -l_lon
                 up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
@@ -301,12 +299,12 @@ def train_diffusion(
         if accelerator.is_main_process:
             is_last_epoch = epoch == config.num_epochs - 1
 
-            if epoch < 0: # Never
+            if epoch < 0:  # Never
                 tf_writter.add_graph(
                     accelerator.unwrap_model(model), (model_inputs, timesteps)
                 )
 
-            #if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
+            # if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
             #    test_dir = os.path.join(config.output_dir, "samples")
             #    os.makedirs(test_dir, exist_ok=True)
             #    fig = save_samples(
