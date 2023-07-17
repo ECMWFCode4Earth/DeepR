@@ -166,11 +166,10 @@ def train_autoencoder(
                 # Predict the noise residual
                 with accelerator.accumulate(model):
                     # Encode, quantize and decode
-                    z = model.encoder(cerra)
-                    h = model.quant_conv(z)
-                    quant, emb_loss, _ = model.quantize(h)
-                    quant2 = model.post_quant_conv(quant)
-                    cerra_pred = model.decoder(quant2)
+                    h = model.encode(cerra).latents
+                    q, emb_loss, _ = model.quantize(h)
+                    q = model.post_quant_conv(q)
+                    cerra_pred = model.decoder(q)
 
                     # Calculate the loss
                     rec_loss = F.mse_loss(cerra, cerra_pred)
@@ -206,9 +205,8 @@ def train_autoencoder(
                 # Predict the noise residual
                 with torch.no_grad():
                     # Encode, quantize and decode
-                    z = model.encoder(cerra)
-                    h = model.quant_conv(z)
-                    quant, emb_loss, (perp, min_encs, min_enc_idx) = model.quantize(h)
+                    h = model.encode(cerra).latents
+                    quant, emb_loss, _ = model.quantize(h)
                     quant2 = model.post_quant_conv(quant)
                     cerra_pred = model.decoder(quant2)
 
