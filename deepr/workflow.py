@@ -14,7 +14,7 @@ from deepr.model.models import get_hf_scheduler, get_neural_network, load_traine
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-from deepr.validation.validation import validate_model
+from deepr.validation import validate_nn
 
 logger = get_logger(__name__)
 
@@ -32,14 +32,16 @@ class MainPipeline:
         logger.info(f"Reading experiment configuration from file {configuration_file}.")
         configuration = read_yaml_file(configuration_file)
         self.data_config = configuration["data_configuration"]
-        train_config = configuration["training_configuration"]
-        self.pipeline_type = train_config["type"]
-        self.model_config = train_config["model_configuration"]
+        train_config = configuration.get("training_configuration", {})
+        self.pipeline_type = train_config.get("type", None)
+        self.model_config = train_config.get("model_configuration", None)
         if "training_parameters" in train_config.keys():
-            self.train_config = TrainingConfig(**train_config["training_parameters"])
+            self.train_config = TrainingConfig(
+                **train_config.get("training_parameters", {})
+            )
         else:
             self.train_config = None
-        self.validation_config = configuration["validation_configuration"]
+        self.validation_config = configuration.get("validation_configuration", {})
         self.features_scaler = None
         self.label_scaler = None
 
@@ -290,14 +292,33 @@ class MainPipeline:
         test_results : Dict
             The test results of the model.
         """
-        return validate_model(
-            model,
-            dataset,
-            config,
-            batch_size=8,
-            hf_repo_name=hf_repo_name,
-            label_scaler=self.label_scaler,
-        )
+        if self.pipeline_type == "diffusion":
+            return validate_diffusion.validate_model(
+                model,
+                dataset,
+                config,
+                batch_size=8,
+                hf_repo_name=hf_repo_name,
+                label_scaler=self.label_scaler,
+            )
+        elif self.pipeline_type == "end2end":
+            return validate_nn.validate_model(
+                model,
+                dataset,
+                config,
+                batch_size=8,
+                hf_repo_name=hf_repo_name,
+                label_scaler=self.label_scaler,
+            )
+        elif self.pipeline_type == "autoencoder":
+            return validate_model(
+                model,
+                dataset,
+                config,
+                batch_size=8,
+                hf_repo_name=hf_repo_name,
+                label_scaler=self.label_scaler,
+            )
 
     def run_validation(self):
         """Run the validation on a trained model."""

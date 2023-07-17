@@ -260,6 +260,7 @@ def validate_model(
     batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
+    push_to_hub: bool = False
 ):
     """
     Validate the model.
@@ -295,9 +296,10 @@ def validate_model(
 
     # Define local directory for saving evaluation results
     local_dir = f"{config['output_directory']}/hf-{model.__class__.__name__}-evaluation"
+    os.makedirs(name=local_dir, exist_ok=True)
 
     # Clone Hugging Face repository if provided
-    if hf_repo_name is not None:
+    if push_to_hub and hf_repo_name is not None:
         repo = Repository(
             local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN")
         )
