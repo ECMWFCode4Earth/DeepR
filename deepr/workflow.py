@@ -14,7 +14,7 @@ from deepr.model.models import get_hf_scheduler, get_neural_network, load_traine
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-from deepr.validation import validate_nn
+from deepr.validation import validation_diffusion, validation_nn
 
 logger = get_logger(__name__)
 
@@ -293,8 +293,10 @@ class MainPipeline:
             The test results of the model.
         """
         if self.pipeline_type == "diffusion":
-            return validate_diffusion.validate_model(
+            scheduler = get_hf_scheduler(**self.model_config.pop("scheduler"))
+            return validation_diffusion.validate_model(
                 model,
+                scheduler,
                 dataset,
                 config,
                 batch_size=8,
@@ -302,7 +304,7 @@ class MainPipeline:
                 label_scaler=self.label_scaler,
             )
         elif self.pipeline_type == "end2end":
-            return validate_nn.validate_model(
+            return validation_nn.validate_model(
                 model,
                 dataset,
                 config,
@@ -311,13 +313,17 @@ class MainPipeline:
                 label_scaler=self.label_scaler,
             )
         elif self.pipeline_type == "autoencoder":
-            return validate_model(
+            return validation_nn.validate_model(
                 model,
                 dataset,
                 config,
                 batch_size=8,
                 hf_repo_name=hf_repo_name,
                 label_scaler=self.label_scaler,
+            )
+        else:
+            raise NotImplementedError(
+                f"The training procedure {self.pipeline_type} is not supported."
             )
 
     def run_validation(self):
@@ -335,3 +341,7 @@ class MainPipeline:
         self.validate_model(
             model, dataset_test, self.validation_config, hf_repo_name=repo_name
         )
+
+
+if __name__ == "__main__":
+    MainPipeline("./resources/configuration_nn_evaluation.yml").run_validation()
