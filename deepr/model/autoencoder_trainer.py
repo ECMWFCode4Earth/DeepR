@@ -220,6 +220,7 @@ def train_autoencoder(
                     loss_recs.append(rec_loss)
 
                 progress_bar.update(1)
+            torch.cuda.empty_cache()
 
             logs = {
                 "val_loss_vs_epoch": sum(loss) / len(loss),
