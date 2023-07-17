@@ -1,93 +1,21 @@
 import os
-from typing import Optional, Type
+from typing import Type
 
 import diffusers
 import numpy as np
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator, logging
-from diffusers import DDPMScheduler
-from diffusers.models.embeddings import get_timestep_embedding
-from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
 from tqdm import tqdm
+from transformers import get_cosine_schedule_with_warmup
 
-from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.configs import TrainingConfig
-from deepr.visualizations.plot_maps import get_figure_model_samples
+from deepr.model.utils import get_hour_embedding
 
 repo_name = "predictia/europe_reanalysis_downscaler_diffuser"
 
 logger = logging.get_logger(__name__, log_level="INFO")
-
-
-def get_hour_embedding(
-    hours: torch.Tensor, embedding_type: str, emb_size: int = 64
-) -> torch.Tensor:
-    if embedding_type == "positional":
-        hour_emb = get_timestep_embedding(hours.squeeze(), emb_size, max_period=24)
-    elif embedding_type == "cyclical":
-        hour_emb = torch.stack(
-            [
-                torch.cos(2 * torch.pi * hours / 24),
-                torch.sin(2 * torch.pi * hours / 24),
-            ],
-            dim=1,
-        )
-    elif embedding_type in ("class", "timestep"):
-        hour_emb = hours
-    else:
-        hour_emb = None
-
-    return hour_emb
-
-
-def save_samples(
-    config,
-    model,
-    era5: torch.Tensor,
-    cerra: torch.Tensor,
-    times: torch.Tensor,
-    outname: str,
-    obs_model: Type[torch.nn.Module] = None,
-    class_embed_size: Optional[int] = 64,
-):
-    """Save a set of samples."""
-    scheduler = DDPMScheduler(
-        num_train_timesteps=1000,
-        beta_start=0.0001,
-        beta_end=0.02,
-    )
-    pipeline = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=obs_model).to(
-        config.device
-    )
-
-    hour_emb = get_hour_embedding(
-        times[:, :1], config.hour_embed_type, class_embed_size
-    )
-
-    era5_repeated = era5.repeat(config.num_samples, 1, 1, 1)
-    if hour_emb is not None:
-        hour_emb = hour_emb.to(config.device)
-        hour_emb = hour_emb.repeat(config.num_samples, 1).squeeze()
-    images = pipeline(
-        images=era5_repeated,
-        class_labels=hour_emb,
-        generator=torch.manual_seed(config.seed),
-        output_type="tensor",
-    ).images
-
-    # Make a grid out of the images
-    sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
-    images = images.transpose(1, 3).transpose(2, 3)
-    figure = get_figure_model_samples(
-        cerra.cpu(),
-        images.cpu(),
-        input_image=era5.cpu(),
-        column_names=sample_names,
-        filename=outname,
-    )
-    return figure
 
 
 def train_diffusion(

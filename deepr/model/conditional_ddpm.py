@@ -7,6 +7,8 @@ import torch.nn.functional as F
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
 from diffusers.utils import randn_tensor
 
+from deepr.model.utils import get_hour_embedding
+
 
 class cDDPMPipeline(DiffusionPipeline):
     r"""
@@ -37,6 +39,7 @@ class cDDPMPipeline(DiffusionPipeline):
         eta: Optional[float] = 0.0,
         class_labels: Optional[List[int]] = None,
         output_type: Optional[str] = "pil",
+        saving_freq_interm: int = 0,
         return_dict: bool = True,
     ) -> Union[ImagePipelineOutput, Tuple]:
         # Get batch size
@@ -84,11 +87,20 @@ class cDDPMPipeline(DiffusionPipeline):
         if accepts_eta:
             extra_kwargs["eta"] = eta
 
+        # Hour encoding. Passed to NN as class labels
+        if class_labels is not None:
+            class_labels = get_hour_embedding(class_labels, "class", 24)
+            class_labels = class_labels.to(images.device).squeeze()
+
         # set step values
         self.scheduler.set_timesteps(num_inference_steps, device=self.device)
         latents = latents * self.scheduler.init_noise_sigma
 
+        intermediate_images = []
         for t in self.progress_bar(self.scheduler.timesteps):
+            if saving_freq_interm > 0:
+                intermediate_images.append(latents)
+
             latents_input = torch.cat([latents, up_images], axis=1)
             latents_input = self.scheduler.scale_model_input(latents_input, t)
 
@@ -100,6 +112,16 @@ class cDDPMPipeline(DiffusionPipeline):
                 model_output, t, latents, generator=generator, **extra_kwargs
             ).prev_sample
 
+        if saving_freq_interm > 0:
+            intermediate_images.append(latents)
+            intermediate_images = list(
+                map(
+                    lambda x: (x / 2 + 0.5).clamp(0, 1).cpu().permute(0, 2, 3, 1),
+                    intermediate_images,
+                )
+            )
+            intermediate_images = torch.cat(intermediate_images, dim=1)
+
         image = (latents / 2 + 0.5).clamp(0, 1)
         image = image.cpu().permute(0, 2, 3, 1).numpy()
         if output_type == "pil":
@@ -108,6 +130,6 @@ class cDDPMPipeline(DiffusionPipeline):
             image = torch.tensor(image)
 
         if not return_dict:
-            return (image,)
+            return image, intermediate_images if saving_freq_interm > 0 else (image,)
 
         return ImagePipelineOutput(images=image)

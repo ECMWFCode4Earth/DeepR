@@ -1,14 +1,8 @@
-import os
-import tempfile
-from pathlib import Path
 from typing import Callable, Type
 
 import evaluate
 import torch
-from huggingface_hub import Repository
 from tqdm import tqdm
-
-from deepr.data.scaler import XarrayStandardScaler
 
 metric_to_repo = {
     "MSE": "mse",
@@ -18,6 +12,7 @@ metric_to_repo = {
     "SSIM": "jpxkqx/structural_similarity_index_measure",
     "SRE": "jpxkqx/signal_to_reconstruction_error",
 }
+
 
 def compute_and_upload_metrics(
     model: Type[torch.nn.Module],
@@ -183,4 +178,3 @@ def compute_model_and_baseline_errors(
     mse_bi = sq_errors_bi / count
 
     return mae, mse, mae_bi, mse_bi, improvement
-

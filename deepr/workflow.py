@@ -299,7 +299,6 @@ class MainPipeline:
                 scheduler,
                 dataset,
                 config,
-                batch_size=8,
                 hf_repo_name=hf_repo_name,
                 label_scaler=self.label_scaler,
             )
@@ -308,7 +307,6 @@ class MainPipeline:
                 model,
                 dataset,
                 config,
-                batch_size=8,
                 hf_repo_name=hf_repo_name,
                 label_scaler=self.label_scaler,
             )
@@ -317,7 +315,6 @@ class MainPipeline:
                 model,
                 dataset,
                 config,
-                batch_size=8,
                 hf_repo_name=hf_repo_name,
                 label_scaler=self.label_scaler,
             )
@@ -341,7 +338,3 @@ class MainPipeline:
         self.validate_model(
             model, dataset_test, self.validation_config, hf_repo_name=repo_name
         )
-
-
-if __name__ == "__main__":
-    MainPipeline("./resources/configuration_nn_evaluation.yml").run_validation()

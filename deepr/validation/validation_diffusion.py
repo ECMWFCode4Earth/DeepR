@@ -11,7 +11,10 @@ from deepr.validation.nn_performance_metrics import (
     compute_and_upload_metrics,
     compute_model_and_baseline_errors,
 )
-from deepr.validation.sample_predictions import sample_observation_vs_prediction
+from deepr.validation.sample_predictions import (
+    sample_diffusion_samples_random,
+    sample_gif,
+)
 from deepr.visualizations.plot_maps import plot_2_maps_comparison
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
@@ -24,10 +27,8 @@ def validate_model(
     scheduler,
     dataset: torch.utils.data.IterableDataset,
     config: dict,
-    batch_size: int = os.getenv("BATCH_SIZE", 4),
     hf_repo_name: str = None,
     label_scaler: XarrayStandardScaler = None,
-    push_to_hub: bool = False,
 ):
     """
     Validate the model.
@@ -49,17 +50,16 @@ def validate_model(
         Hugging Face repository name, by default None.
     label_scaler : XarrayStandardScaler, optional
         Label scaler object for applying inverse scaling, by default None.
-
-    Returns
-    -------
-    None
-
     """
     # Create data loader
-    dataloader = torch.utils.data.DataLoader(dataset, batch_size, pin_memory=True)
+    dataloader = torch.utils.data.DataLoader(
+        dataset, config["batch_size"], pin_memory=True
+    )
 
     # Instantiate pipeline
-    cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None)
+    pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None).to(
+        config["device"]
+    )
 
     # Define scaler function if label scaler is provided
     scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler
@@ -69,22 +69,37 @@ def validate_model(
     os.makedirs(name=local_dir, exist_ok=True)
 
     # Clone Hugging Face repository if provided
-    if push_to_hub and hf_repo_name is not None:
+    if config["push_to_hub"] and hf_repo_name is not None:
         repo = Repository(
             local_dir, clone_from=hf_repo_name, token=os.getenv("HF_TOKEN")
         )
         repo.git_pull()
 
-    # Show samples compared with other models
-    if config["visualizations"]["sample_observation_versus_prediction"] > 0:
-        visualization_local_dir = f"{local_dir}/sample_observation_versus_prediction"
-        os.makedirs(visualization_local_dir, exist_ok=True)
-        sample_observation_vs_prediction(
-            model,
+    # Sample GIFF predictions
+    giff_sample_cfg = config["visualizations"].get("giff_timestep_freq", None)
+    if giff_sample_cfg is not None:
+        sample_gif(
+            pipe,
             dataloader,
-            visualization_local_dir,
-            scaler_func,
-            config["baseline"],
+            scaler_func=scaler_func,
+            output_dir=local_dir,
+            device=config["device"],
+        )
+
+    # Show samples compared with other models
+    samples_cfg = config["visualizations"].get("sample_observation_vs_prediction", None)
+    if samples_cfg is not None:
+        visualization_local_dir = f"{local_dir}/sample_observation_vs_prediction"
+        os.makedirs(visualization_local_dir, exist_ok=True)
+        sample_diffusion_samples_random(
+            pipe,
+            dataloader,
+            scaler_func=scaler_func,
+            baseline=config["baseline"],
+            output_dir=visualization_local_dir,
+            num_samples=samples_cfg["num_samples"],
+            num_realizations=samples_cfg["num_realizations"],
+            device=config["device"],
         )
 
     # Obtain error maps

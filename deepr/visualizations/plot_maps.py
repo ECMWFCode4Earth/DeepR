@@ -268,3 +268,20 @@ def plot_2_model_comparison(
         plt.close()
 
     return fig
+
+
+def plot_simple_map(
+    data,
+    vmin=None,
+    vmax=None,
+    cmap: str = "autumn",
+    label: str = "Temperature (ºC)",
+    out_file: str = None,
+):
+    plt.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
+    plt.colorbar(shrink=0.8, label=label)
+    if out_file is not None:
+        plt.savefig(out_file, transparent=True, bbox_inches="tight")
+        plt.close()
+    else:
+        return plt.clf()
