@@ -1,8 +1,10 @@
+import logging
 import tempfile
 from pathlib import Path
 from typing import Callable
 
 import torch
+import numpy as np
 from PIL import Image
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
@@ -10,6 +12,7 @@ from deepr.model.utils import get_hour_embedding
 from deepr.visualizations.plot_maps import plot_2_model_comparison, plot_simple_map
 from deepr.visualizations.plot_samples import get_figure_model_samples
 
+logger = logging.getLogger(__name__)
 
 def sample_observation_vs_prediction(
     model,
@@ -125,14 +128,14 @@ def sample_gif(
     dataloader,
     scaler_func: Callable = None,
     output_dir: str = None,
-    device: str = "",
+    inference_steps: int = 100
 ):
     era5, _, times = next(iter(dataloader))
     _, interm = pipeline(
         images=era5,
         class_labels=times[:, :1],
         generator=torch.manual_seed(2023),
-        num_inference_steps=60,
+        num_inference_steps=inference_steps,
         return_dict=False,
         saving_freq_interm=1,
         output_type="tensor",
@@ -141,14 +144,19 @@ def sample_gif(
     # Generate GIFFS
     for i, time in enumerate(times):
         date = f"{time[1]:02d}-{time[2]:02d}-{time[3]:04d}"
+        logger.info(f"Generating GIF for time: {date}")
         vmin, vmax = torch.min(interm[i, ...]), torch.max(interm[i, ...])
         with tempfile.TemporaryDirectory() as odir:
             fig_paths = []
-            for t in range(interm.shape[1]):
+            for t in range(interm.shape[-1]):
                 fname = odir + f"/{t}.png"
-                plot_simple_map(
-                    interm[i, t], vmin, vmax, "autumn", "Temperature (ºC)", fname
-                )
+                if scaler_func is not None:
+                    im = scaler_func(
+                        interm[np.newaxis, i:i+1, ..., t], times[i:i+1, 2]
+                    ).squeeze()
+                else:
+                    im = interm[i, t]
+                plot_simple_map(im, vmin, vmax, "autumn", "Temperature (ºC)", fname)
                 fig_paths.append(fname)
 
             img, *imgs = [Image.open(f) for f in fig_paths]

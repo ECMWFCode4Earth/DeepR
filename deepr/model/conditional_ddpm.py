@@ -120,7 +120,7 @@ class cDDPMPipeline(DiffusionPipeline):
                     intermediate_images,
                 )
             )
-            intermediate_images = torch.cat(intermediate_images, dim=1)
+            intermediate_images = torch.cat(intermediate_images, dim=-1)
 
         image = (latents / 2 + 0.5).clamp(0, 1)
         image = image.cpu().permute(0, 2, 3, 1).numpy()

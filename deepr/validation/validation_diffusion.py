@@ -83,7 +83,7 @@ def validate_model(
             dataloader,
             scaler_func=scaler_func,
             output_dir=local_dir,
-            device=config["device"],
+            inference_steps=config["inference_steps"]
         )
 
     # Show samples compared with other models
