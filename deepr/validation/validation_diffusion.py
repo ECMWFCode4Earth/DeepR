@@ -89,16 +89,15 @@ def validate_model(
     # Show samples compared with other models
     samples_cfg = config["visualizations"].get("sample_observation_vs_prediction", None)
     if samples_cfg is not None:
-        visualization_local_dir = f"{local_dir}/sample_observation_vs_prediction"
-        os.makedirs(visualization_local_dir, exist_ok=True)
         sample_diffusion_samples_random(
             pipe,
             dataloader,
             scaler_func=scaler_func,
             baseline=config["baseline"],
-            output_dir=visualization_local_dir,
+            output_dir=f"{local_dir}/sample_observation_vs_prediction",
             num_samples=samples_cfg["num_samples"],
             num_realizations=samples_cfg["num_realizations"],
+            inference_steps=config["inference_steps"],
             device=config["device"],
         )
 

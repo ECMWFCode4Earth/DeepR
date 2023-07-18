@@ -12,6 +12,8 @@ from deepr.model.utils import get_hour_embedding
 from deepr.visualizations.plot_maps import plot_2_model_comparison, plot_simple_map
 from deepr.visualizations.plot_samples import get_figure_model_samples
 
+
+K_to_C = 273.15
 logger = logging.getLogger(__name__)
 
 def sample_observation_vs_prediction(
@@ -77,6 +79,7 @@ def sample_diffusion_samples_random(
     baseline: str = "bicubic",
     num_samples: int = 10,
     num_realizations: int = 3,
+    inference_steps: int = 1000,
     output_dir: str = None,
     device: str = "",
 ):
@@ -101,18 +104,18 @@ def sample_diffusion_samples_random(
         pred_nn = pipeline(
             images=era5_repeated,
             class_labels=hour_emb,
+            num_inference_steps=inference_steps,
             generator=torch.manual_seed(2023),
             output_type="tensor",
         ).images
 
         if scaler_func is not None:
-            cerra = scaler_func(cerra, times[:, 2])
-            pred_nn = scaler_func(pred_nn, times[:, 2])
-            pred_base = scaler_func(pred_base, times[:, 2])
+            cerra = scaler_func(cerra, times[:, 2]) - K_to_C
+            pred_nn = scaler_func(pred_nn, times[:, 2].repeat(num_realizations)) - K_to_C
+            pred_base = scaler_func(pred_base, times[:, 2]) - K_to_C
 
         # Make a grid out of the images
         sample_names = [f"{t[0]:d}H {t[1]:02d}-{t[2]:02d}-{t[3]:04d}" for t in times]
-        pred_nn = pred_nn.transpose(1, 3).transpose(2, 3)
         get_figure_model_samples(
             cerra.cpu(),
             pred_nn.cpu(),
@@ -128,10 +131,10 @@ def sample_gif(
     dataloader,
     scaler_func: Callable = None,
     output_dir: str = None,
-    inference_steps: int = 100
+    inference_steps: int = 1000
 ):
     era5, _, times = next(iter(dataloader))
-    _, interm = pipeline(
+    im, interm = pipeline(
         images=era5,
         class_labels=times[:, :1],
         generator=torch.manual_seed(2023),
@@ -140,22 +143,23 @@ def sample_gif(
         saving_freq_interm=1,
         output_type="tensor",
     )
+    if scaler_func is not None:
+        im = scaler_func(im, times[:, 2])
 
     # Generate GIFFS
     for i, time in enumerate(times):
         date = f"{time[1]:02d}-{time[2]:02d}-{time[3]:04d}"
         logger.info(f"Generating GIF for time: {date}")
-        vmin, vmax = torch.min(interm[i, ...]), torch.max(interm[i, ...])
+        vmin = torch.min(im[i, -1, ...]) - K_to_C
+        vmax = torch.max(im[i, -1, ...]) - K_to_C
         with tempfile.TemporaryDirectory() as odir:
             fig_paths = []
-            for t in range(interm.shape[-1]):
+            for t in range(interm.shape[1]):
                 fname = odir + f"/{t}.png"
                 if scaler_func is not None:
-                    im = scaler_func(
-                        interm[np.newaxis, i:i+1, ..., t], times[i:i+1, 2]
-                    ).squeeze()
+                    im = scaler_func(interm[i:i+1, t:t+1, ...], times[i:i+1, 2]).squeeze() - K_to_C
                 else:
-                    im = interm[i, t]
+                    im = interm[i, t] - K_to_C
                 plot_simple_map(im, vmin, vmax, "autumn", "Temperature (ºC)", fname)
                 fig_paths.append(fname)
 
@@ -166,6 +170,7 @@ def sample_gif(
                 append_images=imgs,
                 save_all=True,
                 optimize=True,
-                duration=10,
+                duration=30, # milliseconds in each frame
                 loop=0,
             )
+            img.close()

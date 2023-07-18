@@ -114,16 +114,10 @@ class cDDPMPipeline(DiffusionPipeline):
 
         if saving_freq_interm > 0:
             intermediate_images.append(latents)
-            intermediate_images = list(
-                map(
-                    lambda x: (x / 2 + 0.5).clamp(0, 1).cpu().permute(0, 2, 3, 1),
-                    intermediate_images,
-                )
-            )
-            intermediate_images = torch.cat(intermediate_images, dim=-1)
+            intermediate_images = list(map(lambda x: x.cpu(), intermediate_images))
+            intermediate_images = torch.cat(intermediate_images, dim=1)
 
-        image = (latents / 2 + 0.5).clamp(0, 1)
-        image = image.cpu().permute(0, 2, 3, 1).numpy()
+        image = latents.cpu().numpy()
         if output_type == "pil":
             image = self.numpy_to_pil(image)
         elif output_type == "tensor":
