@@ -5,9 +5,9 @@ data_configuration:
     data_name: cerra
     spatial_resolution: "005deg"
     spatial_coverage:
-      longitude: [ -6.85, 5.1]
-      latitude: [ 44.95, 37 ]
-    apply_standardization: True
+      longitude: [-6.85, 5.1]
+      latitude: [44.95, 37]
+    apply_standardization: true
     data_dir: /PATH/TO/labels/
   common_configuration:
     temporal_coverage:
@@ -40,7 +40,7 @@ training_configuration:
     hour_embed_type: class # none, timestep, positional, cyclical, class
     output_dir: "vqvae-tiny-small"
     device: cuda
-    push_to_hub: True
+    push_to_hub: true
     seed: 2023
     save_image_epochs: 5
     save_model_epochs: 10
