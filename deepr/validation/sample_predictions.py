@@ -1,3 +1,4 @@
+import random
 import tempfile
 from pathlib import Path
 from typing import Callable
@@ -50,8 +51,10 @@ def sample_observation_vs_prediction(
             samples_base = scaler_func(samples_base, times[:, 2])
             pred_nn = scaler_func(pred_nn, times[:, 2])
 
-        filename = Path(local_dir) / f"pred_comparison_{samples_get}.png"
         for i in range(len(times)):
+            if random.choice([True, False]):
+                continue
+            filename = Path(local_dir) / f"pred_comparison_{samples_get}.png"
             t_str = f"{times[i, 0]:d}H {times[i, 1]:d}-{times[i, 2]:d}-{times[i, 3]:d}"
             plot_2_model_comparison(
                 cerra[i, 0],

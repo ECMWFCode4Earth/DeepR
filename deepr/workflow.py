@@ -57,8 +57,8 @@ class MainPipeline:
         config = self.data_config
         for key, val in config.items():
             # Drop data dir
-            if "data_dir" in val.keys():
-                config[key].pop("data_dir")
+            if "data_location" in val.keys():
+                config[key].pop("data_location")
             logger.info(f"{key.capitalize().replace('_', ' ')} configuration:")
             logger.info("\n".join([f"\t{k}: {v}" for k, v in val.items()]))
 
@@ -85,6 +85,7 @@ class MainPipeline:
 
         logger.info("Get features from data_configuration dictionary.")
         train_features, val_features, test_features = data_configuration.get_features()
+        static_features = data_configuration.get_static_features()
 
         if (
             train_features is not None
@@ -100,6 +101,7 @@ class MainPipeline:
 
         logger.info("Get label from data_configuration dictionary.")
         train_label, val_label, test_label = data_configuration.get_labels()
+        static_label = data_configuration.get_static_label()
 
         if (
             train_label is not None
@@ -113,27 +115,65 @@ class MainPipeline:
 
         # Define DataGenerators
         logger.info("Define the DataGenerator object.")
-        f_cfg = data_configuration.features_configuration
-        add_aux = False if f_cfg is None else f_cfg.get("add_auxiliary", False)
+        add_aux = self.define_aux_data(
+            data_configuration, static_features, static_label
+        )
+
         data_generator_train = DataGenerator(
             train_features,
-            add_aux,
             train_label,
+            add_aux,
             self.features_scaler,
             self.label_scaler,
         )
         data_generator_val = DataGenerator(
-            val_features, add_aux, val_label, self.features_scaler, self.label_scaler
+            val_features, val_label, add_aux, self.features_scaler, self.label_scaler
         )
         data_generator_test = DataGenerator(
             feature_files=test_features,
-            add_auxiliary_features=True,
             label_files=test_label,
+            add_auxiliary_features=add_aux,
             features_scaler=self.features_scaler,
             label_scaler=self.label_scaler,
-            shuffle=True,
+            shuffle=False,
         )
         return data_generator_train, data_generator_val, data_generator_test
+
+    @staticmethod
+    def define_aux_data(data_configuration, static_features, static_label):
+        """
+        Define auxiliary data based on the provided configuration.
+
+        Parameters
+        ----------
+        data_configuration : DataConfiguration
+            Data configuration details.
+
+        static_features : Tuple[xarray.DataArray or None, xarray.DataArray or None]
+            Tuple containing land mask and orography data arrays used as
+            static features.
+
+        static_label : Tuple[xarray.DataArray or None, xarray.DataArray or None]
+            Tuple containing land mask and orography data arrays used as
+            static labels.
+
+        Returns
+        -------
+        dict
+            Dictionary containing the auxiliary data based on the data configuration.
+        """
+        f_cfg = data_configuration.features_configuration
+        add_aux = f_cfg.get("add_auxiliary", False)
+        for aux_type, aux_value in add_aux.items():
+            if aux_type == "lsm-low" and aux_value:
+                add_aux[aux_type] = static_features[0]
+            elif aux_type == "orog-low" and aux_value:
+                add_aux[aux_type] = static_features[1]
+            elif aux_type == "lsm-high" and aux_value:
+                add_aux[aux_type] = static_label[0]
+            elif aux_type == "orog-high" and aux_value:
+                add_aux[aux_type] = static_label[1]
+        return add_aux
 
     def load_trained_model(self):
         if self.pipeline_type == "diffusion":

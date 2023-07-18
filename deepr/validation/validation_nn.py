@@ -57,7 +57,7 @@ def validate_model(
     """
     # Create data loader
     dataloader = torch.utils.data.DataLoader(
-        dataset, config["batch_size"], pin_memory=True
+        dataset, config["sampling"]["batch_size"], pin_memory=True
     )
 
     # Define scaler function if label scaler is provided
@@ -93,22 +93,23 @@ def validate_model(
         model, dataloader, config["baseline"], scaler_func
     )
     names = [model.__class__.__name__, config["baseline"]]
-    plot_2_maps_comparison(
-        mse,
-        mse_base,
-        names,
-        "MSE (ºC)",
-        f"{local_dir}/mse_vs_{config['baseline']}.png",
-        vmin=0,
-    )
-    plot_2_maps_comparison(
-        mae,
-        mae_base,
-        names,
-        "MAE (ºC)",
-        f"{local_dir}/mae_vs_{config['baseline']}.png",
-        vmin=0,
-    )
+    for time_value in [0, 3, 6, 9, 12, 15, 18, 21, "all"]:
+        plot_2_maps_comparison(
+            mse[time_value],
+            mse_base[time_value],
+            names,
+            "MSE (ºC)",
+            f"{local_dir}/mse_vs_{config['baseline']}_{time_value}.png",
+            vmin=0,
+        )
+        plot_2_maps_comparison(
+            mae[time_value],
+            mae_base[time_value],
+            names,
+            "MAE (ºC)",
+            f"{local_dir}/mae_vs_{config['baseline']}_{time_value}.png",
+            vmin=0,
+        )
 
     # Compute and upload metrics to Hugging Face Model Hub
     test_metrics = compute_and_upload_metrics(

@@ -136,7 +136,7 @@ def compute_model_and_baseline_errors(
         Percentage of improvement of the error from the model to the baseline.
 
     """
-    count = 0
+    count_hour = {}
     keys = [0, 3, 6, 9, 12, 15, 18, 21, "all"]
     abs_errors, sq_errors, abs_errors_bi, sq_errors_bi, improvement = {}, {}, {}, {}, {}
     for key in keys:
@@ -145,6 +145,7 @@ def compute_model_and_baseline_errors(
         abs_errors_bi[key] = torch.zeros(dataloader.dataset.output_shape)
         sq_errors_bi[key] = torch.zeros(dataloader.dataset.output_shape)
         improvement[key] = torch.zeros(dataloader.dataset.output_shape)
+        count_hour[key] = 0
     progress_bar = tqdm(total=len(dataloader), desc="Batch ")
 
     for era5, cerra, times in dataloader:
@@ -161,20 +162,36 @@ def compute_model_and_baseline_errors(
             pred_bi = scaler_func(pred_bi, times[:, 2])
             cerra = scaler_func(cerra, times[:, 2])
 
-        count += era5.shape[0]
+        batch_size = times.shape[0]
+        for sample in range(batch_size):
+            hour = int(times[sample][0])
+            count_hour[hour] += 1
+            error = pred[sample] - cerra[sample]
+            error_bi = pred_bi[sample] - cerra[sample]
+            abs_errors[hour] += torch.sum(torch.abs(error), 0)
+            sq_errors[hour] += torch.sum(error**2, 0)
+            abs_errors_bi[hour] += torch.sum(torch.abs(error_bi), 0)
+            sq_errors_bi[hour] += torch.sum(error_bi**2, 0)
+            improvement[hour] += torch.sum(100 * (error - error_bi) / error_bi, 0)
+
+        count_hour["all"] += times.shape[0]
         error = pred - cerra
         error_bi = pred_bi - cerra
-        abs_errors += torch.sum(torch.abs(error), (0, 1))
-        sq_errors += torch.sum(error**2, (0, 1))
-        abs_errors_bi += torch.sum(torch.abs(error_bi), (0, 1))
-        sq_errors_bi += torch.sum(error_bi**2, (0, 1))
+        abs_errors["all"] += torch.sum(torch.abs(error), (0, 1))
+        sq_errors["all"] += torch.sum(error**2, (0, 1))
+        abs_errors_bi["all"] += torch.sum(torch.abs(error_bi), (0, 1))
+        sq_errors_bi["all"] += torch.sum(error_bi**2, (0, 1))
+        improvement["all"] += torch.sum(100 * (error - error_bi) / error_bi, (0, 1))
+
         progress_bar.update(1)
 
     progress_bar.close()
 
-    mae = abs_errors / count
-    mse = sq_errors / count
-    mae_bi = abs_errors_bi / count
-    mse_bi = sq_errors_bi / count
+    mae, mse, mae_bi, mse_bi = {}, {}, {}, {}
+    for hour, value in count_hour.items():
+        mae[hour] = abs_errors[hour] / count_hour[hour]
+        mse[hour] = sq_errors[hour] / count_hour[hour]
+        mae_bi[hour] = abs_errors_bi[hour] / count_hour[hour]
+        mse_bi[hour] = sq_errors_bi[hour] / count_hour[hour]
 
     return mae, mse, mae_bi, mse_bi, improvement

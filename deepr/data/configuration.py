@@ -2,6 +2,7 @@ from datetime import datetime
 from typing import Dict, List
 
 import pandas
+import xarray
 
 from deepr.data.files import DataFile, DataFileCollection
 
@@ -14,8 +15,8 @@ class DataConfiguration:
         Parameters
         ----------
         data_configuration : dict
-            Data configuration dictionary containing features_configuration, label_configuration,
-            and common_configuration.
+            Data configuration dictionary containing :
+            features_configuration, label_configuration, and common_configuration.
         """
         self.features_configuration = data_configuration.get(
             "features_configuration", None
@@ -24,6 +25,37 @@ class DataConfiguration:
         self.common_configuration = data_configuration.get("common_configuration", None)
 
     def _get_data_splits(self):
+        """
+        Calculate the validation and test split sizes based on given configuration.
+
+        Returns
+        -------
+        Tuple[float, float]
+            A tuple containing the validation and test split sizes.
+
+        Raises
+        ------
+        None
+
+        Notes
+        -----
+        The method extracts data splitting information from the `common_configuration`
+        attribute, which should be a dictionary containing the following keys:
+            - "data_split" : A dictionary with keys "test" and "validation" (optional)
+                             specifying the desired proportions for the test and
+                             validation sets, respectively.
+
+        The method returns a tuple (val_split_size, test_split_size) where:
+            - val_split_size : float
+                The calculated validation split size, or 0 if no validation set
+                is defined.
+            - test_split_size : float
+                The calculated test split size, or 0 if no test set is defined.
+
+        If `common_configuration` is not provided, the method returns default split
+        sizes (0.0, 0.0). If the test split size is set to 1.0, it means there is no
+        training or validation set, only a test set.
+        """
         if self.common_configuration is None:
             return 0.0, 0.0
 
@@ -81,7 +113,7 @@ class DataConfiguration:
             # Loop through each variable in the features_configuration
             for variable in self.features_configuration["variables"]:
                 features_file = DataFile(
-                    base_dir=self.features_configuration["data_dir"],
+                    base_dir=self.features_configuration["data_location"],
                     variable=variable,
                     dataset=self.features_configuration["data_name"],
                     temporal_coverage=features_date,
@@ -110,6 +142,65 @@ class DataConfiguration:
         else:
             return features_files, None, None
 
+    def get_static_features(self):
+        """
+        Get the static features from provided land mask and orography datasets.
+
+        Returns
+        -------
+        Tuple[xarray.DataArray or None, xarray.DataArray or None]
+            A tuple containing the land mask and orography data arrays.
+
+            - lsm : xarray.DataArray or None
+                The land mask data array, representing the presence or absence of land
+                for each spatial grid point within the defined spatial coverage.
+                If the land mask dataset is not provided, returns None.
+
+            - orog : xarray.DataArray or None
+                The orography data array, representing the elevation values of
+                the terrain for each spatial grid point within the defined
+                spatial coverage.
+                If the orography dataset is not provided, returns None.
+        """
+        spatial_coverage = self.features_configuration["spatial_coverage"]
+        if self.features_configuration["land_mask_location"]:
+            lsm = (
+                xarray.open_dataset(self.features_configuration["land_mask_location"])
+                .mean("time")
+                .sel(
+                    latitude=slice(
+                        spatial_coverage["latitude"][0],
+                        spatial_coverage["latitude"][1],
+                    ),
+                    longitude=slice(
+                        spatial_coverage["longitude"][0],
+                        spatial_coverage["longitude"][1],
+                    ),
+                )
+            )
+            lsm = (lsm > 0.5).astype(int)
+        else:
+            lsm = None
+
+        if self.features_configuration["orography_location"]:
+            orog = (
+                xarray.open_dataset(self.features_configuration["orography_location"])
+                .mean("time")
+                .sel(
+                    latitude=slice(
+                        spatial_coverage["latitude"][0],
+                        spatial_coverage["latitude"][1],
+                    ),
+                    longitude=slice(
+                        spatial_coverage["longitude"][0],
+                        spatial_coverage["longitude"][1],
+                    ),
+                )
+            )
+        else:
+            orog = None
+        return lsm, orog
+
     def get_labels(self) -> DataFileCollection:
         """
         Get the list of label files based on the label_configuration.
@@ -136,7 +227,7 @@ class DataConfiguration:
         # Loop through each date in the label_configuration
         for label_date in label_dates:
             label_file = DataFile(
-                base_dir=self.label_configuration["data_dir"],
+                base_dir=self.label_configuration["data_location"],
                 variable=self.label_configuration["variable"],
                 dataset=self.label_configuration["data_name"],
                 temporal_coverage=label_date,
@@ -158,3 +249,61 @@ class DataConfiguration:
             return label_coll_train, label_coll_val, label_coll_test
         else:
             return label_files, None, None
+
+    def get_static_label(self):
+        """
+        Get the static label from provided land mask and orography datasets.
+
+        Returns
+        -------
+        Tuple[xarray.DataArray or None, xarray.DataArray or None]
+            A tuple containing the land mask and orography data arrays.
+
+            - lsm : xarray.DataArray or None
+                The land mask data array, representing the presence or absence of land
+                for each spatial grid point within the defined spatial coverage.
+                If the land mask dataset is not provided, returns None.
+
+            - orog : xarray.DataArray or None
+                The orography data array, representing the elevation values of
+                the terrain for each spatial grid point within the defined
+                spatial coverage.
+                If the orography dataset is not provided, returns None.
+        """
+        spatial_coverage = self.label_configuration["spatial_coverage"]
+        if self.label_configuration["land_mask_location"]:
+            lsm = (
+                xarray.open_dataset(self.label_configuration["land_mask_location"])
+                .mean("time")
+                .sel(
+                    latitude=slice(
+                        spatial_coverage["latitude"][0],
+                        spatial_coverage["latitude"][1],
+                    ),
+                    longitude=slice(
+                        spatial_coverage["longitude"][0],
+                        spatial_coverage["longitude"][1],
+                    ),
+                )
+            )
+        else:
+            lsm = None
+
+        if self.label_configuration["orography_location"]:
+            orog = (
+                xarray.open_dataset(self.label_configuration["orography_location"])
+                .mean("time")
+                .sel(
+                    latitude=slice(
+                        spatial_coverage["latitude"][0],
+                        spatial_coverage["latitude"][1],
+                    ),
+                    longitude=slice(
+                        spatial_coverage["longitude"][0],
+                        spatial_coverage["longitude"][1],
+                    ),
+                )
+            )
+        else:
+            orog = None
+        return lsm, orog

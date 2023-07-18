@@ -1,6 +1,6 @@
 import random
 from dataclasses import dataclass, field
-from typing import Tuple
+from typing import Dict, Tuple
 
 import numpy
 import numpy as np
@@ -16,11 +16,11 @@ from deepr.data.scaler import XarrayStandardScaler
 @dataclass
 class DataGenerator(IterableDataset):
     feature_files: DataFileCollection
-    add_auxiliary_features: bool
     label_files: DataFileCollection
+    add_auxiliary_features: Dict
     features_scaler: XarrayStandardScaler
     label_scaler: XarrayStandardScaler
-    shuffle: bool = False
+    shuffle: bool = True
     file_index: int = field(default=0, init=False)
     label_ds: xarray.Dataset = field(default=None, init=False)
     features_ds: xarray.Dataset = field(default=None, init=False)
@@ -130,7 +130,7 @@ class DataGenerator(IterableDataset):
             label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
         tensors.append(torch.as_tensor(label_ds_batch.to_array().to_numpy()))
 
-        if self.add_auxiliary_features:
+        if self.add_auxiliary_features["time"]:
             time_value = pandas.to_datetime(time_value)
             time_value_batch = numpy.array(
                 [time_value.hour, time_value.day, time_value.month, time_value.year]
