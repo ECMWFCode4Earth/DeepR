@@ -286,6 +286,7 @@ class DataConfiguration:
                     ),
                 )
             )
+            lsm = (lsm > 0.5).astype(int)
         else:
             lsm = None
 
