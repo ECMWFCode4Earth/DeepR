@@ -87,7 +87,8 @@ def sample_diffusion_samples_random(
     output_dir: str = None,
     device: str = "",
 ):
-    for era5, cerra, times in dataloader:
+    n_samples = 0
+    for i, (era5, cerra, times) in enumerate(dataloader):
         # Prepare data
         # 1 A) Encode hour
         hour_emb = get_hour_embedding(times[:, :1], "class", 24)
@@ -128,8 +129,12 @@ def sample_diffusion_samples_random(
             # input_image=era5.cpu(),
             baseline=pred_base.cpu(),
             column_names=sample_names,
-            filename=output_dir,
+            filename=output_dir + f"/samples_{i}.png",
         )
+        n_samples += len(sample_names)
+        if n_samples >= num_samples:
+            return None
+        
 
 
 def sample_gif(
