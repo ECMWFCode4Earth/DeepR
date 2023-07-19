@@ -134,7 +134,6 @@ def sample_diffusion_samples_random(
         n_samples += len(sample_names)
         if n_samples >= num_samples:
             return None
-        
 
 
 def sample_gif(

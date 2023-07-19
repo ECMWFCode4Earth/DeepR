@@ -58,7 +58,7 @@ def validate_model(
     """
     # Create data loader
     dataloader = torch.utils.data.DataLoader(
-        dataset, config["sampling"]["batch_size"], pin_memory=True
+        dataset, config["batch_size"], pin_memory=True
     )
 
     # Define scaler function if label scaler is provided

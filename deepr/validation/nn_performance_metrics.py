@@ -6,6 +6,7 @@ from tqdm import tqdm
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.utils import get_hour_embedding
+
 metric_to_repo = {
     "MSE": "mse",
     "R2": "r_squared",
@@ -15,10 +16,10 @@ metric_to_repo = {
     "SRE": "jpxkqx/signal_to_reconstruction_error",
 }
 
-    
+
 def compute_cerra_mean(dataloader, scaler_func: Callable = None):
     total_samples = 0
-    overall_mean_cerra = torch.zeros(dataloader.dataset.output_shape)
+    overall_sum_cerra = torch.zeros(dataloader.dataset.output_shape)
     for era5, cerra, times in dataloader:
         total_samples += times.shape[0]
         if scaler_func is not None:
@@ -117,7 +118,7 @@ def compute_model_and_baseline_errors(
     dataloader: torch.utils.data.DataLoader,
     baseline: str = "bicubic",
     scaler_func: Callable = None,
-    inference_steps: int = 1000
+    inference_steps: int = 1000,
 ):
     """
     Compute the model and baseline errors.
@@ -167,11 +168,10 @@ def compute_model_and_baseline_errors(
 
         improvement[key] = torch.zeros(dataloader.dataset.output_shape)
         count_hour[key] = 0
-    progress_bar = tqdm(total=len(dataloader), desc="Batch ")
 
-    
     overall_mean_cerra = compute_cerra_mean(dataloader, scaler_func)
 
+    progress_bar = tqdm(total=len(dataloader), desc="Batch ")
     for era5, cerra, times in dataloader:
         if isinstance(model, cDDPMPipeline):
             hour_emb = get_hour_embedding(times[:, :1], "class", 24).to(model.device)
@@ -230,7 +230,6 @@ def compute_model_and_baseline_errors(
             (cerra - cerra.mean()) ** 2
         )
         improvement["all"] += torch.sum(100 * (error - error_base) / error_base, (0, 1))
-
         progress_bar.update(1)
 
     progress_bar.close()

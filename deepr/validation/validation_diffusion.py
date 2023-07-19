@@ -94,7 +94,7 @@ def validate_model(
     samples_cfg = config["visualizations"].get("sample_observation_vs_prediction", None)
     if samples_cfg is not None:
         odir = local_dir + "/samples_comparison"
-        os.makedirs(odir, exist_ok=True)        
+        os.makedirs(odir, exist_ok=True)
         sample_diffusion_samples_random(
             pipe,
             dataloader,
@@ -108,8 +108,20 @@ def validate_model(
         )
 
     # Obtain error maps
-    mae, mse, mae_base, mse_base, improvement = compute_model_and_baseline_errors(
-        pipe, dataloader, config["baseline"], scaler_func
+    (
+        mae,
+        mse,
+        r2,
+        mae_base,
+        mse_base,
+        r2_base,
+        improvement,
+    ) = compute_model_and_baseline_errors(
+        pipe,
+        dataloader,
+        baseline=config["baseline"],
+        scaler_func=scaler_func,
+        inference_steps=config["inference_steps"],
     )
     names = [pipe.__class__.__name__, config["baseline"]]
     plot_2_maps_comparison(

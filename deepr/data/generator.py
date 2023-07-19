@@ -243,6 +243,8 @@ class DataGenerator(IterableDataset):
         else:
             if len(batch) == 2:
                 features_sample, label_sample = batch
+            elif len(batch) > 2:
+                features_sample, label_sample, _ = batch
             else:  # auto-encoder
                 features_sample = label_sample = batch[0]
             aux_shape = None
