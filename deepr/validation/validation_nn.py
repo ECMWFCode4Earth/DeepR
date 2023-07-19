@@ -90,13 +90,22 @@ def validate_model(
         )
 
     # Obtain error tensors by hour of the day and for all times
-    mae, mse, mae_base, mse_base, improvement = compute_model_and_baseline_errors(
+    (
+        mae,
+        mse,
+        r2,
+        mae_base,
+        mse_base,
+        r2_base,
+        improvement,
+    ) = compute_model_and_baseline_errors(
         model, dataloader, config["baseline"], scaler_func
     )
 
-    # Compute error maps
+    # Compute error maps to compare spatial metric by hour (and for all the hours)
     names = [model.__class__.__name__, config["baseline"]]
     visualization_local_dir = f"{local_dir}/plot_2_maps_comparison"
+    os.makedirs(visualization_local_dir, exist_ok=True)
     for time_value in [0, 3, 6, 9, 12, 15, 18, 21, "all"]:
         plot_2_maps_comparison(
             mse[time_value],
@@ -114,20 +123,72 @@ def validate_model(
             f"{visualization_local_dir}/mae_vs_{config['baseline']}_{time_value}.png",
             vmin=0,
         )
+        plot_2_maps_comparison(
+            r2[time_value],
+            r2_base[time_value],
+            names,
+            "R2",
+            f"{visualization_local_dir}/r2_vs_{config['baseline']}_{time_value}.png",
+            vmin=-1,
+        )
 
+    # Compute rose plot to compare total metric by hour (and for all the hours)
     visualization_local_dir = f"{local_dir}/rose-plot"
+    os.makedirs(visualization_local_dir, exist_ok=True)
     plot_rose(
-        mae,
-        mae_base,
-        "MAE (ºC)",
+        {key: value for key, value in mae.items() if key != "all"},
+        {key: value for key, value in mae_base.items() if key != "all"},
+        None,
+        names=[model.__class__.__name__, config["baseline"]],
+        custom_colors=["#390099", "#9e0059"],
+        title="MAE (ºC)",
         output_path=f"{visualization_local_dir}/rose-plot_mae.png",
     )
-
     plot_rose(
-        mse,
-        mse_base,
-        "MSE (ºC)",
+        {key: value for key, value in mse.items() if key != "all"},
+        {key: value for key, value in mse_base.items() if key != "all"},
+        None,
+        names=[model.__class__.__name__, config["baseline"]],
+        custom_colors=["#390099", "#9e0059"],
+        title="MSE (ºC)",
         output_path=f"{visualization_local_dir}/rose-plot_mse.png",
+    )
+    land_mask_array = dataset.add_auxiliary_features["lsm-high"].lsm.as_numpy().values
+    plot_rose(
+        {key: value for key, value in mae.items() if key != "all"},
+        {key: value for key, value in mae_base.items() if key != "all"},
+        ("land", land_mask_array),
+        names=[model.__class__.__name__, config["baseline"]],
+        custom_colors=["#390099", "#9e0059"],
+        title="MAE (ºC) - only land points",
+        output_path=f"{visualization_local_dir}/rose-plot_mae-on-land.png",
+    )
+    plot_rose(
+        {key: value for key, value in mse.items() if key != "all"},
+        {key: value for key, value in mse_base.items() if key != "all"},
+        ("land", land_mask_array),
+        names=[model.__class__.__name__, config["baseline"]],
+        custom_colors=["#390099", "#9e0059"],
+        title="MSE (ºC) - only land points",
+        output_path=f"{visualization_local_dir}/rose-plot_mse-on-land.png",
+    )
+    plot_rose(
+        {key: value for key, value in mae.items() if key != "all"},
+        {key: value for key, value in mae_base.items() if key != "all"},
+        ("sea", land_mask_array),
+        names=[model.__class__.__name__, config["baseline"]],
+        custom_colors=["#390099", "#9e0059"],
+        title="MAE (ºC) - only sea points",
+        output_path=f"{visualization_local_dir}/rose-plot_mae-on-sea.png",
+    )
+    plot_rose(
+        {key: value for key, value in mse.items() if key != "all"},
+        {key: value for key, value in mse_base.items() if key != "all"},
+        ("sea", land_mask_array),
+        names=[model.__class__.__name__, config["baseline"]],
+        custom_colors=["#390099", "#9e0059"],
+        title="MSE (ºC) - only sea points",
+        output_path=f"{visualization_local_dir}/rose-plot_mse-on-sea.png",
     )
 
     # Compute and upload metrics to Hugging Face Model Hub

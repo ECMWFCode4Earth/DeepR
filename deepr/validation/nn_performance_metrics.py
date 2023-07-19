@@ -15,6 +15,18 @@ metric_to_repo = {
     "SRE": "jpxkqx/signal_to_reconstruction_error",
 }
 
+    
+def compute_cerra_mean(dataloader, scaler_func: Callable = None):
+    total_samples = 0
+    overall_mean_cerra = torch.zeros(dataloader.dataset.output_shape)
+    for era5, cerra, times in dataloader:
+        total_samples += times.shape[0]
+        if scaler_func is not None:
+            cerra = scaler_func(cerra, times[:, 2])
+        overall_sum_cerra += cerra.sum((0, 1))
+
+    return overall_sum_cerra / total_samples
+
 
 def compute_and_upload_metrics(
     model: Type[torch.nn.Module],
@@ -143,15 +155,22 @@ def compute_model_and_baseline_errors(
     """
     count_hour = {}
     keys = [0, 3, 6, 9, 12, 15, 18, 21, "all"]
-    abs_errors, sq_errors, abs_errors_bi, sq_errors_bi, improvement = {}, {}, {}, {}, {}
+    abs_errors, sq_errors, r2, improvement = {}, {}, {}, {}
+    abs_errors_base, sq_errors_base, r2_base = {}, {}, {}
     for key in keys:
         abs_errors[key] = torch.zeros(dataloader.dataset.output_shape)
         sq_errors[key] = torch.zeros(dataloader.dataset.output_shape)
-        abs_errors_bi[key] = torch.zeros(dataloader.dataset.output_shape)
-        sq_errors_bi[key] = torch.zeros(dataloader.dataset.output_shape)
+        r2[key] = torch.zeros(dataloader.dataset.output_shape)
+        abs_errors_base[key] = torch.zeros(dataloader.dataset.output_shape)
+        sq_errors_base[key] = torch.zeros(dataloader.dataset.output_shape)
+        r2_base[key] = torch.zeros(dataloader.dataset.output_shape)
+
         improvement[key] = torch.zeros(dataloader.dataset.output_shape)
         count_hour[key] = 0
     progress_bar = tqdm(total=len(dataloader), desc="Batch ")
+
+    
+    overall_mean_cerra = compute_cerra_mean(dataloader, scaler_func)
 
     for era5, cerra, times in dataloader:
         if isinstance(model, cDDPMPipeline):
@@ -167,13 +186,13 @@ def compute_model_and_baseline_errors(
             with torch.no_grad():
                 pred_nn = model(era5, return_dict=False)[0]
 
-        pred_bi = torch.nn.functional.interpolate(
+        pred_base = torch.nn.functional.interpolate(
             era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
         )
 
         if scaler_func is not None:
             pred_nn = scaler_func(pred_nn, times[:, 2])
-            pred_bi = scaler_func(pred_bi, times[:, 2])
+            pred_base = scaler_func(pred_base, times[:, 2])
             cerra = scaler_func(cerra, times[:, 2])
 
         batch_size = times.shape[0]
@@ -181,31 +200,48 @@ def compute_model_and_baseline_errors(
             hour = int(times[sample][0])
             count_hour[hour] += 1
             error = pred_nn[sample] - cerra[sample]
-            error_bi = pred_bi[sample] - cerra[sample]
+            error_base = pred_base[sample] - cerra[sample]
             abs_errors[hour] += torch.sum(torch.abs(error), 0)
             sq_errors[hour] += torch.sum(error**2, 0)
-            abs_errors_bi[hour] += torch.sum(torch.abs(error_bi), 0)
-            sq_errors_bi[hour] += torch.sum(error_bi**2, 0)
-            improvement[hour] += torch.sum(100 * (error - error_bi) / error_bi, 0)
+            r2[hour] += torch.ones(dataloader.dataset.output_shape) - (
+                torch.sum(error**2, 0)
+                / torch.sum((cerra[sample] - overall_mean_cerra) ** 2, 0)
+            )
+            abs_errors_base[hour] += torch.sum(torch.abs(error_base), 0)
+            sq_errors_base[hour] += torch.sum(error_base**2, 0)
+            r2_base[hour] += torch.ones(dataloader.dataset.output_shape) - (
+                torch.sum(error_base**2, 0)
+                / torch.sum((cerra[sample] - overall_mean_cerra) ** 2, 0)
+            )
+            improvement[hour] += torch.sum(100 * (error - error_base) / error_base, 0)
 
         count_hour["all"] += times.shape[0]
         error = pred_nn - cerra
-        error_bi = pred_bi - cerra
+        error_base = pred_base - cerra
         abs_errors["all"] += torch.sum(torch.abs(error), (0, 1))
         sq_errors["all"] += torch.sum(error**2, (0, 1))
-        abs_errors_bi["all"] += torch.sum(torch.abs(error_bi), (0, 1))
-        sq_errors_bi["all"] += torch.sum(error_bi**2, (0, 1))
-        improvement["all"] += torch.sum(100 * (error - error_bi) / error_bi, (0, 1))
+        r2["all"] += torch.ones(dataloader.dataset.output_shape) - (
+            torch.sum(error**2, (0, 1))
+            / torch.sum((cerra - overall_mean_cerra) ** 2, (0, 1))
+        )
+        abs_errors_base["all"] += torch.sum(torch.abs(error_base), (0, 1))
+        sq_errors_base["all"] += torch.sum(error_base**2, (0, 1))
+        r2_base["all"] += 1 - torch.sum(error_base**2) / torch.sum(
+            (cerra - cerra.mean()) ** 2
+        )
+        improvement["all"] += torch.sum(100 * (error - error_base) / error_base, (0, 1))
 
         progress_bar.update(1)
 
     progress_bar.close()
 
-    mae, mse, mae_bi, mse_bi = {}, {}, {}, {}
+    mae, mse, mae_base, mse_base = {}, {}, {}, {}
     for hour, value in count_hour.items():
         mae[hour] = abs_errors[hour] / count_hour[hour]
         mse[hour] = sq_errors[hour] / count_hour[hour]
-        mae_bi[hour] = abs_errors_bi[hour] / count_hour[hour]
-        mse_bi[hour] = sq_errors_bi[hour] / count_hour[hour]
+        r2[hour] /= count_hour[hour]
+        mae_base[hour] = abs_errors_base[hour] / count_hour[hour]
+        mse_base[hour] = sq_errors_base[hour] / count_hour[hour]
+        r2_base[hour] /= count_hour[hour]
 
-    return mae, mse, mae_bi, mse_bi, improvement
+    return mae, mse, r2, mae_base, mse_base, r2_base, improvement
