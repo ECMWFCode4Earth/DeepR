@@ -4,6 +4,8 @@ import evaluate
 import torch
 from tqdm import tqdm
 
+from deepr.model.conditional_ddpm import cDDPMPipeline
+from deepr.model.utils import get_hour_embedding
 metric_to_repo = {
     "MSE": "mse",
     "R2": "r_squared",
@@ -103,6 +105,7 @@ def compute_model_and_baseline_errors(
     dataloader: torch.utils.data.DataLoader,
     baseline: str = "bicubic",
     scaler_func: Callable = None,
+    inference_steps: int = 1000
 ):
     """
     Compute the model and baseline errors.
@@ -119,6 +122,8 @@ def compute_model_and_baseline_errors(
         The mode used for baseline interpolation, by default "bicubic".
     scaler_func : Callable, optional
         A scaling function to apply on the data, by default None.
+    inference_steps : int, optional
+        The number of inference steps in case a Diffusion Process is specified.
 
     Returns
     -------
@@ -149,16 +154,25 @@ def compute_model_and_baseline_errors(
     progress_bar = tqdm(total=len(dataloader), desc="Batch ")
 
     for era5, cerra, times in dataloader:
-        # Predict the noise residual
-        with torch.no_grad():
-            pred = model(era5, return_dict=False)[0]
+        if isinstance(model, cDDPMPipeline):
+            hour_emb = get_hour_embedding(times[:, :1], "class", 24).to(model.device)
+            pred_nn = model(
+                images=era5,
+                class_labels=hour_emb,
+                num_inference_steps=inference_steps,
+                generator=torch.manual_seed(2023),
+                output_type="tensor",
+            ).images
+        else:
+            with torch.no_grad():
+                pred_nn = model(era5, return_dict=False)[0]
 
         pred_bi = torch.nn.functional.interpolate(
             era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
         )
 
         if scaler_func is not None:
-            pred = scaler_func(pred, times[:, 2])
+            pred_nn = scaler_func(pred_nn, times[:, 2])
             pred_bi = scaler_func(pred_bi, times[:, 2])
             cerra = scaler_func(cerra, times[:, 2])
 
@@ -166,7 +180,7 @@ def compute_model_and_baseline_errors(
         for sample in range(batch_size):
             hour = int(times[sample][0])
             count_hour[hour] += 1
-            error = pred[sample] - cerra[sample]
+            error = pred_nn[sample] - cerra[sample]
             error_bi = pred_bi[sample] - cerra[sample]
             abs_errors[hour] += torch.sum(torch.abs(error), 0)
             sq_errors[hour] += torch.sum(error**2, 0)
@@ -175,7 +189,7 @@ def compute_model_and_baseline_errors(
             improvement[hour] += torch.sum(100 * (error - error_bi) / error_bi, 0)
 
         count_hour["all"] += times.shape[0]
-        error = pred - cerra
+        error = pred_nn - cerra
         error_bi = pred_bi - cerra
         abs_errors["all"] += torch.sum(torch.abs(error), (0, 1))
         sq_errors["all"] += torch.sum(error**2, (0, 1))
