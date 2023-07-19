@@ -68,13 +68,3 @@ def compute_climatology_by_time_group(
 
     # Return mean and standard deviation DataArrays
     return mean_by_group, std_by_group
-
-
-if __name__ == "__main__":
-    import glob
-
-    compute_climatology_by_time_group(
-        glob.glob("../../tests/data/labels/*.nc"),
-        ["hour", "day", "month"],
-        output_directory="/tmp",
-    )

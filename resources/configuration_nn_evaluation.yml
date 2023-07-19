@@ -5,22 +5,22 @@ data_configuration:
     variables:
     - t2m
     data_name: era5
-    add_auxiliary: False
+    add_auxiliary: false
     spatial_resolution: "025deg"
     spatial_coverage:
-      longitude: [ -8.35, 6.6]
-      latitude: [ 46.45, 35.50 ]
-    apply_standardization: True
+      longitude: [-8.35, 6.6]
+      latitude: [46.45, 35.50]
+    apply_standardization: true
     data_dir: /PATH/TO/features/
   # Label configuration
   label_configuration:
     variable: t2m
     data_name: cerra
     spatial_resolution: "005deg"
-    apply_standardization: True
+    apply_standardization: true
     spatial_coverage:
-      longitude: [ -6.85, 5.1]
-      latitude: [ 44.95, 37 ]
+      longitude: [-6.85, 5.1]
+      latitude: [44.95, 37]
     data_dir: /PATH/TO/labels/
   # Common data configuration
   common_configuration:

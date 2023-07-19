@@ -1,6 +1,7 @@
 import torch
 from diffusers.models.embeddings import get_timestep_embedding
 
+
 def get_hour_embedding(
     hours: torch.Tensor, embedding_type: str, emb_size: int = 64
 ) -> torch.Tensor:

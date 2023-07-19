@@ -78,7 +78,7 @@ def validate_model(
     # Sample GIFF predictions
     giff_sample_cfg = config["visualizations"].get("giff_timestep_freq", None)
     if giff_sample_cfg is not None:
-        odir = local_dir + f"/animated_diffusion"
+        odir = local_dir + "/animated_diffusion"
         os.makedirs(odir, exist_ok=True)
         sample_gif(
             pipe,
