@@ -97,8 +97,8 @@ class cDDPMPipeline(DiffusionPipeline):
         latents = latents * self.scheduler.init_noise_sigma
 
         intermediate_images = []
-        for t in self.progress_bar(self.scheduler.timesteps):
-            if saving_freq_interm > 0:
+        for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
+            if saving_freq_interm > 0 and i % saving_freq_interm == 0:
                 intermediate_images.append(latents)
 
             latents_input = torch.cat([latents, up_images], axis=1)

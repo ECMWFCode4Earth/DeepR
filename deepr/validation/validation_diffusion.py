@@ -78,12 +78,16 @@ def validate_model(
     # Sample GIFF predictions
     giff_sample_cfg = config["visualizations"].get("giff_timestep_freq", None)
     if giff_sample_cfg is not None:
+        odir = local_dir + f"/animated_diffusion"
+        os.makedirs(odir, exist_ok=True)
         sample_gif(
             pipe,
             dataloader,
             scaler_func=scaler_func,
-            output_dir=local_dir,
-            inference_steps=config["inference_steps"]
+            output_dir=odir,
+            inference_steps=config["inference_steps"],
+            fps=giff_sample_cfg["fps"],
+            freq_timesteps_frame=giff_sample_cfg["freq_timesteps"],
         )
 
     # Show samples compared with other models

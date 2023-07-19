@@ -279,9 +279,10 @@ def plot_simple_map(
     out_file: str = None,
 ):
     plt.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
-    plt.colorbar(shrink=0.8, label=label)
+    plt.axis("off")
+    plt.colorbar(shrink=0.65, label=label)
     if out_file is not None:
-        plt.savefig(out_file, transparent=True, bbox_inches="tight")
+        plt.savefig(out_file, transparent=True, bbox_inches="tight", dpi=200)
         plt.close()
     else:
         return plt.clf()

@@ -1,5 +1,6 @@
 import logging
 import tempfile
+import os
 from pathlib import Path
 from typing import Callable
 
@@ -15,6 +16,8 @@ from deepr.visualizations.plot_samples import get_figure_model_samples
 
 K_to_C = 273.15
 logger = logging.getLogger(__name__)
+tmpdir = Path(tempfile.mkdtemp())
+
 
 def sample_observation_vs_prediction(
     model,
@@ -131,46 +134,66 @@ def sample_gif(
     dataloader,
     scaler_func: Callable = None,
     output_dir: str = None,
-    inference_steps: int = 1000
+    freq_timesteps_frame: int = 1,
+    inference_steps: int = 1000,
+    fps: int = 50,
 ):
+    """
+    Generate GIFs of the diffusion process for a given pipeline.
+
+    Args:
+        pipeline (callable): The pipeline function to apply to the images.
+        dataloader (iterable): An iterable containing low-resolution reanalysis.
+        scaler_func (callable, optional): A function to un-scale the images. Defaults to None.
+        output_dir (str, optional): The directory to save the generated GIFs. Defaults to None.
+        freq_timesteps_frame (int, optional): The frequency of diffusion timesteps to 
+            save as frames in the GIFs. Defaults to 1, which saves latents at all 
+            timesteps as frames.
+        inference_steps (int, optional): The number of inference timesteps to perform 
+            the diffusion process. Defaults to 1000.
+        fps (int, optional): The frames per second to show. Maximum value supported for 
+            most of modern browsers is 50fps.
+    """
     era5, _, times = next(iter(dataloader))
-    im, interm = pipeline(
+    hr_im, interm = pipeline(
         images=era5,
         class_labels=times[:, :1],
         generator=torch.manual_seed(2023),
         num_inference_steps=inference_steps,
         return_dict=False,
-        saving_freq_interm=1,
+        saving_freq_interm=freq_timesteps_frame,
         output_type="tensor",
     )
     if scaler_func is not None:
-        im = scaler_func(im, times[:, 2])
+        hr_im = scaler_func(hr_im, times[:, 2])
 
     # Generate GIFFS
     for i, time in enumerate(times):
-        date = f"{time[1]:02d}-{time[2]:02d}-{time[3]:04d}"
+        date = f"{time[1]:02d}/{time[2]:02d}/{time[3]:04d}"
         logger.info(f"Generating GIF for time: {date}")
-        vmin = torch.min(im[i, -1, ...]) - K_to_C
-        vmax = torch.max(im[i, -1, ...]) - K_to_C
-        with tempfile.TemporaryDirectory() as odir:
-            fig_paths = []
-            for t in range(interm.shape[1]):
-                fname = odir + f"/{t}.png"
-                if scaler_func is not None:
-                    im = scaler_func(interm[i:i+1, t:t+1, ...], times[i:i+1, 2]).squeeze() - K_to_C
-                else:
-                    im = interm[i, t] - K_to_C
-                plot_simple_map(im, vmin, vmax, "autumn", "Temperature (ºC)", fname)
-                fig_paths.append(fname)
+        vmin = torch.min(hr_im[i, ...]) - K_to_C
+        vmax = torch.max(hr_im[i, ...]) - K_to_C
 
-            img, *imgs = [Image.open(f) for f in fig_paths]
-            img.save(
-                fp=output_dir + f"/diffusion_{time[0]:d}H {date}.gif",
-                format="GIF",
-                append_images=imgs,
-                save_all=True,
-                optimize=True,
-                duration=30, # milliseconds in each frame
-                loop=0,
-            )
-            img.close()
+        odir = tmpdir / date
+        os.makedirs(odir, exist_ok=True)
+        fig_paths = []
+        for t in range(interm.shape[1]):
+            fname = odir / f"{t}.png"
+            if scaler_func is not None:
+                im = scaler_func(interm[i:i+1, t:t+1, ...], times[i:i+1, 2]).squeeze() - K_to_C
+            else:
+                im = interm[i, t] - K_to_C
+            plot_simple_map(im, vmin, vmax, "autumn", "Temperature (ºC)", fname)
+            fig_paths.append(fname)
+
+        imgs = [Image.open(f) for f in fig_paths]
+        imgs[0].save(
+            fp=output_dir + f"/diffusion_{time[0]:d}H-{date}_{inference_steps}steps.gif",
+            format="GIF",
+            append_images=imgs,
+            save_all=True,
+            optimize=True,
+            duration=max(20, int(1e3 / fps)), #1 frame each 20ms = 50 fps (min value)
+            loop=0,
+        )
+        del imgs
