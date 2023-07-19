@@ -93,12 +93,14 @@ def validate_model(
     # Show samples compared with other models
     samples_cfg = config["visualizations"].get("sample_observation_vs_prediction", None)
     if samples_cfg is not None:
+        odir = local_dir + "/samples_comparison"
+        os.makedirs(odir, exist_ok=True)        
         sample_diffusion_samples_random(
             pipe,
             dataloader,
             scaler_func=scaler_func,
             baseline=config["baseline"],
-            output_dir=f"{local_dir}/sample_observation_vs_prediction",
+            output_dir=odir,
             num_samples=samples_cfg["num_samples"],
             num_realizations=samples_cfg["num_realizations"],
             inference_steps=config["inference_steps"],
@@ -107,9 +109,9 @@ def validate_model(
 
     # Obtain error maps
     mae, mse, mae_base, mse_base, improvement = compute_model_and_baseline_errors(
-        model, dataloader, config["baseline"], scaler_func
+        pipe, dataloader, config["baseline"], scaler_func
     )
-    names = [model.__class__.__name__, config["baseline"]]
+    names = [pipe.__class__.__name__, config["baseline"]]
     plot_2_maps_comparison(
         mse,
         mse_base,
