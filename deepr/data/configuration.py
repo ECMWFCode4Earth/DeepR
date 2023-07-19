@@ -163,7 +163,7 @@ class DataConfiguration:
                 If the orography dataset is not provided, returns None.
         """
         spatial_coverage = self.features_configuration["spatial_coverage"]
-        if self.features_configuration["land_mask_location"]:
+        if self.features_configuration.get("land_mask_location", None) is not None:
             lsm = (
                 xarray.open_dataset(self.features_configuration["land_mask_location"])
                 .mean("time")
@@ -182,7 +182,7 @@ class DataConfiguration:
         else:
             lsm = None
 
-        if self.features_configuration["orography_location"]:
+        if self.features_configuration.get("orography_location", None):
             orog = (
                 xarray.open_dataset(self.features_configuration["orography_location"])
                 .mean("time")
@@ -271,7 +271,7 @@ class DataConfiguration:
                 If the orography dataset is not provided, returns None.
         """
         spatial_coverage = self.label_configuration["spatial_coverage"]
-        if self.label_configuration["land_mask_location"]:
+        if self.label_configuration.get("land_mask_location", None) is not None:
             lsm = (
                 xarray.open_dataset(self.label_configuration["land_mask_location"])
                 .mean("time")
@@ -289,7 +289,7 @@ class DataConfiguration:
         else:
             lsm = None
 
-        if self.label_configuration["orography_location"]:
+        if self.label_configuration.get("orography_location", None) is not None:
             orog = (
                 xarray.open_dataset(self.label_configuration["orography_location"])
                 .mean("time")

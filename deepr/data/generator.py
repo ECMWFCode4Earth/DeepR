@@ -130,7 +130,7 @@ class DataGenerator(IterableDataset):
             label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
         tensors.append(torch.as_tensor(label_ds_batch.to_array().to_numpy()))
 
-        if self.add_auxiliary_features["time"]:
+        if True:
             time_value = pandas.to_datetime(time_value)
             time_value_batch = numpy.array(
                 [time_value.hour, time_value.day, time_value.month, time_value.year]
