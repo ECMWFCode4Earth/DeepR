@@ -12,6 +12,7 @@ from deepr.validation.nn_performance_metrics import (
 )
 from deepr.validation.sample_predictions import sample_observation_vs_prediction
 from deepr.visualizations.plot_maps import plot_2_maps_comparison
+from deepr.visualizations.plot_rose import plot_rose
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
@@ -88,18 +89,21 @@ def validate_model(
             num_samples=samples_cfg["num_samples"],
         )
 
-    # Obtain error maps
+    # Obtain error tensors by hour of the day and for all times
     mae, mse, mae_base, mse_base, improvement = compute_model_and_baseline_errors(
         model, dataloader, config["baseline"], scaler_func
     )
+
+    # Compute error maps
     names = [model.__class__.__name__, config["baseline"]]
+    visualization_local_dir = f"{local_dir}/plot_2_maps_comparison"
     for time_value in [0, 3, 6, 9, 12, 15, 18, 21, "all"]:
         plot_2_maps_comparison(
             mse[time_value],
             mse_base[time_value],
             names,
             "MSE (ºC)",
-            f"{local_dir}/mse_vs_{config['baseline']}_{time_value}.png",
+            f"{visualization_local_dir}/mse_vs_{config['baseline']}_{time_value}.png",
             vmin=0,
         )
         plot_2_maps_comparison(
@@ -107,9 +111,24 @@ def validate_model(
             mae_base[time_value],
             names,
             "MAE (ºC)",
-            f"{local_dir}/mae_vs_{config['baseline']}_{time_value}.png",
+            f"{visualization_local_dir}/mae_vs_{config['baseline']}_{time_value}.png",
             vmin=0,
         )
+
+    visualization_local_dir = f"{local_dir}/rose-plot"
+    plot_rose(
+        mae,
+        mae_base,
+        "MAE (ºC)",
+        output_path=f"{visualization_local_dir}/rose-plot_mae.png",
+    )
+
+    plot_rose(
+        mse,
+        mse_base,
+        "MSE (ºC)",
+        output_path=f"{visualization_local_dir}/rose-plot_mse.png",
+    )
 
     # Compute and upload metrics to Hugging Face Model Hub
     test_metrics = compute_and_upload_metrics(
