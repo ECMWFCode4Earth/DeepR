@@ -90,7 +90,7 @@ class cDDPMPipeline(DiffusionPipeline):
         # Hour encoding. Passed to NN as class labels
         if class_labels is not None:
             class_labels = get_hour_embedding(class_labels, "class", 24)
-            class_labels = class_labels.to(images.device).squeeze()
+            class_labels = class_labels.to(self.device).squeeze()
 
         # set step values
         self.scheduler.set_timesteps(num_inference_steps, device=self.device)
