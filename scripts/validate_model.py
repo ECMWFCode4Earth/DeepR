@@ -16,7 +16,7 @@ if __name__ == "__main__":
     )
     parser.add_argument(
         "--cfg_path",
-        default="../resources/configuration_nn_evaluation.yml",
+        default="../resources/configuration_evaluation_diffusion.yml",
         type=Path,
         help="Path to the configuration file.",
     )

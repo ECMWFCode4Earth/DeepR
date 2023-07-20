@@ -72,6 +72,12 @@ class DataGenerator(IterableDataset):
                 self.output_shape,
                 self.output_channels,
             ) = self.get_shapes()
+            (
+                self.feature_latitudes,
+                self.feature_longitudes,
+                self.label_latitudes,
+                self.label_longitudes,
+            ) = self.get_coordinates()
 
     def __len__(self) -> int:
         """
@@ -274,3 +280,26 @@ class DataGenerator(IterableDataset):
         init_date = init_file.temporal_coverage
         end_date = end_file.temporal_coverage
         return init_date, end_date
+
+    def get_coordinates(self):
+        """
+        Get latitude and longitude coordinates from the label and features datasets.
+
+        Returns
+        -------
+        tuple
+            A tuple containing four lists:
+            features_latitudes : list
+                List of latitude values from the features dataset.
+            feature_longitudes : list
+                List of longitude values from the features dataset.
+            label_latitudes : list
+                List of latitude values from the label dataset.
+            label_longitudes : list
+                List of longitude values from the label dataset.
+        """
+        label_longitudes = list(self.label_ds.longitude.values)
+        label_latitudes = list(self.label_ds.latitude.values)
+        feature_longitudes = list(self.features_ds.longitude.values)
+        features_latitudes = list(self.features_ds.latitude.values)
+        return features_latitudes, feature_longitudes, label_latitudes, label_longitudes

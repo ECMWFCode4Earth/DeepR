@@ -182,7 +182,9 @@ def validate_model(
                 title="MSE (ºC)",
                 output_path=f"{visualization_local_dir}/rose-plot_mse.png",
             )
-            land_mask_array = dataset.add_auxiliary_features["lsm-high"].lsm.as_numpy().values
+            land_mask_array = (
+                dataset.add_auxiliary_features["lsm-high"].lsm.as_numpy().values
+            )
             plot_rose(
                 {key: value for key, value in mae.items() if key != "all"},
                 {key: value for key, value in mae_base.items() if key != "all"},

@@ -6,6 +6,7 @@ import torch
 from huggingface_hub import Repository
 
 from deepr.data.scaler import XarrayStandardScaler
+from deepr.validation.generate_data import generate_validation_datasets
 from deepr.validation.nn_performance_metrics import (
     compute_and_upload_metrics,
     compute_model_and_baseline_errors,
@@ -63,6 +64,10 @@ def validate_model(
 
     # Define scaler function if label scaler is provided
     scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler
+
+    pred_ds, pred_base_ds, obs_ds = generate_validation_datasets(
+        dataloader, scaler_func, model, config["inference_steps"], config["baseline"]
+    )
 
     # Define local directory for saving evaluation results
     local_dir = f"{config['output_directory']}/hf-{model.__class__.__name__}-evaluation"

@@ -176,6 +176,22 @@ class MainPipeline:
         return add_aux
 
     def load_trained_model(self):
+        """
+        Load a trained model based on the pipeline type specified.
+
+        Returns
+        -------
+        tuple
+            model : torch.nn.Module
+                The loaded trained machine learning model.
+            model_name : str
+                The name of the loaded trained model.
+
+        Raises
+        ------
+        NotImplementedError
+            If the `self.pipeline_type` is not one of the supported pipeline types.
+        """
         if self.pipeline_type == "diffusion":
             cfg = self.model_config["neural_network"]
             model_name = cfg["trained_model_dir"]
