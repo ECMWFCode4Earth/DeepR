@@ -135,7 +135,7 @@ class MainPipeline:
             add_auxiliary_features=add_aux,
             features_scaler=self.features_scaler,
             label_scaler=self.label_scaler,
-            shuffle=False,
+            shuffle=True,
         )
         return data_generator_train, data_generator_val, data_generator_test
 
@@ -163,7 +163,7 @@ class MainPipeline:
             Dictionary containing the auxiliary data based on the data configuration.
         """
         f_cfg = data_configuration.features_configuration
-        add_aux = f_cfg.get("add_auxiliary", False)
+        add_aux = f_cfg.get("add_auxiliary", {})
         for aux_type, aux_value in add_aux.items():
             if aux_type == "lsm-low" and aux_value:
                 add_aux[aux_type] = static_features[0]

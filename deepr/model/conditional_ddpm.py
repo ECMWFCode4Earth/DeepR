@@ -66,13 +66,13 @@ class cDDPMPipeline(DiffusionPipeline):
             )
 
         if self.obs_model is not None:
-            up_images = self.obs_model(images)
+            up_images = self.obs_model(images).to(self.device)
         else:
             up_images = F.interpolate(images, scale_factor=5, mode="bicubic")
             l_lat, l_lon = (np.array(up_images.shape[-2:]) - image_shape[-2:]) // 2
             r_lat = None if l_lat == 0 else -l_lat
             r_lon = None if l_lon == 0 else -l_lon
-            up_images = up_images[..., l_lat:r_lat, l_lon:r_lon]
+            up_images = up_images[..., l_lat:r_lat, l_lon:r_lon].to(self.device)
 
         if self.device.type == "mps":
             # randn does not work reproducibly on mps
@@ -90,7 +90,7 @@ class cDDPMPipeline(DiffusionPipeline):
         # Hour encoding. Passed to NN as class labels
         if class_labels is not None:
             class_labels = get_hour_embedding(class_labels, "class", 24)
-            class_labels = class_labels.to(images.device).squeeze()
+            class_labels = class_labels.to(self.device).squeeze()
 
         # set step values
         self.scheduler.set_timesteps(num_inference_steps, device=self.device)
