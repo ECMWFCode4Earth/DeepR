@@ -16,6 +16,7 @@ from deepr.validation.sample_predictions import (
     sample_gif,
 )
 from deepr.visualizations.plot_maps import plot_2_maps_comparison
+from deepr.visualizations.plot_rose import plot_rose
 
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
@@ -107,39 +108,117 @@ def validate_model(
             device=config["device"],
         )
 
+    maps_cfg = config["visualizations"].get("metrics_global_map", None)
     # Obtain error maps
-    (
-        mae,
-        mse,
-        r2,
-        mae_base,
-        mse_base,
-        r2_base,
-        improvement,
-    ) = compute_model_and_baseline_errors(
-        pipe,
-        dataloader,
-        baseline=config["baseline"],
-        scaler_func=scaler_func,
-        inference_steps=config["inference_steps"],
-    )
-    names = [pipe.__class__.__name__, config["baseline"]]
-    plot_2_maps_comparison(
-        mse,
-        mse_base,
-        names,
-        "MSE (ºC)",
-        f"{local_dir}/mse_vs_{config['baseline']}.png",
-        vmin=0,
-    )
-    plot_2_maps_comparison(
-        mae,
-        mae_base,
-        names,
-        "MAE (ºC)",
-        f"{local_dir}/mae_vs_{config['baseline']}.png",
-        vmin=0,
-    )
+    if maps_cfg is not None:
+        (
+            mae,
+            mse,
+            r2,
+            mae_base,
+            mse_base,
+            r2_base,
+            improvement,
+        ) = compute_model_and_baseline_errors(
+            pipe,
+            dataloader,
+            baseline=config["baseline"],
+            scaler_func=scaler_func,
+            inference_steps=config["inference_steps"],
+            num_batches=maps_cfg["num_batches"],
+        )
+
+        # Compute error maps to compare spatial metric by hour (and for all the hours)
+        names = [pipe.__class__.__name__, config["baseline"]]
+        if maps_cfg.get("map_plots", True):
+            visualization_local_dir = f"{local_dir}/plot_2_maps_comparison"
+            os.makedirs(visualization_local_dir, exist_ok=True)
+            for time_value in [0, 3, 6, 9, 12, 15, 18, 21, "all"]:
+                plot_2_maps_comparison(
+                    mse[time_value],
+                    mse_base[time_value],
+                    names,
+                    "MSE (ºC)",
+                    f"{visualization_local_dir}/mse_vs_{config['baseline']}_{time_value}.png",
+                    vmin=0,
+                )
+                plot_2_maps_comparison(
+                    mae[time_value],
+                    mae_base[time_value],
+                    names,
+                    "MAE (ºC)",
+                    f"{visualization_local_dir}/mae_vs_{config['baseline']}_{time_value}.png",
+                    vmin=0,
+                )
+                plot_2_maps_comparison(
+                    r2[time_value],
+                    r2_base[time_value],
+                    names,
+                    "R2",
+                    f"{visualization_local_dir}/r2_vs_{config['baseline']}_{time_value}.png",
+                    vmin=-1,
+                )
+
+        # Compute rose plot to compare total metric by hour (and for all the hours)
+        if maps_cfg.get("rose_plot", True):
+            visualization_local_dir = f"{local_dir}/rose-plot"
+            os.makedirs(visualization_local_dir, exist_ok=True)
+            colors = ["#390099", "#9e0059"]
+            plot_rose(
+                {key: value for key, value in mae.items() if key != "all"},
+                {key: value for key, value in mae_base.items() if key != "all"},
+                None,
+                names=names,
+                custom_colors=colors,
+                title="MAE (ºC)",
+                output_path=f"{visualization_local_dir}/rose-plot_mae.png",
+            )
+            plot_rose(
+                {key: value for key, value in mse.items() if key != "all"},
+                {key: value for key, value in mse_base.items() if key != "all"},
+                None,
+                names=names,
+                custom_colors=colors,
+                title="MSE (ºC)",
+                output_path=f"{visualization_local_dir}/rose-plot_mse.png",
+            )
+            land_mask_array = dataset.add_auxiliary_features["lsm-high"].lsm.as_numpy().values
+            plot_rose(
+                {key: value for key, value in mae.items() if key != "all"},
+                {key: value for key, value in mae_base.items() if key != "all"},
+                ("land", land_mask_array),
+                names=names,
+                custom_colors=colors,
+                title="MAE (ºC) - only land points",
+                output_path=f"{visualization_local_dir}/rose-plot_mae-on-land.png",
+            )
+            plot_rose(
+                {key: value for key, value in mse.items() if key != "all"},
+                {key: value for key, value in mse_base.items() if key != "all"},
+                ("land", land_mask_array),
+                names=names,
+                custom_colors=colors,
+                title="MSE (ºC) - only land points",
+                output_path=f"{visualization_local_dir}/rose-plot_mse-on-land.png",
+            )
+            plot_rose(
+                {key: value for key, value in mae.items() if key != "all"},
+                {key: value for key, value in mae_base.items() if key != "all"},
+                ("sea", land_mask_array),
+                names=names,
+                custom_colors=colors,
+                title="MAE (ºC) - only sea points",
+                output_path=f"{visualization_local_dir}/rose-plot_mae-on-sea.png",
+            )
+            plot_rose(
+                {key: value for key, value in mse.items() if key != "all"},
+                {key: value for key, value in mse_base.items() if key != "all"},
+                ("sea", land_mask_array),
+                names=names,
+                custom_colors=colors,
+                title="MSE (ºC) - only sea points",
+                output_path=f"{visualization_local_dir}/rose-plot_mse-on-sea.png",
+            )
 
     # Compute and upload metrics to Hugging Face Model Hub
     test_metrics = compute_and_upload_metrics(

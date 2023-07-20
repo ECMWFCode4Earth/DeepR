@@ -119,6 +119,7 @@ def compute_model_and_baseline_errors(
     baseline: str = "bicubic",
     scaler_func: Callable = None,
     inference_steps: int = 1000,
+    num_batches: int = None,
 ):
     """
     Compute the model and baseline errors.
@@ -137,6 +138,9 @@ def compute_model_and_baseline_errors(
         A scaling function to apply on the data, by default None.
     inference_steps : int, optional
         The number of inference steps in case a Diffusion Process is specified.
+    num_batches : int, optional
+        The number of batches to sample. By default None, meaning that it iterates
+        over the whole dataset.
 
     Returns
     -------
@@ -172,7 +176,7 @@ def compute_model_and_baseline_errors(
     overall_mean_cerra = compute_cerra_mean(dataloader, scaler_func)
 
     progress_bar = tqdm(total=len(dataloader), desc="Batch ")
-    for era5, cerra, times in dataloader:
+    for i, (era5, cerra, times) in enumerate(dataloader):
         if isinstance(model, cDDPMPipeline):
             hour_emb = get_hour_embedding(times[:, :1], "class", 24).to(model.device)
             pred_nn = model(
@@ -231,6 +235,8 @@ def compute_model_and_baseline_errors(
         )
         improvement["all"] += torch.sum(100 * (error - error_base) / error_base, (0, 1))
         progress_bar.update(1)
+        if num_batches is not None and i >= num_batches - 1:
+            break
 
     progress_bar.close()
 
