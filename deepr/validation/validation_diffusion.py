@@ -1,6 +1,6 @@
 import os
 import tempfile
-
+import logging
 import evaluate
 import torch
 from huggingface_hub import Repository
@@ -21,7 +21,7 @@ from deepr.visualizations.plot_rose import plot_rose
 tmpdir = tempfile.mkdtemp(prefix="test-")
 
 experiment_name = "Test Neural Network"
-
+logger = logging.getLogger(__name__)
 
 def validate_model(
     model,
@@ -61,6 +61,8 @@ def validate_model(
     pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None).to(
         config["device"]
     )
+    inf_steps = config["inference_steps"]
+    logger.info(f"Diffusion model validation will be made with {inf_steps} steps.")
 
     # Define scaler function if label scaler is provided
     scaler_func = None if label_scaler is None else label_scaler.apply_inverse_scaler
@@ -86,7 +88,7 @@ def validate_model(
             dataloader,
             scaler_func=scaler_func,
             output_dir=odir,
-            inference_steps=config["inference_steps"],
+            inference_steps=inf_steps,
             fps=giff_sample_cfg["fps"],
             freq_timesteps_frame=giff_sample_cfg["freq_timesteps"],
         )
@@ -104,7 +106,7 @@ def validate_model(
             output_dir=odir,
             num_samples=samples_cfg["num_samples"],
             num_realizations=samples_cfg["num_realizations"],
-            inference_steps=config["inference_steps"],
+            inference_steps=inf_steps,
             device=config["device"],
         )
 
@@ -124,22 +126,24 @@ def validate_model(
             dataloader,
             baseline=config["baseline"],
             scaler_func=scaler_func,
-            inference_steps=config["inference_steps"],
+            inference_steps=inf_steps,
             num_batches=maps_cfg["num_batches"],
         )
 
         # Compute error maps to compare spatial metric by hour (and for all the hours)
         names = [pipe.__class__.__name__, config["baseline"]]
         if maps_cfg.get("map_plots", True):
-            visualization_local_dir = f"{local_dir}/plot_2_maps_comparison"
-            os.makedirs(visualization_local_dir, exist_ok=True)
+            output_dir = f"{local_dir}/plot_2_maps_comparison"
+            os.makedirs(output_dir, exist_ok=True)
             for time_value in [0, 3, 6, 9, 12, 15, 18, 21, "all"]:
+                time_str = f"_{time_value}H" if time_value != "all" else ""
+                suffix = f"_{inf_steps}steps{time_str}.png"
                 plot_2_maps_comparison(
                     mse[time_value],
                     mse_base[time_value],
                     names,
                     "MSE (ºC)",
-                    f"{visualization_local_dir}/mse_vs_{config['baseline']}_{time_value}.png",
+                    f"{output_dir}/mse_vs_{config['baseline']}{suffix}",
                     vmin=0,
                 )
                 plot_2_maps_comparison(
@@ -147,7 +151,7 @@ def validate_model(
                     mae_base[time_value],
                     names,
                     "MAE (ºC)",
-                    f"{visualization_local_dir}/mae_vs_{config['baseline']}_{time_value}.png",
+                    f"{output_dir}/mae_vs_{config['baseline']}{suffix}",
                     vmin=0,
                 )
                 plot_2_maps_comparison(
@@ -155,14 +159,14 @@ def validate_model(
                     r2_base[time_value],
                     names,
                     "R2",
-                    f"{visualization_local_dir}/r2_vs_{config['baseline']}_{time_value}.png",
+                    f"{output_dir}/r2_vs_{config['baseline']}{suffix}",
                     vmin=-1,
                 )
 
         # Compute rose plot to compare total metric by hour (and for all the hours)
         if maps_cfg.get("rose_plot", True):
-            visualization_local_dir = f"{local_dir}/rose-plot"
-            os.makedirs(visualization_local_dir, exist_ok=True)
+            output_dir = f"{local_dir}/rose-plot"
+            os.makedirs(output_dir, exist_ok=True)
             colors = ["#390099", "#9e0059"]
             plot_rose(
                 {key: value for key, value in mae.items() if key != "all"},
@@ -171,7 +175,7 @@ def validate_model(
                 names=names,
                 custom_colors=colors,
                 title="MAE (ºC)",
-                output_path=f"{visualization_local_dir}/rose-plot_mae.png",
+                output_path=f"{output_dir}/rose-plot_mae_{inf_steps}steps.png",
             )
             plot_rose(
                 {key: value for key, value in mse.items() if key != "all"},
@@ -180,45 +184,47 @@ def validate_model(
                 names=names,
                 custom_colors=colors,
                 title="MSE (ºC)",
-                output_path=f"{visualization_local_dir}/rose-plot_mse.png",
+                output_path=f"{output_dir}/rose-plot_mse_{inf_steps}steps.png",
             )
-            land_mask_array = dataset.add_auxiliary_features["lsm-high"].lsm.as_numpy().values
-            plot_rose(
-                {key: value for key, value in mae.items() if key != "all"},
-                {key: value for key, value in mae_base.items() if key != "all"},
-                ("land", land_mask_array),
-                names=names,
-                custom_colors=colors,
-                title="MAE (ºC) - only land points",
-                output_path=f"{visualization_local_dir}/rose-plot_mae-on-land.png",
-            )
-            plot_rose(
-                {key: value for key, value in mse.items() if key != "all"},
-                {key: value for key, value in mse_base.items() if key != "all"},
-                ("land", land_mask_array),
-                names=names,
-                custom_colors=colors,
-                title="MSE (ºC) - only land points",
-                output_path=f"{visualization_local_dir}/rose-plot_mse-on-land.png",
-            )
-            plot_rose(
-                {key: value for key, value in mae.items() if key != "all"},
-                {key: value for key, value in mae_base.items() if key != "all"},
-                ("sea", land_mask_array),
-                names=names,
-                custom_colors=colors,
-                title="MAE (ºC) - only sea points",
-                output_path=f"{visualization_local_dir}/rose-plot_mae-on-sea.png",
-            )
-            plot_rose(
-                {key: value for key, value in mse.items() if key != "all"},
-                {key: value for key, value in mse_base.items() if key != "all"},
-                ("sea", land_mask_array),
-                names=names,
-                custom_colors=colors,
-                title="MSE (ºC) - only sea points",
-                output_path=f"{visualization_local_dir}/rose-plot_mse-on-sea.png",
-            )
+            if "lsm-high" in dataset.add_auxiliary_features.keys():
+                lsm_high = dataset.add_auxiliary_features["lsm-high"]
+                land_mask_array = lsm_high.lsm.as_numpy().values
+                plot_rose(
+                    {k: v for k, v in mae.items() if k != "all"},
+                    {k: v for k, v in mae_base.items() if k != "all"},
+                    ("land", land_mask_array),
+                    names=names,
+                    custom_colors=colors,
+                    title="MAE (ºC) - only land points",
+                    output_path=f"{output_dir}/rose-plot_mae-on-land_{inf_steps}steps.png",
+                )
+                plot_rose(
+                    {k: v for k, v in mse.items() if k != "all"},
+                    {k: v for k, v in mse_base.items() if k != "all"},
+                    ("land", land_mask_array),
+                    names=names,
+                    custom_colors=colors,
+                    title="MSE (ºC) - only land points",
+                    output_path=f"{output_dir}/rose-plot_mse-on-land_{inf_steps}steps.png",
+                )
+                plot_rose(
+                    {k: v for k, v in mae.items() if k != "all"},
+                    {k: v for k, v in mae_base.items() if k != "all"},
+                    ("sea", land_mask_array),
+                    names=names,
+                    custom_colors=colors,
+                    title="MAE (ºC) - only sea points",
+                    output_path=f"{output_dir}/rose-plot_mae-on-sea_{inf_steps}steps.png",
+                )
+                plot_rose(
+                    {k: v for k, v in mse.items() if k != "all"},
+                    {k: v for k, v in mse_base.items() if k != "all"},
+                    ("sea", land_mask_array),
+                    names=names,
+                    custom_colors=colors,
+                    title="MSE (ºC) - only sea points",
+                    output_path=f"{output_dir}/rose-plot_mse-on-sea_{inf_steps}steps.png",
+                )
 
     # Compute and upload metrics to Hugging Face Model Hub
     test_metrics = compute_and_upload_metrics(
