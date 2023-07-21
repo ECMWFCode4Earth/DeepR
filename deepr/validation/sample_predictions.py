@@ -113,6 +113,7 @@ def sample_diffusion_samples_random(
 
         if scaler_func is not None:
             cerra = scaler_func(cerra, times[:, 2]) - K_to_C
+            era5 = scaler_func(era5, times[:, 2]) - K_to_C
             pred_nn = (
                 scaler_func(pred_nn, times[:, 2].repeat(num_realizations)) - K_to_C
             )
@@ -123,7 +124,7 @@ def sample_diffusion_samples_random(
         get_figure_model_samples(
             cerra.cpu(),
             pred_nn.cpu(),
-            # input_image=era5.cpu(),
+            input_image=era5.cpu(),
             baseline=pred_base.cpu(),
             column_names=sample_names,
             filename=output_dir + f"/samples_{i}.png",

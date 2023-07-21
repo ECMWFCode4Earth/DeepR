@@ -103,7 +103,7 @@ class cDDPMPipeline(DiffusionPipeline):
         intermediate_images = []
         for i, t in enumerate(self.progress_bar(self.scheduler.timesteps)):
             if saving_freq_interm > 0 and i % saving_freq_interm == 0:
-                intermediate_images.append(latents)
+                intermediate_images.append(latents.cpu())
 
             latents_input = torch.cat([latents, up_images], axis=1)
             latents_input = self.scheduler.scale_model_input(latents_input, t)
@@ -118,8 +118,7 @@ class cDDPMPipeline(DiffusionPipeline):
             ).prev_sample
 
         if saving_freq_interm > 0:
-            intermediate_images.append(latents)
-            intermediate_images = list(map(lambda x: x.cpu(), intermediate_images))
+            intermediate_images.append(latents.cpu())
             intermediate_images = torch.cat(intermediate_images, dim=1)
 
         image = latents.cpu().numpy()

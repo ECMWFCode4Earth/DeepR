@@ -8,9 +8,9 @@ from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.utils import get_hour_embedding
 
 
-def generate_validation_datasets(
+def generate_validation_dataset(
     data_loader, data_scaler_func, model, model_inference_steps, baseline
-):
+) -> xarray.Dataset:
     """
     Generate validation datasets.
 
@@ -82,11 +82,13 @@ def generate_validation_datasets(
         longitudes = data_loader.dataset.label_longitudes
         pred_nn = transform_data_to_xr_format(
             pred_nn, "pred", latitudes, longitudes, times
-        )
+        ).chunk(chunks={"latitude": 20, "longitude": 40})
         pred_base = transform_data_to_xr_format(
             pred_base, "pred_baseline", latitudes, longitudes, times
-        )
-        obs = transform_data_to_xr_format(cerra, "obs", latitudes, longitudes, times)
+        ).chunk(chunks={"latitude": 20, "longitude": 40})
+        obs = transform_data_to_xr_format(
+            cerra, "obs", latitudes, longitudes, times
+        ).chunk(chunks={"latitude": 20, "longitude": 40})
         list_pred_nn.append(pred_nn)
         list_pred_base.append(pred_base)
         list_obs.append(obs)
@@ -97,11 +99,67 @@ def generate_validation_datasets(
     pred_nn = xarray.concat(list_pred_nn, dim="time").sortby("time")
     pred_base = xarray.concat(list_pred_base, dim="time").sortby("time")
     obs = xarray.concat(list_obs, dim="time").sortby("time")
-    return (
-        pred_nn.chunk(chunks={"latitude": 20, "longitude": 40}),
-        pred_base.chunk(chunks={"latitude": 20, "longitude": 40}),
-        obs.chunk(chunks={"latitude": 20, "longitude": 40}),
-    )
+    validation_data = xarray.merge([pred_nn, pred_base, obs])
+    return validation_data
+
+
+def save_validation_data(data: xarray.Dataset, output_path: str, split_data: bool):
+    """
+    Save validation data to NetCDF files.
+
+    Parameters
+    ----------
+    data : xarray.Dataset
+        The 3-hourly dataset to save. Should have a 'time' coordinate
+        representing timestamps.
+
+    output_path : str
+        The path to save the NetCDF files. If `split_data` is True, filenames will
+        include month and year information.
+
+    split_data : bool
+        If True, the data will be split and saved into separate files based on unique
+        months and years. If False, the entire dataset will be saved to a single file.
+
+    Notes
+    -----
+    If `split_data` is True:
+    - The function will create separate NetCDF files for each unique month and year
+      combination in the dataset.
+    - The filenames will include the month and year information in the format
+      "_month-{month}_year-{year}.nc".
+    - The data for each month-year combination will be selected and saved individually.
+
+    If `split_data` is False:
+    - The entire dataset will be saved to a single NetCDF file specified
+      by `output_path`.
+    - No month-year splitting will occur.
+
+    Returns
+    -------
+    None
+        The function does not return any value, it saves the data to NetCDF files.
+    """
+    if split_data:
+        # Step 1: Get the list of unique months and years in the dataset
+        months = numpy.unique(data["time.month"])
+        years = numpy.unique(data["time.year"])
+
+        # Step 2: Iterate through the months and years
+        for year in years:
+            for month in months:
+                # Select the data for the current month and year
+                current_month_data = data.sel(
+                    time=numpy.logical_and(
+                        data["time.month"] == month, data["time.year"] == year
+                    )
+                )
+                # Save the data
+                filename = output_path.replace(".nc", f"_month-{month}_year-{year}.nc")
+                current_month_data.to_netcdf(filename)
+    else:
+        # Save the data without splitting
+        data.to_netcdf(output_path)
 
 
 def transform_data_to_xr_format(data, varname, latitudes, longitudes, times):
