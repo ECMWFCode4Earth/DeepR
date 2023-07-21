@@ -1,21 +1,18 @@
 import logging
-import os
 import random
-import tempfile
 from pathlib import Path
 from typing import Callable
 
 import torch
-from PIL import Image
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.utils import get_hour_embedding
-from deepr.visualizations.plot_maps import plot_2_model_comparison, plot_simple_map
+from deepr.visualizations.giffs import generate_giff
+from deepr.visualizations.plot_maps import plot_2_model_comparison
 from deepr.visualizations.plot_samples import get_figure_model_samples
 
 K_to_C = 273.15
 logger = logging.getLogger(__name__)
-tmpdir = Path(tempfile.mkdtemp())
 
 
 def sample_observation_vs_prediction(
@@ -172,42 +169,17 @@ def sample_gif(
         saving_freq_interm=freq_timesteps_frame,
         output_type="tensor",
     )
-    if scaler_func is not None:
-        hr_im = scaler_func(hr_im, times[:, 2])
-
-    # Generate GIFFS
     for i, time in enumerate(times):
-        date = f"{time[1]:02d}/{time[2]:02d}/{time[3]:04d}"
+        date = f"{time[0]:d}H_{time[1]:02d}-{time[2]:02d}-{time[3]:04d}"
         logger.info(f"Generating GIF for time: {date}")
-        vmin = torch.min(hr_im[i, ...]) - K_to_C
-        vmax = torch.max(hr_im[i, ...]) - K_to_C
+        fname = output_dir + f"/diffusion_{date}_{inference_steps}steps"
+        generate_giff(interm[i], fname + "_unscaled", fps=fps)
 
-        odir = tmpdir / date
-        os.makedirs(odir, exist_ok=True)
-        fig_paths = []
-        for t in range(interm.shape[1]):
-            fname = odir / f"{t}.png"
-            if scaler_func is not None:
-                im = (
-                    scaler_func(
-                        interm[i : i + 1, t : t + 1, ...], times[i : i + 1, 2]
-                    ).squeeze()
-                    - K_to_C
-                )
-            else:
-                im = interm[i, t] - K_to_C
-            plot_simple_map(im, vmin, vmax, "autumn", "Temperature (ºC)", fname)
-            fig_paths.append(fname)
-
-        imgs = [Image.open(f) for f in fig_paths]
-        imgs[0].save(
-            fp=output_dir
-            + f"/diffusion_{time[0]:d}H-{date}_{inference_steps}steps.gif",
-            format="GIF",
-            append_images=imgs,
-            save_all=True,
-            optimize=True,
-            duration=max(20, int(1e3 / fps)),  # 1 frame each 20ms = 50 fps (min value)
-            loop=0,
+        scaled_interm = (
+            scaler_func(
+                torch.unsqueeze(interm[i], 1),
+                times[i : i + 1, 2].repeat(interm.shape[1]),
+            )
+            - K_to_C
         )
-        del imgs
+        generate_giff(scaled_interm.squeeze(), fname, label="Temperature (ºC)", fps=fps)
