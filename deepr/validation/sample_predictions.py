@@ -178,7 +178,7 @@ def sample_gif(
         scaled_interm = (
             scaler_func(
                 torch.unsqueeze(interm[i], 1),
-                times[i : i + 1, 2].repeat(interm.shape[1]),
+                times[i, 2].repeat(interm.shape[1]),
             )
             - K_to_C
         )

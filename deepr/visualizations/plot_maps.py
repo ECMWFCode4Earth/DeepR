@@ -279,13 +279,19 @@ def plot_simple_map(
     label: str = "Temperature (ºC)",
     out_file: str = None,
 ):
-    if cmap is None and vmin * vmax < 0:  # opposite signs
+    if vmin * vmax < 0:  # opposite signs
         colors = [(0, "blue"), (-vmin / (vmax - vmin), "white"), (1, "red")]
+    elif min(vmin, vmax) >= 0:  # both possitive
+        colors = [(0, "white"), (1, "red")]
+    elif max(vmin, vmax) <= 0:  # both negative
+        colors = [(0, "blue"), (1, "white")]
+
+    if cmap is None:
         cmap = LinearSegmentedColormap.from_list("temp", colors)
+
     plt.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
     plt.axis("off")
-    if cmap is not None:
-        plt.colorbar(shrink=0.65, label=label)
+    plt.colorbar(shrink=0.65, label=label)
     if out_file is not None:
         plt.savefig(out_file, transparent=True, bbox_inches="tight", dpi=200)
         plt.close()
