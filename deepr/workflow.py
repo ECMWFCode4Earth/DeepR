@@ -91,9 +91,9 @@ class MainPipeline:
             train_features is not None
             and data_configuration.features_configuration["standardization"]["to_do"]
         ):
-            features_scaler_file = (
-                Path.home() / ".cache_reanalysis_scales" / "features_scale.pkl"
-            )
+            features_scaler_file = data_configuration.features_configuration[
+                "standardization"
+            ]["cache_file"]
             os.makedirs(features_scaler_file.parent, exist_ok=True)
             self.features_scaler = XarrayStandardScaler(
                 train_features,
@@ -109,9 +109,9 @@ class MainPipeline:
             train_label is not None
             and data_configuration.label_configuration["standardization"]["to_do"]
         ):
-            label_scaler_file = (
-                Path.home() / ".cache_reanalysis_scales" / "label_scale.pkl"
-            )
+            label_scaler_file = data_configuration.label_configuration[
+                "standardization"
+            ]["cache_file"]
             os.makedirs(label_scaler_file.parent, exist_ok=True)
             self.label_scaler = XarrayStandardScaler(
                 train_label,
