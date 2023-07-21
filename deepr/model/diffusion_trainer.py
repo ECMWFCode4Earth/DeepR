@@ -13,7 +13,7 @@ from transformers import get_cosine_schedule_with_warmup
 from deepr.model.configs import TrainingConfig
 from deepr.model.utils import get_hour_embedding
 
-repo_name = "predictia/europe_reanalysis_downscaler_diffuser"
+repo_name = "predictia/cerra_denoise_nn"
 
 logger = logging.get_logger(__name__, log_level="INFO")
 
@@ -231,21 +231,6 @@ def train_diffusion(
                 tf_writter.add_graph(
                     accelerator.unwrap_model(model), (model_inputs, timesteps)
                 )
-
-            # if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
-            #    test_dir = os.path.join(config.output_dir, "samples")
-            #    os.makedirs(test_dir, exist_ok=True)
-            #    fig = save_samples(
-            #        config,
-            #        accelerator.unwrap_model(model),
-            #        val_era5,
-            #        val_cerra,
-            #        val_times,
-            #        outname=f"{test_dir}/diffusion_{epoch+1:04d}.png",
-            #        obs_model=obs_model,
-            #        class_embed_size=emb_size,
-            #    )
-            #    tf_writter.add_figure("Samples", fig, global_step=epoch)
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 model.save_pretrained(config.output_dir)

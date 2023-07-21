@@ -4,6 +4,7 @@ import matplotlib
 import matplotlib.pyplot as plt
 import numpy as np
 import torch
+from matplotlib.colors import LinearSegmentedColormap
 
 from deepr.utilities.logger import get_logger
 
@@ -274,10 +275,20 @@ def plot_simple_map(
     data,
     vmin=None,
     vmax=None,
-    cmap: str = "autumn",
+    cmap: str = None,
     label: str = "Temperature (ºC)",
     out_file: str = None,
 ):
+    if vmin * vmax < 0:  # opposite signs
+        colors = [(0, "blue"), (-vmin / (vmax - vmin), "white"), (1, "red")]
+    elif min(vmin, vmax) >= 0:  # both possitive
+        colors = [(0, "white"), (1, "red")]
+    elif max(vmin, vmax) <= 0:  # both negative
+        colors = [(0, "blue"), (1, "white")]
+
+    if cmap is None:
+        cmap = LinearSegmentedColormap.from_list("temp", colors)
+
     plt.imshow(data, vmin=vmin, vmax=vmax, cmap=cmap)
     plt.axis("off")
     plt.colorbar(shrink=0.65, label=label)
