@@ -86,6 +86,10 @@ class cDDPMPipeline(DiffusionPipeline):
         extra_kwargs = {}
         if accepts_eta:
             extra_kwargs["eta"] = eta
+            
+        # Support for LSMDiscreteScheduler
+        if "generator" in set(signature(self.scheduler.step).parameters.keys()):
+            extra_kwargs["generator"] = generator
 
         # Hour encoding. Passed to NN as class labels
         if class_labels is not None:
