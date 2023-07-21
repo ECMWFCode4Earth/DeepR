@@ -10,21 +10,26 @@ from deepr.data.files import DataFileCollection
 
 
 class XarrayStandardScaler:
-    def __init__(self, files: DataFileCollection, pickle_file: str):
+    def __init__(
+        self, scaling_files: DataFileCollection, scaling_method: str, cache_file: str
+    ):
         """
         Initialize the XarrayStandardScaler object.
 
         Parameters
         ----------
-        files : DataFileCollection
+        scaling_files : DataFileCollection
             Data files from which the XarrayStandardScaler wants to be calculated.
-        pickle_file : str
+        scaling_method: str
+            Method to perform the scaling (pixel-wise, domain-wise, ...)
+        cache_file : str
             Path to store the pickle file.
         """
-        self.files = files
-        self.pickle_file = pickle_file
+        self.scaling_files = scaling_files
+        self.scaling_method = scaling_method
+        self.cache_file = cache_file
 
-        if os.path.exists(self.pickle_file):
+        if os.path.exists(self.cache_file):
             self.load()
         else:
             self.average, self.standard_deviation = self.get_parameters()
@@ -44,7 +49,7 @@ class XarrayStandardScaler:
             The dataset containing the standard deviation values of the parameters.
         """
         datasets = []
-        for file in self.files.collection:
+        for file in self.scaling_files.collection:
             file_path = file.to_path()
             dataset = xarray.open_dataset(file_path, chunks=16)
             dataset = dataset.sel(
@@ -61,7 +66,17 @@ class XarrayStandardScaler:
         dataset = xarray.concat(datasets, dim="time")
         mean = dataset.groupby("time.month").mean()
         std = dataset.groupby("time.month").std()
-        return mean, std
+        if self.scaling_method == "pixel-wise":
+            return mean, std
+        elif self.scaling_method == "domain-wise":
+            return (
+                mean.mean("longitude").mean("latitude"),
+                std.mean("longitude").mean("latitude"),
+            )
+        elif self.scaling_method == "landmask-wise":
+            return mean, std
+        else:
+            raise NotImplementedError
 
     def apply_scaler(self, ds: xarray.Dataset) -> xarray.Dataset:
         """
@@ -126,12 +141,12 @@ class XarrayStandardScaler:
 
     def load(self):
         """Load an XarrayStandardScaler object from a pickle file."""
-        with open(self.pickle_file, "rb") as f:
+        with open(self.cache_file, "rb") as f:
             scaler = pickle.load(f)
         self.average = scaler.average
         self.standard_deviation = scaler.standard_deviation
 
     def save(self):
         """Save the XarrayStandardScaler object to a pickle file."""
-        with open(self.pickle_file, "wb") as f:
+        with open(self.cache_file, "wb") as f:
             pickle.dump(self, f)

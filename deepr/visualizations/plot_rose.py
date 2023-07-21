@@ -64,15 +64,20 @@ def plot_rose(
         title (str): The title of the rose plots.
         output_path (str): The file path where the plot will be saved.
     """
-    # Get the keys from the dictionaries
-    keys_metric = list(metric.keys())
+    # Get the keys from the dictionaries and sort them in ascending order
+    keys_metric = sorted(list(metric.keys()), reverse=True)
     if metric_baseline is not None:
-        keys_baseline = list(metric_baseline.keys())
+        keys_baseline = sorted(list(metric_baseline.keys()), reverse=True)
 
-    # Assign unique angles to each key
-    angles_metric = np.arange(len(keys_metric)) * (360.0 / len(keys_metric))
+    # Calculate the angle step for each key (clockwise direction)
+    angle_step = 360.0 / len(keys_metric)
+
+    # Assign unique angles to each key, starting at 90 degrees and moving clockwise
+    angles_metric = ((np.arange(len(keys_metric)) * angle_step) + 90 + angle_step) % 360
     if metric_baseline is not None:
-        angles_baseline = np.arange(len(keys_baseline)) * (360.0 / len(keys_baseline))
+        angles_baseline = (
+            (np.arange(len(keys_baseline)) * angle_step) + 90 + angle_step
+        ) % 360
 
     # Calculate the mean metric values for the 'metric' dictionary
     mean_values_metric = calculate_metric_mean(metric, land_mask)

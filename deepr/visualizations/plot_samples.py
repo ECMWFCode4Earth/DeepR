@@ -130,7 +130,7 @@ def get_figure_model_samples(
             axs[0, c].set_title(col_name, fontsize=14)
 
     # Include the color bar in the depiction
-    if n_samples == 1:
+    if n_samples != 1:
         fig.subplots_adjust(bottom=0.05)
         cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.05])
         fig.colorbar(im, cax=cbar_ax, orientation="horizontal")

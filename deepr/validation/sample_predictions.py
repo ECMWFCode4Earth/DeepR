@@ -116,6 +116,7 @@ def sample_diffusion_samples_random(
 
         if scaler_func is not None:
             cerra = scaler_func(cerra, times[:, 2]) - K_to_C
+            era5 = scaler_func(era5, times[:, 2]) - K_to_C
             pred_nn = (
                 scaler_func(pred_nn, times[:, 2].repeat(num_realizations)) - K_to_C
             )
@@ -126,7 +127,7 @@ def sample_diffusion_samples_random(
         get_figure_model_samples(
             cerra.cpu(),
             pred_nn.cpu(),
-            # input_image=era5.cpu(),
+            input_image=era5.cpu(),
             baseline=pred_base.cpu(),
             column_names=sample_names,
             filename=output_dir + f"/samples_{i}.png",
@@ -167,7 +168,7 @@ def sample_gif(
         images=era5,
         class_labels=times[:, :1],
         generator=torch.manual_seed(2023),
-        num_inference_steps=60,
+        num_inference_steps=inference_steps,
         return_dict=False,
         saving_freq_interm=freq_timesteps_frame,
         output_type="tensor",
@@ -177,7 +178,7 @@ def sample_gif(
 
     # Generate GIFFS
     for i, time in enumerate(times):
-        date = f"{time[1]:02d}/{time[2]:02d}/{time[3]:04d}"
+        date = f"{time[1]:02d}-{time[2]:02d}-{time[3]:04d}"
         logger.info(f"Generating GIF for time: {date}")
         vmin = torch.min(hr_im[i, ...]) - K_to_C
         vmax = torch.max(hr_im[i, ...]) - K_to_C

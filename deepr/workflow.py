@@ -89,14 +89,16 @@ class MainPipeline:
 
         if (
             train_features is not None
-            and data_configuration.features_configuration["apply_standardization"]
+            and data_configuration.features_configuration["standardization"]["to_do"]
         ):
             features_scaler_file = (
                 Path.home() / ".cache_reanalysis_scales" / "features_scale.pkl"
             )
             os.makedirs(features_scaler_file.parent, exist_ok=True)
             self.features_scaler = XarrayStandardScaler(
-                train_features, features_scaler_file
+                train_features,
+                data_configuration.label_configuration["standardization"]["method"],
+                features_scaler_file,
             )
 
         logger.info("Get label from data_configuration dictionary.")
@@ -105,13 +107,17 @@ class MainPipeline:
 
         if (
             train_label is not None
-            and data_configuration.label_configuration["apply_standardization"]
+            and data_configuration.label_configuration["standardization"]["to_do"]
         ):
             label_scaler_file = (
                 Path.home() / ".cache_reanalysis_scales" / "label_scale.pkl"
             )
             os.makedirs(label_scaler_file.parent, exist_ok=True)
-            self.label_scaler = XarrayStandardScaler(train_label, label_scaler_file)
+            self.label_scaler = XarrayStandardScaler(
+                train_label,
+                data_configuration.label_configuration["standardization"]["method"],
+                label_scaler_file,
+            )
 
         # Define DataGenerators
         logger.info("Define the DataGenerator object.")
