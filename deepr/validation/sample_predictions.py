@@ -167,7 +167,7 @@ def sample_gif(
         images=era5,
         class_labels=times[:, :1],
         generator=torch.manual_seed(2023),
-        num_inference_steps=60,
+        num_inference_steps=inference_steps,
         return_dict=False,
         saving_freq_interm=freq_timesteps_frame,
         output_type="tensor",
