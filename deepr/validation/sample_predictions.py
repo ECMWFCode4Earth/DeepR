@@ -174,13 +174,10 @@ def sample_gif(
         date = f"{time[0]:d}H_{time[1]:02d}-{time[2]:02d}-{time[3]:04d}"
         logger.info(f"Generating GIF for time: {date}")
         fname = output_dir + f"/diffusion_{date}_{inference_steps}steps"
-        generate_giff(interm[i], fname + "_unscaled", fps=fps)
+        generate_giff(interm[i], fname + "_scaled", fps=fps)
 
-        scaled_interm = (
-            scaler_func(
-                torch.unsqueeze(interm[i], 1),
-                times[i, 2].repeat(interm.shape[1]),
-            )
-            - K_to_C
+        scaled_interm = scaler_func(
+            interm[i].unsqueeze(1), times[i, 2].repeat(interm.shape[1])
         )
+        scaled_interm -= K_to_C
         generate_giff(scaled_interm.squeeze(), fname, label="Temperature (ºC)", fps=fps)

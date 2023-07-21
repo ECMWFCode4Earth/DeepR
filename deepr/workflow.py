@@ -87,17 +87,13 @@ class MainPipeline:
         train_features, val_features, test_features = data_configuration.get_features()
         static_features = data_configuration.get_static_features()
 
-        if (
-            train_features is not None
-            and data_configuration.features_configuration["standardization"]["to_do"]
-        ):
-            features_scaler_file = data_configuration.features_configuration[
-                "standardization"
-            ]["cache_file"]
+        scaling_cfg = data_configuration.features_configuration["standardization"]
+        if train_features is not None and scaling_cfg["to_do"]:
+            features_scaler_file = Path(scaling_cfg["cache_file"])
             os.makedirs(features_scaler_file.parent, exist_ok=True)
             self.features_scaler = XarrayStandardScaler(
                 train_features,
-                data_configuration.label_configuration["standardization"]["method"],
+                scaling_cfg["method"],
                 features_scaler_file,
             )
 
@@ -105,17 +101,13 @@ class MainPipeline:
         train_label, val_label, test_label = data_configuration.get_labels()
         static_label = data_configuration.get_static_label()
 
-        if (
-            train_label is not None
-            and data_configuration.label_configuration["standardization"]["to_do"]
-        ):
-            label_scaler_file = data_configuration.label_configuration[
-                "standardization"
-            ]["cache_file"]
+        scaling_cfg = data_configuration.label_configuration["standardization"]
+        if train_label is not None and scaling_cfg["to_do"]:
+            label_scaler_file = Path(scaling_cfg["cache_file"])
             os.makedirs(label_scaler_file.parent, exist_ok=True)
             self.label_scaler = XarrayStandardScaler(
                 train_label,
-                data_configuration.label_configuration["standardization"]["method"],
+                scaling_cfg["method"],
                 label_scaler_file,
             )
 

@@ -86,7 +86,7 @@ class cDDPMPipeline(DiffusionPipeline):
         extra_kwargs = {}
         if accepts_eta:
             extra_kwargs["eta"] = eta
-            
+
         # Support for LSMDiscreteScheduler
         if "generator" in set(signature(self.scheduler.step).parameters.keys()):
             extra_kwargs["generator"] = generator
@@ -112,7 +112,6 @@ class cDDPMPipeline(DiffusionPipeline):
             model_output = self.unet(latents_input, t, class_labels=class_labels).sample
 
             # 2. compute previous image: x_t -> x_t-1
-            # generator not suppported by LMDScheduler
             latents = self.scheduler.step(
                 model_output, t, latents, **extra_kwargs
             ).prev_sample

@@ -14,6 +14,7 @@ from deepr.validation.nn_performance_metrics import (
 )
 from deepr.validation.sample_predictions import (
     sample_diffusion_samples_random,
+    sample_gif,
 )
 from deepr.visualizations.plot_maps import plot_2_maps_comparison
 from deepr.visualizations.plot_rose import plot_rose
@@ -79,20 +80,20 @@ def validate_model(
         )
         repo.git_pull()
 
-    # # Sample GIFF predictions
-    # giff_sample_cfg = config["visualizations"].get("giff_timestep_freq", None)
-    # if giff_sample_cfg is not None:
-    #     odir = local_dir + "/animated_diffusion"
-    #     os.makedirs(odir, exist_ok=True)
-    #     sample_gif(
-    #         pipe,
-    #         dataloader,
-    #         scaler_func=scaler_func,
-    #         output_dir=odir,
-    #         inference_steps=inf_steps,
-    #         fps=giff_sample_cfg["fps"],
-    #         freq_timesteps_frame=giff_sample_cfg["freq_timesteps"],
-    #     )
+    # Sample GIFF predictions
+    giff_sample_cfg = config["visualizations"].get("giff_timestep_freq", None)
+    if giff_sample_cfg is not None:
+        odir = local_dir + "/animated_diffusion"
+        os.makedirs(odir, exist_ok=True)
+        sample_gif(
+            pipe,
+            dataloader,
+            scaler_func=scaler_func,
+            output_dir=odir,
+            inference_steps=inf_steps,
+            fps=giff_sample_cfg["fps"],
+            freq_timesteps_frame=giff_sample_cfg["freq_timesteps"],
+        )
 
     # Show samples compared with other models
     samples_cfg = config["visualizations"].get("sample_observation_vs_prediction", None)
