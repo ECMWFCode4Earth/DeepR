@@ -13,8 +13,6 @@ from transformers import get_cosine_schedule_with_warmup
 from deepr.model.configs import TrainingConfig
 from deepr.model.utils import get_hour_embedding
 
-repo_name = "predictia/cerra_denoise_nn_unscaled"
-
 logger = logging.get_logger(__name__, log_level="INFO")
 
 
@@ -60,7 +58,9 @@ def train_diffusion(
     if accelerator.is_main_process:
         if config.push_to_hub:
             repo = Repository(
-                config.output_dir, clone_from=repo_name, token=os.getenv("HF_TOKEN")
+                config.output_dir,
+                clone_from=config.hf_repo_name,
+                token=os.getenv("HF_TOKEN"),
             )
             repo.git_pull()
         elif config.output_dir is not None:
@@ -238,4 +238,4 @@ def train_diffusion(
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
 
     accelerator.end_training()
-    return model, repo_name
+    return model, config.hf_repo_name

@@ -24,6 +24,7 @@ class TrainingConfig:
     output_dir: str = "ddpm-probando-128"  # the model name locally and on the HF Hub
     push_to_hub: bool = False  # whether to upload the saved model to the HF Hub
     hub_private_repo: bool = False
+    hf_repo_name: str = ""
     overwrite_output_dir: bool = (
         True  # overwrite the old model when re-running the notebook
     )
