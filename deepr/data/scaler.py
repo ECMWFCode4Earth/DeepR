@@ -69,10 +69,8 @@ class XarrayStandardScaler:
         if self.scaling_method == "pixel-wise":
             return mean, std
         elif self.scaling_method == "domain-wise":
-            return (
-                mean.mean("longitude").mean("latitude"),
-                std.mean("longitude").mean("latitude"),
-            )
+            spatial_dims = ["longitude", "latitude"]
+            return mean.mean(spatial_dims), std.mean(spatial_dims)
         elif self.scaling_method == "landmask-wise":
             return mean, std
         else:

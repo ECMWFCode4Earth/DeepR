@@ -89,12 +89,11 @@ class MainPipeline:
 
         scaling_cfg = data_configuration.features_configuration["standardization"]
         if train_features is not None and scaling_cfg["to_do"]:
-            features_scaler_file = Path(scaling_cfg["cache_file"])
-            os.makedirs(features_scaler_file.parent, exist_ok=True)
+            scaler_fname = Path(scaling_cfg["cache_folder"]) 
+            os.makedirs(scaler_fname, exist_ok=True)
+            scaler_fname = scaler_fname / f"{scaling_cfg['method']}_features_scale.pkl"
             self.features_scaler = XarrayStandardScaler(
-                train_features,
-                scaling_cfg["method"],
-                features_scaler_file,
+                train_features, scaling_cfg["method"], scaler_fname
             )
 
         logger.info("Get label from data_configuration dictionary.")
@@ -103,12 +102,11 @@ class MainPipeline:
 
         scaling_cfg = data_configuration.label_configuration["standardization"]
         if train_label is not None and scaling_cfg["to_do"]:
-            label_scaler_file = Path(scaling_cfg["cache_file"])
+            scaler_fname = Path(scaling_cfg["cache_folder"])
             os.makedirs(label_scaler_file.parent, exist_ok=True)
+            scaler_fname = scaler_fname / f"{scaling_cfg['method']}_label_scale.pkl"
             self.label_scaler = XarrayStandardScaler(
-                train_label,
-                scaling_cfg["method"],
-                label_scaler_file,
+                train_label, scaling_cfg["method"], scaler_fname,
             )
 
         # Define DataGenerators
