@@ -142,6 +142,7 @@ def sample_gif(
     freq_timesteps_frame: int = 1,
     inference_steps: int = 1000,
     fps: int = 50,
+    eta: float = 1,
 ):
     """
     Generate GIFs of the diffusion process for a given pipeline.
@@ -165,6 +166,7 @@ def sample_gif(
         images=era5,
         class_labels=times[:, :1],
         generator=torch.manual_seed(2023),
+        eta=eta,
         num_inference_steps=inference_steps,
         return_dict=False,
         saving_freq_interm=freq_timesteps_frame,

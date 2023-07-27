@@ -36,7 +36,7 @@ class cDDPMPipeline(DiffusionPipeline):
         images: Union[torch.Tensor, List[torch.Tensor]],
         generator: Optional[Union[torch.Generator, List[torch.Generator]]] = None,
         num_inference_steps: int = 1000,
-        eta: Optional[float] = 0.0,
+        eta: Optional[float] = 1.0,
         class_labels: Optional[List[int]] = None,
         output_type: Optional[str] = "pil",
         saving_freq_interm: int = 0,
