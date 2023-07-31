@@ -16,7 +16,7 @@ from deepr.model.models import get_hf_scheduler, get_neural_network, load_traine
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-from deepr.validation import generate_data, validation_diffusion, validation_nn
+from deepr.validation import generate_data, validation_nn
 
 logger = get_logger(__name__)
 
@@ -332,6 +332,9 @@ class MainPipeline:
         """
         Test a trained model with the given dataset.
 
+        If a diffusion model is considered, we only test here the denoise neural
+        network.
+
         Parameters
         ----------
         model : nn.Module | SuperResolutionDenoiseDiffusion
@@ -349,36 +352,18 @@ class MainPipeline:
         test_results : Dict
             The test results of the model.
         """
+        kwargs = {}
+        if hf_repo_name is not None:
+            kwargs["hf_repo_name"] = hf_repo_name
+
         if self.pipeline_type == "diffusion":
-            scheduler = get_hf_scheduler(**self.model_config.pop("scheduler"))
-            return validation_diffusion.validate_model(
-                model,
-                scheduler,
-                dataset,
-                config,
-                hf_repo_name=hf_repo_name,
-                label_scaler=self.label_scaler,
-            )
-        elif self.pipeline_type == "end2end":
-            return validation_nn.validate_model(
-                model,
-                dataset,
-                config,
-                hf_repo_name=hf_repo_name,
-                label_scaler=self.label_scaler,
-            )
-        elif self.pipeline_type == "autoencoder":
-            return validation_nn.validate_model(
-                model,
-                dataset,
-                config,
-                hf_repo_name=hf_repo_name,
-                label_scaler=self.label_scaler,
-            )
+            kwargs["label_scaler"] = self.label_scaler
+            dataset.set_stage("denoise")
+            # TODO: Implement validation over denoise NN, scheduler must be passed
+        elif self.data_config["common_configuration"]["data_split"]["test"] > 0:
+            return validation_nn.validate_model(model, dataset, config, **kwargs)
         else:
-            raise NotImplementedError(
-                f"The training procedure {self.pipeline_type} is not supported."
-            )
+            logger.warning("Evaluation is skipped because test set is not provided.")
 
     def run_validation(self):
         """Run the validation on a trained model."""

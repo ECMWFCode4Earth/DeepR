@@ -78,6 +78,7 @@ class DataGenerator(IterableDataset):
                 self.label_latitudes,
                 self.label_longitudes,
             ) = self.get_coordinates()
+        self.stage = "super-resolution"
 
     def __len__(self) -> int:
         """
@@ -261,6 +262,12 @@ class DataGenerator(IterableDataset):
         output_shape = tuple(label_sample.shape[1:])
         out_channels = label_sample.shape[0]
         return input_shape, input_channels, aux_shape, output_shape, out_channels
+
+    def set_stage(self, stage: str):
+        if stage not in ["denoise", "super-resolution"]:
+            raise ValueError("Stage must be either 'denoise' or 'super-resolution'")
+
+        self.stage = stage
 
     def get_dataset_dates(self):
         """
