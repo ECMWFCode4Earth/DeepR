@@ -100,13 +100,14 @@ def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitud
             class_labels=hour_emb,
             eta=config["eta"],
             num_inference_steps=config["inference_steps"],
-            generator=torch.manual_seed(2023),
+            generator=torch.manual_seed(config["seed"]),
             output_type="tensor",
         ).images
         attrs = {
             "ddpm": model.__class__.__name__,
             "eta": config["eta"],
             "num_inference_steps": config["inference_steps"],
+            "seed": config["seed"],
         }
     else:
         with torch.no_grad():
