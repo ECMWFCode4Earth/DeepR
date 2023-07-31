@@ -45,9 +45,20 @@ class ConvSwin2SRConfig(Swin2SRConfig):
         **kwargs,
     ):
         self.interpolation_method = interpolation_method
-        self.image_size = tuple(map(lambda x: x // upscale, kwargs["sample_size"]))
-        self.real_upscale = upscale
-        upscale_power2 = int(ceil(log2(upscale)))
+
+        if "real_upscale" in kwargs.keys():
+            self.real_upscale = kwargs["real_upscale"]
+        else:
+            self.real_upscale = upscale
+
+        if "sample_size" in kwargs.keys():
+            self.image_size = tuple(
+                map(lambda x: x // self.real_upscale, kwargs["sample_size"])
+            )
+        else:
+            self.image_size = image_size
+
+        upscale_power2 = int(ceil(log2(self.real_upscale)))
         super().__init__(
             image_size=self.image_size,
             patch_size=patch_size,

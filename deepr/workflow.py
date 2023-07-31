@@ -3,18 +3,20 @@ from pathlib import Path
 from typing import Dict, Tuple
 
 from torch import nn
+from torch.utils.data import DataLoader
 
 from deepr.data.configuration import DataConfiguration
 from deepr.data.generator import DataGenerator
 from deepr.data.scaler import XarrayStandardScaler
 from deepr.model.autoencoder_trainer import train_autoencoder
+from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.configs import TrainingConfig
 from deepr.model.diffusion_trainer import train_diffusion
 from deepr.model.models import get_hf_scheduler, get_neural_network, load_trained_model
 from deepr.model.nn_trainer import train_nn
 from deepr.utilities.logger import get_logger
 from deepr.utilities.yml import read_yaml_file
-from deepr.validation import validation_diffusion, validation_nn
+from deepr.validation import generate_data, validation_diffusion, validation_nn
 
 logger = get_logger(__name__)
 
@@ -42,6 +44,7 @@ class MainPipeline:
         else:
             self.train_config = None
         self.validation_config = configuration.get("validation_configuration", {})
+        self.inference_config = configuration.get("inference_configuration", {})
         self.features_scaler = None
         self.label_scaler = None
 
@@ -133,7 +136,7 @@ class MainPipeline:
             add_auxiliary_features=add_aux,
             features_scaler=self.features_scaler,
             label_scaler=self.label_scaler,
-            shuffle=True,
+            shuffle=False,
         )
         return data_generator_train, data_generator_val, data_generator_test
 
@@ -392,3 +395,34 @@ class MainPipeline:
         self.validate_model(
             model, dataset_test, self.validation_config, hf_repo_name=repo_name
         )
+
+    def generate_predictions(self):
+        *_, ds_test = self.get_dataset()
+        model, repo_name = self.load_trained_model()
+        dl_test = DataLoader(
+            ds_test, self.inference_config["batch_size"], pin_memory=True
+        )
+        self.inference_config["inference_scaling"] = {
+            "input": self.features_scaler.scaling_method,
+            "output": self.label_scaler.scaling_method,
+        }
+        if self.pipeline_type == "diffusion":
+            scheduler = get_hf_scheduler(**self.model_config.pop("scheduler"))
+            pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None).to(
+                self.inference_config["device"]
+            )
+            self.inference_config["repo_name"] = repo_name
+            generate_data.generate_validation_dataset(
+                dl_test,
+                self.label_scaler.apply_inverse_scaler,
+                pipe,
+                self.inference_config,
+            )
+        elif self.pipeline_type == "end2end":
+            self.inference_config["repo_name"] = repo_name
+            generate_data.generate_validation_dataset(
+                dl_test,
+                self.label_scaler.apply_inverse_scaler,
+                model,
+                self.inference_config,
+            )

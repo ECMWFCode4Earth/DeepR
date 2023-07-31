@@ -136,7 +136,7 @@ class DataGenerator(IterableDataset):
             label_ds_batch = self.label_scaler.apply_scaler(label_ds_batch)
         tensors.append(torch.as_tensor(label_ds_batch.to_array().to_numpy()))
 
-        if True:
+        if self.add_auxiliary_features.get("time", True):
             time_value = pandas.to_datetime(time_value)
             time_value_batch = numpy.array(
                 [time_value.hour, time_value.day, time_value.month, time_value.year]
@@ -239,7 +239,9 @@ class DataGenerator(IterableDataset):
             A tuple containing the input shape, auxiliary shape, and output shape.
         """
         batch = next(self.__iter__())
-        if self.add_auxiliary_features:
+        if self.add_auxiliary_features and self.add_auxiliary_features.get(
+            "time", True
+        ):
             if len(batch) == 3:
                 features_sample, label_sample, aux_sample = batch
             if len(batch) == 2:  # auto-encoder
@@ -274,11 +276,8 @@ class DataGenerator(IterableDataset):
         IndexError
             If the label files collection is empty.
         """
-        files_collection = self.label_files.collection
-        init_file = files_collection[0]
-        end_file = files_collection[-1]
-        init_date = init_file.temporal_coverage
-        end_date = end_file.temporal_coverage
+        init_date = min([f.temporal_coverage for f in self.label_files.collection])
+        end_date = max([f.temporal_coverage for f in self.label_files.collection])
         return init_date, end_date
 
     def get_coordinates(self):

@@ -1,16 +1,19 @@
-import numpy
+import os
+from pathlib import Path
+
+import numpy as np
 import pandas
 import torch
 import tqdm
-import xarray
+import xarray as xr
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.utils import get_hour_embedding
 
 
 def generate_validation_dataset(
-    data_loader, data_scaler_func, model, model_inference_steps, baseline
-) -> xarray.Dataset:
+    data_loader, data_scaler_func, model, config
+) -> xr.Dataset:
     """
     Generate validation datasets.
 
@@ -28,14 +31,8 @@ def generate_validation_dataset(
         The model should either accept images and hour embeddings as inputs
         (if it's an instance of cDDPMPipeline) or just images as inputs.
         The output of the model should be the predicted images.
-    model_inference_steps : int
-        Number of inference steps to be used during model prediction. This parameter is
-        only relevant if the model is an instance of cDDPMPipeline. Otherwise, it will
-        be ignored.
-    baseline : str
-        The mode used for interpolation during baseline prediction.
-        It should be one of the following strings:
-        'nearest', 'linear', 'bilinear', 'bicubic', 'trilinear', or 'area'.
+    config : dict
+        Configuration settings for the validation.
 
     Returns
     -------
@@ -48,118 +45,87 @@ def generate_validation_dataset(
         obs : xarray.DataArray
             Observed data in xarray format for validation.
     """
-    list_pred_nn = []
-    list_pred_base = []
-    list_obs = []
+    odir = Path(config["output_dir"]) / config["repo_name"].split("/")[-1]
+    os.makedirs(odir, exist_ok=True)
 
+    preds = []
+    current_month = None
     progress_bar = tqdm.tqdm(total=len(data_loader), desc="Batch ")
-    # Make predictions for every batch
     for i, (era5, cerra, times) in enumerate(data_loader):
-        if isinstance(model, cDDPMPipeline):
-            hour_emb = get_hour_embedding(times[:, :1], "class", 24).to(model.device)
-            pred_nn = model(
-                images=era5,
-                class_labels=hour_emb,
-                num_inference_steps=model_inference_steps,
-                generator=torch.manual_seed(2023),
-                output_type="tensor",
-            ).images
-        else:
-            with torch.no_grad():
-                pred_nn = model(era5, return_dict=False)[0]
-
-        pred_base = torch.nn.functional.interpolate(
-            era5[..., 6:-6, 6:-6], scale_factor=5, mode=baseline
+        pred_da = predict_xr(
+            model,
+            era5,
+            times,
+            config,
+            data_scaler_func,
+            data_loader.dataset.label_latitudes,
+            data_loader.dataset.label_longitudes,
         )
 
-        if data_scaler_func is not None:
-            pred_nn = data_scaler_func(pred_nn, times[:, 2])
-            pred_base = data_scaler_func(pred_base, times[:, 2])
-            cerra = data_scaler_func(cerra, times[:, 2])
-
-        times = transform_times_to_datetime(times)
-        latitudes = data_loader.dataset.label_latitudes
-        longitudes = data_loader.dataset.label_longitudes
-        pred_nn = transform_data_to_xr_format(
-            pred_nn, "pred", latitudes, longitudes, times
-        ).chunk(chunks={"latitude": 20, "longitude": 40})
-        pred_base = transform_data_to_xr_format(
-            pred_base, "pred_baseline", latitudes, longitudes, times
-        ).chunk(chunks={"latitude": 20, "longitude": 40})
-        obs = transform_data_to_xr_format(
-            cerra, "obs", latitudes, longitudes, times
-        ).chunk(chunks={"latitude": 20, "longitude": 40})
-        list_pred_nn.append(pred_nn)
-        list_pred_base.append(pred_base)
-        list_obs.append(obs)
+        # Save data based on specs
+        if config["save_freq"] == "batch":
+            filename = "prediction_" + times[0].strftime("%HH_%d-%m-%Y") + ".nc"
+            pred_da.to_netcdf(odir / filename)
+        elif config["save_freq"] == "month":
+            if current_month is None:
+                current_month = np.datetime64(pred_da.time.min().values, "M")
+            preds.append(pred_da)
+            next_month = np.datetime64(pred_da.time.max().values, "M")
+            if current_month != next_month:
+                pred_ds = xr.concat(preds, dim="time")
+                month_pred_ds = pred_ds.where(
+                    pred_ds.time.dt.month == current_month.astype(object).month
+                ).dropna("time")
+                month_pred_ds.to_netcdf(odir / f"prediction_{current_month}.nc")
+                current_month = next_month
+                next_month_da = pred_ds.where(
+                    pred_ds.time.dt.month == next_month.astype(object).month
+                ).dropna("time")
+                preds = [next_month_da]
+            elif config["save_freq"] == "all":
+                preds.append(pred_da)
         progress_bar.update(1)
-
     progress_bar.close()
-
-    pred_nn = xarray.concat(list_pred_nn, dim="time").sortby("time")
-    pred_base = xarray.concat(list_pred_base, dim="time").sortby("time")
-    obs = xarray.concat(list_obs, dim="time").sortby("time")
-    validation_data = xarray.merge([pred_nn, pred_base, obs])
-    return validation_data
+    if config["save_freq"] == "all":
+        pred_ds = xr.concat(preds, dim="time")
+        d0, d1 = data_loader.dataset.init_date, data_loader.dataset.end_date
+        pred_ds.to_netcdf(odir / f"prediction_{d0}-{d1}.nc")
 
 
-def save_validation_data(data: xarray.Dataset, output_path: str, split_data: bool):
-    """
-    Save validation data to NetCDF files.
-
-    Parameters
-    ----------
-    data : xarray.Dataset
-        The 3-hourly dataset to save. Should have a 'time' coordinate
-        representing timestamps.
-
-    output_path : str
-        The path to save the NetCDF files. If `split_data` is True, filenames will
-        include month and year information.
-
-    split_data : bool
-        If True, the data will be split and saved into separate files based on unique
-        months and years. If False, the entire dataset will be saved to a single file.
-
-    Notes
-    -----
-    If `split_data` is True:
-    - The function will create separate NetCDF files for each unique month and year
-      combination in the dataset.
-    - The filenames will include the month and year information in the format
-      "_month-{month}_year-{year}.nc".
-    - The data for each month-year combination will be selected and saved individually.
-
-    If `split_data` is False:
-    - The entire dataset will be saved to a single NetCDF file specified
-      by `output_path`.
-    - No month-year splitting will occur.
-
-    Returns
-    -------
-    None
-        The function does not return any value, it saves the data to NetCDF files.
-    """
-    if split_data:
-        # Step 1: Get the list of unique months and years in the dataset
-        months = numpy.unique(data["time.month"])
-        years = numpy.unique(data["time.year"])
-
-        # Step 2: Iterate through the months and years
-        for year in years:
-            for month in months:
-                # Select the data for the current month and year
-                current_month_data = data.sel(
-                    time=numpy.logical_and(
-                        data["time.month"] == month, data["time.year"] == year
-                    )
-                )
-                # Save the data
-                filename = output_path.replace(".nc", f"_month-{month}_year-{year}.nc")
-                current_month_data.to_netcdf(filename)
+def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitudes):
+    if isinstance(model, cDDPMPipeline):
+        hour_emb = get_hour_embedding(times[:, :1], "class", 24).to(model.device)
+        prediction = model(
+            images=era5,
+            class_labels=hour_emb,
+            eta=config["eta"],
+            num_inference_steps=config["inference_steps"],
+            generator=torch.manual_seed(2023),
+            output_type="tensor",
+        ).images
+        attrs = {
+            "ddpm": model.__class__.__name__,
+            "eta": config["eta"],
+            "num_inference_steps": config["inference_steps"],
+        }
     else:
-        # Save the data without splitting
-        data.to_netcdf(output_path)
+        with torch.no_grad():
+            prediction = model(era5, return_dict=False)[0]
+        attrs = {}
+    attrs["repo"] = config["repo_name"]
+    attrs["input_inference_scaling"] = config["inference_scaling"]["input"]
+    attrs["output_inference_scaling"] = config["inference_scaling"]["output"]
+
+    if data_scaler_func is not None:
+        prediction = data_scaler_func(prediction, times[:, 2])
+
+    times = transform_times_to_datetime(times)
+    pred_da = transform_data_to_xr_format(
+        prediction, "prediction", latitudes, longitudes, times
+    ).chunk(chunks={"latitude": 20, "longitude": 40})
+    pred_da.prediction.attrs = attrs
+
+    return pred_da
 
 
 def transform_data_to_xr_format(data, varname, latitudes, longitudes, times):
@@ -196,7 +162,7 @@ def transform_data_to_xr_format(data, varname, latitudes, longitudes, times):
     print(dataset)
     """
     # Ensure pred_nn is a numpy array
-    data = numpy.asarray(data)
+    data = np.asarray(data)
 
     # Create a dictionary to hold data variables
     data_vars = {varname: (["time", "channel", "latitude", "longitude"], data)}
@@ -205,7 +171,7 @@ def transform_data_to_xr_format(data, varname, latitudes, longitudes, times):
     coords = {"latitude": latitudes, "longitude": longitudes, "time": times}
 
     # Create the xarray dataset
-    dataset = xarray.Dataset(data_vars, coords=coords)
+    dataset = xr.Dataset(data_vars, coords=coords)
 
     # Remove channel dimension
     dataset = dataset.mean("channel")

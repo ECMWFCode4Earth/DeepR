@@ -5,7 +5,6 @@ import matplotlib.pyplot
 import numpy as np
 import torch
 from accelerate import Accelerator, find_executable_batch_size
-from accelerate.tracking import AimTracker
 from accelerate.utils import LoggerType
 from diffusers.optimization import get_cosine_schedule_with_warmup
 from huggingface_hub import Repository
@@ -99,19 +98,20 @@ def train_nn(
     This function performs the training of a neural network model using the provided
     datasets and configuration.
     """
-    number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
+    hparams = config.__dict__  # | hparams
+    number_model_params = int(sum([np.prod(m.size()) for m in model.parameters()]))
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = number_model_params
 
     model_name = model.__class__.__name__
     run_name = f"Train Super-Resolution NN ({model_name})"
-    aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
+    # aim_tracker = AimTracker(run_name, logging_dir="aim://10.9.64.88:31441")
     accelerator = Accelerator(
         cpu=config.device == "cpu",
         device_placement=True,
         mixed_precision=config.mixed_precision,
         gradient_accumulation_steps=config.gradient_accumulation_steps,
-        log_with=[LoggerType.TENSORBOARD, aim_tracker],
+        log_with=[LoggerType.TENSORBOARD],
         project_dir=os.path.join(config.output_dir, "logs"),
     )
 
@@ -163,7 +163,7 @@ def train_nn(
         if batch_size > 4:
             val_era5, val_cerra = val_era5[:4], val_cerra[:4]
 
-        tfboard_tracker.writer.add_graph(model, val_era5)
+        # tfboard_tracker.writer.add_graph(model, val_era5)
         logger.info(f"Number of parameters: {number_model_params}")
         global_step = 0
         # Now you train the model
@@ -201,9 +201,9 @@ def train_nn(
                 l_base = loss_base.detach().item()
                 logs = {
                     "loss_vs_step": lo,
-                    "l1_pred_vs_step": l1,
-                    "l1_lowres_vs_step": l_lowres,
-                    "l1_blurred_vs_step": l_blurred,
+                    "l1_pred_vs_step": l1.mean().item(),
+                    "l1_lowres_vs_step": l_lowres.mean().item(),
+                    "l1_blurred_vs_step": l_blurred.mean().item(),
                     "baseline_loss_vs_step": l_base,
                     "improvement_vs_step": (l_base - lo) / l_base * 100,
                     "lr_vs_step": lr_scheduler.get_last_lr()[0],
