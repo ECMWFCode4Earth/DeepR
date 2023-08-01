@@ -61,6 +61,7 @@ def generate_validation_dataset(
             data_loader.dataset.label_latitudes,
             data_loader.dataset.label_longitudes,
         )
+        times = transform_times_to_datetime(times)
 
         # Save data based on specs
         if config["save_freq"] == "batch":
@@ -120,7 +121,6 @@ def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitud
     if data_scaler_func is not None:
         prediction = data_scaler_func(prediction, times[:, 2])
 
-    times = transform_times_to_datetime(times)
     pred_da = transform_data_to_xr_format(
         prediction, "prediction", latitudes, longitudes, times
     ).chunk(chunks={"latitude": 20, "longitude": 40})
