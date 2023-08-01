@@ -387,27 +387,29 @@ class MainPipeline:
         dl_test = DataLoader(
             ds_test, self.inference_config["batch_size"], pin_memory=True
         )
-        self.inference_config["inference_scaling"] = {
-            "input": self.features_scaler.scaling_method,
-            "output": self.label_scaler.scaling_method,
-        }
+        self.inference_config["inference_scaling"] = {}
+        if self.features_scaler is not None:
+            self.inference_config["inference_scaling"][
+                "input"
+            ] = self.features_scaler.scaling_method
+
+        if self.label_scaler is not None:
+            self.inference_config["inference_scaling"][
+                "output"
+            ] = self.label_scaler.scaling_method
+            scaler = self.label_scaler.apply_inverse_scaler
+        else:
+            scaler = None
+
+        self.inference_config["repo_name"] = repo_name
         if self.pipeline_type == "diffusion":
             scheduler = get_hf_scheduler(**self.model_config.pop("scheduler"))
-            pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None).to(
-                self.inference_config["device"]
-            )
-            self.inference_config["repo_name"] = repo_name
+            pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None)
+            pipe.to(self.inference_config["device"])
             generate_data.generate_validation_dataset(
-                dl_test,
-                self.label_scaler.apply_inverse_scaler,
-                pipe,
-                self.inference_config,
+                dl_test, scaler, pipe, self.inference_config
             )
         elif self.pipeline_type == "end2end":
-            self.inference_config["repo_name"] = repo_name
             generate_data.generate_validation_dataset(
-                dl_test,
-                self.label_scaler.apply_inverse_scaler,
-                model,
-                self.inference_config,
+                dl_test, scaler, model, self.inference_config
             )

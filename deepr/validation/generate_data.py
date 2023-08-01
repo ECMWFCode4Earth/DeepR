@@ -6,6 +6,7 @@ import pandas
 import torch
 import tqdm
 import xarray as xr
+from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.utils import get_hour_embedding
@@ -57,9 +58,11 @@ def generate_validation_dataset(
             era5,
             times,
             config,
-            data_scaler_func,
-            data_loader.dataset.label_latitudes,
-            data_loader.dataset.label_longitudes,
+            # orog_low=orog_low_land,
+            # orog_high=orog_high_land,
+            data_scaler_func=data_scaler_func,
+            latitudes=data_loader.dataset.label_latitudes,
+            longitudes=data_loader.dataset.label_longitudes,
         )
 
         # Save data based on specs
@@ -86,14 +89,59 @@ def generate_validation_dataset(
                 preds.append(pred_da)
         progress_bar.update(1)
     progress_bar.close()
-    if config["save_freq"] == "all":
+    if config["save_freq"] == "month":
+        pred_ds = xr.concat(preds, dim="time")
+        pred_ds.to_netcdf(odir / f"prediction_{current_month}.nc")
+    elif config["save_freq"] == "all":
         pred_ds = xr.concat(preds, dim="time")
         d0, d1 = data_loader.dataset.init_date, data_loader.dataset.end_date
         pred_ds.to_netcdf(odir / f"prediction_{d0}-{d1}.nc")
 
 
-def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitudes):
-    if isinstance(model, cDDPMPipeline):
+def predict_xr(
+    model,
+    era5,
+    times,
+    config,
+    orog_low: np.array = None,
+    orog_high: np.array = None,
+    data_scaler_func=None,
+    latitudes: np.array = None,
+    longitudes: np.array = None,
+):
+    if isinstance(model, str):
+        prediction = torch.nn.functional.interpolate(
+            era5[..., 6:-6, 6:-6],
+            mode=model,
+            scale_factor=5,
+        )
+
+        xs = np.ravel(orog_low)[~np.isnan(np.ravel(orog_low))]
+        true_orog = np.ravel(orog_high)
+        expected_orog = np.ravel(
+            torch.nn.functional.interpolate(
+                torch.from_numpy(orog_low[np.newaxis, np.newaxis, ...]),
+                mode=model,
+                scale_factor=5,
+            ).numpy()
+        )
+
+        deltas = []
+        for i in range(prediction.shape[0]):
+            vals = np.ravel(era5[i, 0, 6:-6, 6:-6])[~np.isnan(np.ravel(orog_low))]
+            delta = lowess(vals, xs, xvals=expected_orog) - lowess(
+                vals, xs, xvals=true_orog
+            )
+            deltas.append(delta.reshape(1, 1, *prediction.shape[-2:]))
+        d = np.nan_to_num(np.concatenate(deltas, axis=0), 0)
+        prediction -= d
+
+        attrs = {
+            "method": f"{model} + orography correction",
+            "orog_correction": "Difference between LOWESS estimates (fitted at each "
+            "sample) at low-res & high-res orography.",
+        }
+    elif isinstance(model, cDDPMPipeline):
         hour_emb = get_hour_embedding(times[:, :1], "class", 24).to(model.device)
         prediction = model(
             images=era5,
@@ -116,11 +164,11 @@ def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitud
     attrs["repo"] = config["repo_name"]
     attrs["input_inference_scaling"] = config["inference_scaling"]["input"]
     attrs["output_inference_scaling"] = config["inference_scaling"]["output"]
-    times = transform_times_to_datetime(times)
 
     if data_scaler_func is not None:
         prediction = data_scaler_func(prediction, times[:, 2])
 
+    times = transform_times_to_datetime(times)
     pred_da = transform_data_to_xr_format(
         prediction, "prediction", latitudes, longitudes, times
     ).chunk(chunks={"latitude": 20, "longitude": 40})
