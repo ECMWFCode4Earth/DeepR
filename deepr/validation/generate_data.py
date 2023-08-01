@@ -52,7 +52,7 @@ def generate_validation_dataset(
     current_month = None
     progress_bar = tqdm.tqdm(total=len(data_loader), desc="Batch ")
     for i, (era5, cerra, times) in enumerate(data_loader):
-        pred_da = predict_xr(
+        pred_da, times = predict_xr(
             model,
             era5,
             times,
@@ -61,7 +61,6 @@ def generate_validation_dataset(
             data_loader.dataset.label_latitudes,
             data_loader.dataset.label_longitudes,
         )
-        times = transform_times_to_datetime(times)
 
         # Save data based on specs
         if config["save_freq"] == "batch":
@@ -117,6 +116,7 @@ def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitud
     attrs["repo"] = config["repo_name"]
     attrs["input_inference_scaling"] = config["inference_scaling"]["input"]
     attrs["output_inference_scaling"] = config["inference_scaling"]["output"]
+    times = transform_times_to_datetime(times)
 
     if data_scaler_func is not None:
         prediction = data_scaler_func(prediction, times[:, 2])
@@ -126,7 +126,7 @@ def predict_xr(model, era5, times, config, data_scaler_func, latitudes, longitud
     ).chunk(chunks={"latitude": 20, "longitude": 40})
     pred_da.prediction.attrs = attrs
 
-    return pred_da
+    return pred_da, times
 
 
 def transform_data_to_xr_format(data, varname, latitudes, longitudes, times):
