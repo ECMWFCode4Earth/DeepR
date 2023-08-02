@@ -80,7 +80,7 @@ class MainPipeline:
             "output-scaling": output_sc,
             "output-resolution": config["labels_configuration"]["spatial_resolution"],
         }
-        for s, period in config["common_configuration"]["temporal_coverage"].items():
+        for s, period in config["temporal_coverage"].items():
             hparams[f"{s}-coverage"] = f"{period['start']}/{period['end']}"
 
         for k, v in hparams.items():
@@ -105,8 +105,10 @@ class MainPipeline:
         train_features, val_features, test_features = data_configuration.get_features()
         static_features = data_configuration.get_static_features()
 
-        scaling_cfg = data_configuration.features_configuration["standardization"]
-        if train_features is not None and scaling_cfg["to_do"]:
+        scaling_cfg = data_configuration.features_configuration.get(
+            "standardization", {}
+        )
+        if train_features is not None and scaling_cfg.get("to_do", False):
             scaler_filename = Path(scaling_cfg["cache_folder"])
             os.makedirs(scaler_filename, exist_ok=True)
             scaler_filename = (
@@ -120,8 +122,8 @@ class MainPipeline:
         train_label, val_label, test_label = data_configuration.get_labels()
         static_label = data_configuration.get_static_label()
 
-        scaling_cfg = data_configuration.label_configuration["standardization"]
-        if train_label is not None and scaling_cfg["to_do"]:
+        scaling_cfg = data_configuration.label_configuration.get("standardization", {})
+        if train_label is not None and scaling_cfg.get("to_do", False):
             scaler_filename = Path(scaling_cfg["cache_folder"])
             os.makedirs(scaler_filename, exist_ok=True)
             scaler_filename = (
