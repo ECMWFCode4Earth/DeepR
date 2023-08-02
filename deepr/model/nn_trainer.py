@@ -138,7 +138,7 @@ def train_nn(
                 covars.append(pred_orog_hr - pred_orog_hr)
             else:
                 logger.info(f"Skipping covariable {static_covar}. Not recognized.")
-        covars = torch.cat(covars, dim=1) if len(covars) > 0 else None
+        covars = torch.cat(covars, dim=1).to(config.device) if len(covars) > 0 else None
     else:
         covars = None
 
