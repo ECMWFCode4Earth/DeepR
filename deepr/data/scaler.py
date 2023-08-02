@@ -1,4 +1,5 @@
 import os
+import pathlib
 import pickle
 from typing import Tuple
 
@@ -11,7 +12,10 @@ from deepr.data.files import DataFileCollection
 
 class XarrayStandardScaler:
     def __init__(
-        self, scaling_files: DataFileCollection, scaling_method: str, cache_file: str
+        self,
+        scaling_files: DataFileCollection,
+        scaling_method: str,
+        cache_file: pathlib.Path,
     ):
         """
         Initialize the XarrayStandardScaler object.
@@ -22,7 +26,7 @@ class XarrayStandardScaler:
             Data files from which the XarrayStandardScaler wants to be calculated.
         scaling_method: str
             Method to perform the scaling (pixel-wise, domain-wise, ...)
-        cache_file : str
+        cache_file : pathlib.Path
             Path to store the pickle file.
         """
         self.scaling_files = scaling_files
