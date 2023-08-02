@@ -16,13 +16,15 @@ class DataConfiguration:
         ----------
         data_configuration : dict
             Data configuration dictionary containing :
-            features_configuration, label_configuration, and common_configuration.
+            features_configuration, label_configuration, and experiment_configuration.
         """
         self.features_configuration = data_configuration.get(
             "features_configuration", None
         )
         self.label_configuration = data_configuration.get("label_configuration", None)
-        self.common_configuration = data_configuration.get("common_configuration", None)
+        self.experiment_configuration = data_configuration.get(
+            "experiment_configuration", None
+        )
 
     def _get_data_splits(self):
         """
@@ -39,7 +41,7 @@ class DataConfiguration:
 
         Notes
         -----
-        The method extracts data splitting information from the `common_configuration`
+        The method extracts data splitting information from the `experiment_configuration`
         attribute, which should be a dictionary containing the following keys:
             - "data_split" : A dictionary with keys "test" and "validation" (optional)
                              specifying the desired proportions for the test and
@@ -52,14 +54,14 @@ class DataConfiguration:
             - test_split_size : float
                 The calculated test split size, or 0 if no test set is defined.
 
-        If `common_configuration` is not provided, the method returns default split
+        If `experiment_configuration` is not provided, the method returns default split
         sizes (0.0, 0.0). If the test split size is set to 1.0, it means there is no
         training or validation set, only a test set.
         """
-        if self.common_configuration is None:
+        if self.experiment_configuration is None:
             return 0.0, 0.0
 
-        data_split = self.common_configuration["data_split"]
+        data_split = self.experiment_configuration["data_split"]
         test_split_size = data_split.get("test", 0.0)
         val_split_size = (
             data_split.get("validation", 0.0) / (1 - test_split_size)
@@ -68,16 +70,22 @@ class DataConfiguration:
         )
         return val_split_size, test_split_size
 
-    def get_dates(self) -> List[str]:
+    @staticmethod
+    def get_dates(temporal_coverage: dict) -> List[str]:
         """
         Get the dates based on the temporal coverage and frequency.
+
+        Parameters
+        ----------
+        temporal_coverage: dict
+            A dictionary indicating the start, end and frequency of the
+            temporal coverage.
 
         Returns
         -------
         dates : List
             A list containing the dates within the temporal coverage.
         """
-        temporal_coverage = self.common_configuration["temporal_coverage"]
         dates = pandas.date_range(
             start=temporal_coverage["start"],
             end=temporal_coverage["end"],
@@ -85,14 +93,18 @@ class DataConfiguration:
         )
         return [datetime.strftime(date, "%Y%m") for date in dates]
 
-    def get_features(self) -> DataFileCollection:
+    def get_features(
+        self,
+    ) -> tuple[
+        DataFileCollection | None, DataFileCollection | None, DataFileCollection | None
+    ]:
         """
         Get the list of feature files based on the features_configuration.
 
         Returns
         -------
-        list
-            List of DataFile objects representing the feature files.
+        tuple
+            Tuple of DataFile objects representing the feature files.
 
         Raises
         ------
@@ -102,45 +114,51 @@ class DataConfiguration:
         if self.features_configuration is None:
             return None, None, None
 
-        # Get the dates for the features
-        features_dates = self.get_dates()
+        experiment_collections = {}
+        for experiment_type in ["train", "validation", "test"]:
+            # If not dates are provided, return None
+            if self.experiment_configuration[experiment_type] is None:
+                experiment_collections[experiment_type] = None
 
-        # Initialize the list of features
-        features_files = DataFileCollection(collection=[])
+            # Get the dates for the features
+            features_dates = self.get_dates(
+                self.experiment_configuration[experiment_type]
+            )
 
-        # Loop through each date in the features_configuration
-        for features_date in features_dates:
-            # Loop through each variable in the features_configuration
-            for variable in self.features_configuration["variables"]:
-                features_file = DataFile(
-                    base_dir=self.features_configuration["data_location"],
-                    variable=variable,
-                    dataset=self.features_configuration["data_name"],
-                    temporal_coverage=features_date,
-                    spatial_resolution=self.features_configuration[
-                        "spatial_resolution"
-                    ],
-                    spatial_coverage=self.features_configuration["spatial_coverage"],
+            # Initialize the list of features
+            features_files = DataFileCollection(collection=[])
+
+            # Loop through each date in the features_configuration
+            for features_date in features_dates:
+                # Loop through each variable in the features_configuration
+                for variable in self.features_configuration["variables"]:
+                    features_file = DataFile(
+                        base_dir=self.features_configuration["data_location"],
+                        variable=variable,
+                        dataset=self.features_configuration["data_name"],
+                        temporal_coverage=features_date,
+                        spatial_resolution=self.features_configuration[
+                            "spatial_resolution"
+                        ],
+                        spatial_coverage=self.features_configuration[
+                            "spatial_coverage"
+                        ],
+                    )
+                    if features_file.exist():
+                        features_files.append_data(features_file)
+
+            if not len(features_files):
+                raise FileNotFoundError(
+                    "No file was found for the defined features_configuration."
                 )
-                if features_file.exist():
-                    features_files.append_data(features_file)
 
-        if not len(features_files):
-            raise FileNotFoundError(
-                "No file was found for the defined features_configuration."
-            )
+            experiment_collections[experiment_type] = features_files
 
-        if self.common_configuration is not None:
-            val_split, test_split = self._get_data_splits()
-            features_coll_train, features_coll_test = features_files.split_data(
-                test_split
-            )
-            features_coll_train, features_coll_val = features_coll_train.split_data(
-                val_split
-            )
-            return features_coll_train, features_coll_val, features_coll_test
-        else:
-            return features_files, None, None
+        return (
+            experiment_collections["train"],
+            experiment_collections["validation"],
+            experiment_collections["test"],
+        )
 
     def get_static_features(self):
         """
@@ -201,7 +219,11 @@ class DataConfiguration:
             orog = None
         return lsm, orog
 
-    def get_labels(self) -> DataFileCollection:
+    def get_labels(
+        self,
+    ) -> tuple[
+        DataFileCollection | None, DataFileCollection | None, DataFileCollection | None
+    ]:
         """
         Get the list of label files based on the label_configuration.
 
@@ -218,37 +240,43 @@ class DataConfiguration:
         if self.label_configuration is None:
             return None, None, None
 
-        # Get the dates for the labels
-        label_dates = self.get_dates()
+        experiment_collections = {}
+        for experiment_type in ["train", "validation", "test"]:
+            # If not dates are provided, return None
+            if self.experiment_configuration[experiment_type] is None:
+                experiment_collections[experiment_type] = None
 
-        # Initialize the list of labels
-        label_files = DataFileCollection(collection=[])
+            # Get the dates for the labels
+            label_dates = self.get_dates(self.experiment_configuration[experiment_type])
 
-        # Loop through each date in the label_configuration
-        for label_date in label_dates:
-            label_file = DataFile(
-                base_dir=self.label_configuration["data_location"],
-                variable=self.label_configuration["variable"],
-                dataset=self.label_configuration["data_name"],
-                temporal_coverage=label_date,
-                spatial_resolution=self.label_configuration["spatial_resolution"],
-                spatial_coverage=self.label_configuration["spatial_coverage"],
-            )
-            if label_file.exist():
-                label_files.append_data(label_file)
+            # Initialize the list of labels
+            label_files = DataFileCollection(collection=[])
 
-        if not len(label_files):
-            raise FileNotFoundError(
-                "No file was found for the defined label_configuration."
-            )
+            # Loop through each date in the label_configuration
+            for label_date in label_dates:
+                label_file = DataFile(
+                    base_dir=self.label_configuration["data_location"],
+                    variable=self.label_configuration["variable"],
+                    dataset=self.label_configuration["data_name"],
+                    temporal_coverage=label_date,
+                    spatial_resolution=self.label_configuration["spatial_resolution"],
+                    spatial_coverage=self.label_configuration["spatial_coverage"],
+                )
+                if label_file.exist():
+                    label_files.append_data(label_file)
 
-        if self.common_configuration is not None:
-            val_split, test_split = self._get_data_splits()
-            label_coll_train, label_coll_test = label_files.split_data(test_split)
-            label_coll_train, label_coll_val = label_coll_train.split_data(val_split)
-            return label_coll_train, label_coll_val, label_coll_test
-        else:
-            return label_files, None, None
+            if not len(label_files):
+                raise FileNotFoundError(
+                    "No file was found for the defined label_configuration."
+                )
+
+            experiment_collections[experiment_type] = label_files
+
+        return (
+            experiment_collections["train"],
+            experiment_collections["validation"],
+            experiment_collections["test"],
+        )
 
     def get_static_label(self):
         """

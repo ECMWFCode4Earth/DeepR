@@ -100,13 +100,6 @@ class MainPipeline:
         """
         logger.info("Loading configuration...")
         data_configuration = DataConfiguration(self.data_config)
-        data_splits = data_configuration.common_configuration["data_split"]
-
-        test_split_size = data_splits.get("test", 0.0)
-        if test_split_size < 1.0:
-            data_splits.get("validation", 0.0) / (1 - test_split_size)
-        else:
-            pass
 
         logger.info("Get features from data_configuration dictionary.")
         train_features, val_features, test_features = data_configuration.get_features()
@@ -114,11 +107,13 @@ class MainPipeline:
 
         scaling_cfg = data_configuration.features_configuration["standardization"]
         if train_features is not None and scaling_cfg["to_do"]:
-            scaler_fname = Path(scaling_cfg["cache_folder"])
-            os.makedirs(scaler_fname, exist_ok=True)
-            scaler_fname = scaler_fname / f"{scaling_cfg['method']}_features_scale.pkl"
+            scaler_filename = Path(scaling_cfg["cache_folder"])
+            os.makedirs(scaler_filename, exist_ok=True)
+            scaler_filename = (
+                scaler_filename / f"{scaling_cfg['method']}_features_scale.pkl"
+            )
             self.features_scaler = XarrayStandardScaler(
-                train_features, scaling_cfg["method"], scaler_fname
+                train_features, scaling_cfg["method"], scaler_filename
             )
 
         logger.info("Get label from data_configuration dictionary.")
@@ -127,13 +122,15 @@ class MainPipeline:
 
         scaling_cfg = data_configuration.label_configuration["standardization"]
         if train_label is not None and scaling_cfg["to_do"]:
-            scaler_fname = Path(scaling_cfg["cache_folder"])
-            os.makedirs(scaler_fname, exist_ok=True)
-            scaler_fname = scaler_fname / f"{scaling_cfg['method']}_label_scale.pkl"
+            scaler_filename = Path(scaling_cfg["cache_folder"])
+            os.makedirs(scaler_filename, exist_ok=True)
+            scaler_filename = (
+                scaler_filename / f"{scaling_cfg['method']}_label_scale.pkl"
+            )
             self.label_scaler = XarrayStandardScaler(
                 train_label,
                 scaling_cfg["method"],
-                scaler_fname,
+                scaler_filename,
             )
 
         # Define DataGenerators
