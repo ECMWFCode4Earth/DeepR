@@ -1,6 +1,6 @@
 import os
 from pathlib import Path
-from typing import Tuple
+from typing import Dict, Tuple
 
 from torch import nn
 from torch.utils.data import DataLoader
@@ -76,7 +76,7 @@ class MainPipeline:
                 scaler_filename,
             )
         else:
-            logger.info("No label standardization.")
+            logger.info(f"No label standardization.")
             self.label_scaler = None
 
     def get_dataset(self) -> Tuple[DataGenerator, DataGenerator, DataGenerator]:

@@ -1,4 +1,5 @@
 import os
+from inspect import signature
 from typing import Dict
 
 import matplotlib.pyplot
@@ -18,12 +19,15 @@ from deepr.visualizations.plot_maps import get_figure_model_samples
 
 logger = get_logger(__name__)
 
+model_kwargs = {"return_dict": False}
+
 
 def save_samples(
     model,
     era5: torch.Tensor,
     cerra: torch.Tensor,
     output_name: str,
+    **model_kwargs: Dict,
 ) -> matplotlib.pyplot.Figure:
     """
     Save a set of samples.
@@ -44,7 +48,7 @@ def save_samples(
     None
     """
     with torch.no_grad():
-        images = model(era5, return_dict=False)[0]
+        images = model(era5, **model_kwargs)[0]
 
     pred_baseline = torch.nn.functional.interpolate(
         era5[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
@@ -97,6 +101,7 @@ def train_nn(
     datasets and configuration.
     """
     hparams = hparams | config.__dict__
+    hparams.pop("__pydantic_initialised__", None)
     number_model_params = int(sum([np.prod(m.size()) for m in model.parameters()]))
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = number_model_params
@@ -112,6 +117,33 @@ def train_nn(
         log_with=[LoggerType.TENSORBOARD],
         project_dir=os.path.join(config.output_dir, "logs"),
     )
+
+    # Load static covariables
+    if config.static_covariables is not None and len(config.static_covariables) > 0:
+        hparams["static_covariables"] = ",".join(config.static_covariables)
+        covars = []
+        for static_covar in config.static_covariables:
+            if static_covar in train_dataset.add_auxiliary_features.keys():
+                data = train_dataset.add_auxiliary_features[static_covar]
+                data = torch.from_numpy(data[list(data.data_vars)[0]].values)
+                covars.append(data[np.newaxis, np.newaxis, ...])
+            elif static_covar == "orog-diff":
+                orog_lr = train_dataset.add_auxiliary_features["orog-low"]["orog"]
+                orog_lr = torch.from_numpy(orog_lr.values)[np.newaxis, np.newaxis, ...]
+                orog_hr = train_dataset.add_auxiliary_features["orog-high"]["orog"]
+                orog_hr = torch.from_numpy(orog_hr.values)[np.newaxis, np.newaxis, ...]
+                pred_orog_hr = torch.nn.functional.interpolate(
+                    orog_lr[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
+                )
+                covars.append(pred_orog_hr - pred_orog_hr)
+            else:
+                logger.info(f"Skipping covariable {static_covar}. Not recognized.")
+        covars = torch.cat(covars, dim=1) if len(covars) > 0 else None
+    else:
+        covars = None
+
+    if "covariables" in signature(model.forward).parameters.keys():
+        model_kwargs["covariables"] = covars
 
     @find_executable_batch_size()
     def innner_training_loop(batch_size: int, model):
@@ -175,7 +207,7 @@ def train_nn(
             for era5, cerra in train_dataloader:
                 # Predict the noise residual
                 with accelerator.accumulate(model):
-                    cerra_pred = model(era5, return_dict=False)[0]
+                    cerra_pred = model(era5, **model_kwargs)[0]
                     l1, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
                     loss = l1 + l_lowres + l_blurred
                     accelerator.backward(loss)
@@ -225,7 +257,7 @@ def train_nn(
             for era5, cerra in val_dataloader:
                 # Predict the noise residual
                 with torch.no_grad():
-                    cerra_pred = model(era5, return_dict=False)[0]
+                    cerra_pred = model(era5, **model_kwargs)[0]
                     l_pred, l_lowres, l_blurred = compute_loss(cerra_pred, cerra)
                     loss.append((l_pred + l_lowres + l_blurred).mean().item())
                     l1_pred.append(l_pred.mean().item())
@@ -263,6 +295,7 @@ def train_nn(
                         val_era5,
                         val_cerra,
                         output_name=f"{samples_dir}/{model_name}_{epoch+1:04d}.png",
+                        **model_kwargs,
                     )
                     if is_last_epoch:
                         tfboard_tracker.writer.add_figure(
