@@ -257,6 +257,7 @@ class MainPipeline:
             out_channels=dataset_train.output_channels,
             sample_size=dataset_train.output_shape,
             input_shape=dataset_train.input_shape,
+            static_covariables=self.train_config.static_covariables
         )
 
         return train_nn(

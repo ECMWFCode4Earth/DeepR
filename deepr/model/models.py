@@ -1,4 +1,4 @@
-from typing import Tuple
+from typing import Tuple, List
 
 import diffusers
 from torch import nn
@@ -54,6 +54,7 @@ def get_neural_network(
     input_shape: Tuple[int] = None,
     sample_size: Tuple[int] = None,
     out_channels: int = None,
+    static_covariables: List[str] = None,
 ) -> nn.Module:
     """Get neural network.
 
@@ -102,6 +103,9 @@ def get_neural_network(
         kwargs["num_channels"] = kwargs.pop("out_channels")
         if input_shape is not None:
             kwargs["input_shape"] = input_shape
+
+        if static_covariables is not None:
+            kwargs["num_high_res_covars"] = len(static_covariables)
 
         cfg = ConvSwin2SRConfig(**kwargs)
         return ConvSwin2SR(cfg)
