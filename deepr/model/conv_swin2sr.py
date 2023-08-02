@@ -172,7 +172,7 @@ class ConvSwin2SR(PreTrainedModel):
         )
 
         if self.config.num_high_res_covars > 0 and covariables is not None:
-            covariables = torch.tile(covariables, (out_baseline.shape[0], 1, 1, 1, 1))
+            covariables = torch.tile(covariables, (out_baseline.shape[0], 1, 1, 1))
             out_baseline = self.merge_covars_interp(
                 torch.cat([out_baseline, covariables], dim=1)
             )
