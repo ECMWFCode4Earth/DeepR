@@ -169,7 +169,7 @@ def train_nn(
             if config.push_to_hub:
                 repo = Repository(
                     config.output_dir,
-                    clone_from=config["hf_repo_name"],
+                    clone_from=config.hf_repo_name,
                     token=os.getenv("HF_TOKEN"),
                 )
                 repo.git_pull()
@@ -315,4 +315,4 @@ def train_nn(
     trained_model = innner_training_loop(model)
     accelerator.end_training()
 
-    return trained_model, config["hf_repo_name"]
+    return trained_model, config.hf_repo_name
