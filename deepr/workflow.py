@@ -58,14 +58,36 @@ class MainPipeline:
             The prepared data configuration.
         """
         config = self.data_config
-        for key, val in config.items():
-            # Drop data dir
-            if "data_location" in val.keys():
-                config[key].pop("data_location")
-            logger.info(f"{key.capitalize().replace('_', ' ')} configuration:")
-            logger.info("\n".join([f"\t{k}: {v}" for k, v in val.items()]))
 
-        return config
+        if config["features_configuration"]["standardization"].get("to_do", False):
+            input_sc = config["features_configuration"]["standardization"]["method"]
+        else:
+            input_sc = "No"
+        if config["label_configuration"]["standardization"].get("to_do", False):
+            output_sc = config["label_configuration"]["standardization"]["method"]
+        else:
+            output_sc = "No"
+
+        hparams = {
+            "input-dataset": config["features_configuration"]["data_name"],
+            "input-variables": ",".join(config["features_configuration"]["variables"]),
+            "input-coverage": str(config["features_configuration"]["spatial_coverage"]),
+            "input-scaling": input_sc,
+            "input-resolution": config["features_configuration"]["spatial_resolution"],
+            "output-dataset": config["labels_configuration"]["data_name"],
+            "output-variable": config["labels_configuration"]["variable"],
+            "output-coverage": str(config["labels_configuration"]["spatial_coverage"]),
+            "output-scaling": output_sc,
+            "output-resolution": config["labels_configuration"]["spatial_resolution"],
+        }
+        for s, period in config["common_configuration"]["temporal_coverage"].items():
+            hparams[f"{s}-coverage"] = f"{period['start']}/{period['end']}"
+
+        for k, v in hparams.items():
+            which, name = k.split("-")
+            logger.info(f"{k[1].capitalize()} ({which}): {v}")
+
+        return hparams
 
     def get_dataset(self) -> Tuple[DataGenerator, DataGenerator, DataGenerator]:
         """

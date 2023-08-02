@@ -16,8 +16,6 @@ from deepr.model.loss import compute_loss
 from deepr.utilities.logger import get_logger
 from deepr.visualizations.plot_maps import get_figure_model_samples
 
-repo_name = "predictia/europe_reanalysis_downscaler_{model}"
-
 logger = get_logger(__name__)
 
 
@@ -98,7 +96,7 @@ def train_nn(
     This function performs the training of a neural network model using the provided
     datasets and configuration.
     """
-    hparams = config.__dict__  # | hparams
+    hparams = hparams | config.__dict__
     number_model_params = int(sum([np.prod(m.size()) for m in model.parameters()]))
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = number_model_params
@@ -139,7 +137,7 @@ def train_nn(
             if config.push_to_hub:
                 repo = Repository(
                     config.output_dir,
-                    clone_from=repo_name.format(model=model_name.lower()),
+                    clone_from=config["hf_repo_name"],
                     token=os.getenv("HF_TOKEN"),
                 )
                 repo.git_pull()
@@ -284,4 +282,4 @@ def train_nn(
     trained_model = innner_training_loop(model)
     accelerator.end_training()
 
-    return trained_model, repo_name
+    return trained_model, config["hf_repo_name"]
