@@ -73,7 +73,7 @@ class DataConfiguration:
         data_splits = {}
         for split_name in DATA_SPLIT_NAMES:
             if split_name not in self.split_coverages.keys():
-                data_splits[split_name] = None
+                data_splits[split_name] = DataFileCollection(collection=[])
                 continue
 
             features_dates = self.get_dates(self.split_coverages[split_name])
@@ -193,7 +193,7 @@ class DataConfiguration:
         for split_name in DATA_SPLIT_NAMES:
             # If split is not specified, it is considered to be empty.
             if split_name not in self.split_coverages.keys():
-                data_splits[split_name] = None
+                data_splits[split_name] = DataFileCollection(collection=[])
                 continue
 
             # Get the dates for the labels
@@ -282,3 +282,53 @@ class DataConfiguration:
         else:
             orog = None
         return lsm, orog
+
+    def get_plain_dict(self) -> dict:
+        """
+        Prepare and log the data configuration.
+
+        Returns
+        -------
+        config : Dict
+            The prepared data configuration.
+        """
+        if self.features_configuration["standardization"].get("to_do", False):
+            input_sc = self.features_configuration["standardization"]["method"]
+        else:
+            input_sc = "No"
+        if self.label_configuration["standardization"].get("to_do", False):
+            output_sc = self.label_configuration["standardization"]["method"]
+        else:
+            output_sc = "No"
+
+        input_area = ",".join(
+            [
+                f"{k}={v}"
+                for k, v in self.features_configuration["spatial_coverage"].items()
+            ]
+        )
+        output_area = ",".join(
+            [
+                f"{k}={v}"
+                for k, v in self.label_configuration["spatial_coverage"].items()
+            ]
+        )
+
+        hparams = {
+            "input-dataset": self.features_configuration["data_name"],
+            "input-variables": ",".join(self.features_configuration["variables"]),
+            "input-area": input_area,
+            "input-scaling": input_sc,
+            "input-resolution": self.features_configuration["spatial_resolution"],
+            "output-dataset": self.label_configuration["data_name"],
+            "output-variable": self.label_configuration["variable"],
+            "output-area": output_area,
+            "output-scaling": output_sc,
+            "output-resolution": self.label_configuration["spatial_resolution"],
+        }
+        for s, period in self.split_coverages.items():
+            start_date = period["start"].replace("-", "/")
+            end_date = period["end"].replace("-", "/")
+            hparams[f"{s}-coverage"] = f"{start_date}-{end_date}"
+
+        return hparams
