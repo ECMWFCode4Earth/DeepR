@@ -1,4 +1,5 @@
 import logging
+from typing import List
 
 import torch
 from pydantic.dataclasses import dataclass
@@ -28,6 +29,7 @@ class TrainingConfig:
     overwrite_output_dir: bool = (
         True  # overwrite the old model when re-running the notebook
     )
+    static_covariables: List[str] = None
     seed: int = 0
 
     def __post_init__(self):

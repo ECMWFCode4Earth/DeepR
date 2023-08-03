@@ -25,7 +25,8 @@ def train_diffusion(
     obs_model: Type[torch.nn.Module] = None,
     dataset_info: dict = None,
 ):
-    hparams = config.__dict__  # | dataset_info
+    hparams = config.__dict__ | dataset_info
+    hparams.pop("__pydantic_initialised__", None)
     number_model_params = sum([np.prod(m.size()) for m in model.parameters()])
     if "number_model_params" not in hparams:
         hparams["number_model_params"] = int(number_model_params)

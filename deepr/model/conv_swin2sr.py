@@ -42,9 +42,11 @@ class ConvSwin2SRConfig(Swin2SRConfig):
         resi_connection: str = "1conv",
         upsampler: str = "pixelshuffle",
         interpolation_method: str = "bicubic",
+        num_high_res_covars: int = 0,
         **kwargs,
     ):
         self.interpolation_method = interpolation_method
+        self.num_high_res_covars = num_high_res_covars
 
         if "real_upscale" in kwargs.keys():
             self.real_upscale = kwargs["real_upscale"]
@@ -142,6 +144,15 @@ class ConvSwin2SR(PreTrainedModel):
         )
 
         self.swin = Swin2SRForImageSuperResolution(config.swin2sr_kwargs())
+
+        if self.config.num_high_res_covars > 0:
+            self.merge_covars_interp = nn.Conv2d(
+                config.num_channels + config.num_high_res_covars, config.num_channels, 1
+            )
+            self.merge_covars_swin2sr = nn.Conv2d(
+                config.num_channels + config.num_high_res_covars, config.num_channels, 1
+            )
+
         super().post_init()
 
     def forward(
@@ -150,6 +161,7 @@ class ConvSwin2SR(PreTrainedModel):
         head_mask: Optional[torch.FloatTensor] = None,
         labels: Optional[torch.LongTensor] = None,
         output_attentions: Optional[bool] = None,
+        covariables: Optional[torch.FloatTensor] = None,
         output_hidden_states: Optional[bool] = None,
         return_dict: Optional[bool] = None,
     ):
@@ -158,6 +170,12 @@ class ConvSwin2SR(PreTrainedModel):
             mode=self.config.interpolation_method,
             scale_factor=self.config.real_upscale,
         )
+
+        if self.config.num_high_res_covars > 0 and covariables is not None:
+            covariables = torch.tile(covariables, (out_baseline.shape[0], 1, 1, 1))
+            out_baseline = self.merge_covars_interp(
+                torch.cat([out_baseline, covariables], dim=1)
+            )
 
         h = self.preprocess_model(pixel_values)
 
@@ -170,6 +188,11 @@ class ConvSwin2SR(PreTrainedModel):
             output_hidden_states=output_hidden_states,
             return_dict=False,
         )
+
+        if self.config.num_high_res_covars > 0 and covariables is not None:
+            out_swin2sr = self.merge_covars_swin2sr(
+                torch.cat([out_swin2sr, covariables], dim=1)
+            )
 
         if not return_dict:
             return (out_baseline + out_swin2sr,)

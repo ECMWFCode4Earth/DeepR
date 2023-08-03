@@ -33,7 +33,7 @@ class MainPipeline:
         """
         logger.info(f"Reading experiment configuration from file {configuration_file}.")
         configuration = read_yaml_file(configuration_file)
-        self.data_config = configuration["data_configuration"]
+        self.data_config = DataConfiguration(configuration["data_configuration"])
         train_config = configuration.get("training_configuration", {})
         self.pipeline_type = train_config.get("type", None)
         self.model_config = train_config.get("model_configuration", None)
@@ -48,43 +48,9 @@ class MainPipeline:
         self.features_scaler = None
         self.label_scaler = None
 
-    def _prepare_data_cfg_log(self) -> Dict:
-        """
-        Prepare and log the data configuration.
-
-        Returns
-        -------
-        config : Dict
-            The prepared data configuration.
-        """
-        config = self.data_config
-        for key, val in config.items():
-            # Drop data dir
-            if "data_location" in val.keys():
-                config[key].pop("data_location")
-            logger.info(f"{key.capitalize().replace('_', ' ')} configuration:")
-            logger.info("\n".join([f"\t{k}: {v}" for k, v in val.items()]))
-
-        return config
-
-    def get_dataset(self) -> Tuple[DataGenerator, DataGenerator, DataGenerator]:
-        """
-        Initialize the data_loader for the pipeline.
-
-        Returns
-        -------
-        data_generator : Tuple[DataGenerator, DataGenerator, DataGenerator]
-            The initialized DataGenerator objects for training, validation, and testing.
-        """
-        logger.info("Loading configuration...")
-        data_configuration = DataConfiguration(self.data_config)
-
-        logger.info("Get features from data_configuration dictionary.")
-        train_features, val_features, test_features = data_configuration.get_features()
-        static_features = data_configuration.get_static_features()
-
-        scaling_cfg = data_configuration.features_configuration["standardization"]
-        if train_features is not None and scaling_cfg["to_do"]:
+    def set_scalers(self, train_features, train_label):
+        scaling_cfg = self.data_config.features_configuration.get("standardization", {})
+        if train_features is not None and scaling_cfg.get("to_do", False):
             scaler_filename = Path(scaling_cfg["cache_folder"])
             os.makedirs(scaler_filename, exist_ok=True)
             scaler_filename = (
@@ -93,13 +59,12 @@ class MainPipeline:
             self.features_scaler = XarrayStandardScaler(
                 train_features, scaling_cfg["method"], scaler_filename
             )
+        else:
+            logger.info("No features standardization.")
+            self.features_scaler = None
 
-        logger.info("Get label from data_configuration dictionary.")
-        train_label, val_label, test_label = data_configuration.get_labels()
-        static_label = data_configuration.get_static_label()
-
-        scaling_cfg = data_configuration.label_configuration["standardization"]
-        if train_label is not None and scaling_cfg["to_do"]:
+        scaling_cfg = self.data_config.label_configuration.get("standardization", {})
+        if train_label is not None and scaling_cfg.get("to_do", False):
             scaler_filename = Path(scaling_cfg["cache_folder"])
             os.makedirs(scaler_filename, exist_ok=True)
             scaler_filename = (
@@ -110,32 +75,52 @@ class MainPipeline:
                 scaling_cfg["method"],
                 scaler_filename,
             )
+        else:
+            logger.info(f"No label standardization.")
+            self.label_scaler = None
 
-        # Define DataGenerators
+    def get_dataset(self) -> Tuple[DataGenerator, DataGenerator, DataGenerator]:
+        """
+        Initialize the data_loader for the pipeline.
+
+        Returns
+        -------
+        data_generator : Tuple[DataGenerator, DataGenerator, DataGenerator]
+            The initialized DataGenerator objects for training, validation, and testing.
+        """
+        logger.info("Get features and labels from data_configuration dictionary.")
+        train_features, val_features, test_features = self.data_config.get_features()
+        train_label, val_label, test_label = self.data_config.get_labels()
+
+        # Set scaler with training set
+        self.set_scalers(train_features, train_label)
+
+        # Load static variables
         logger.info("Define the DataGenerator object.")
-        add_aux = self.define_aux_data(
-            data_configuration, static_features, static_label
-        )
+        static_features = self.data_config.get_static_features()
+        static_label = self.data_config.get_static_label()
+        add_aux = self.define_aux_data(self.data_config, static_features, static_label)
 
-        data_generator_train = DataGenerator(
+        # Define DataGenerator objects
+        data_gen_train = DataGenerator(
             train_features,
             train_label,
             add_aux,
             self.features_scaler,
             self.label_scaler,
         )
-        data_generator_val = DataGenerator(
+        data_gen_val = DataGenerator(
             val_features, val_label, add_aux, self.features_scaler, self.label_scaler
         )
-        data_generator_test = DataGenerator(
-            feature_files=test_features,
-            label_files=test_label,
-            add_auxiliary_features=add_aux,
-            features_scaler=self.features_scaler,
-            label_scaler=self.label_scaler,
+        data_gen_test = DataGenerator(
+            test_features,
+            test_label,
+            add_aux,
+            self.features_scaler,
+            self.label_scaler,
             shuffle=False,
         )
-        return data_generator_train, data_generator_val, data_generator_test
+        return data_gen_train, data_gen_val, data_gen_test
 
     @staticmethod
     def define_aux_data(data_configuration, static_features, static_label):
@@ -244,7 +229,7 @@ class MainPipeline:
             dataset,
             dataset_val,
             obs_model=obs_model,
-            dataset_info=self._prepare_data_cfg_log(),
+            dataset_info=self.data_config.get_plain_dict(),
         )
 
     def train_end2end_nn(
@@ -272,6 +257,7 @@ class MainPipeline:
             out_channels=dataset_train.output_channels,
             sample_size=dataset_train.output_shape,
             input_shape=dataset_train.input_shape,
+            static_covariables=self.train_config.static_covariables
         )
 
         return train_nn(
@@ -279,7 +265,7 @@ class MainPipeline:
             model,
             dataset_train,
             dataset_val,
-            self._prepare_data_cfg_log(),
+            self.data_config.get_plain_dict(),
         )
 
     def train_autoencoder(

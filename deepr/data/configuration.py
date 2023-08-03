@@ -6,6 +6,8 @@ import xarray
 
 from deepr.data.files import DataFile, DataFileCollection
 
+DATA_SPLIT_NAMES = ["train", "validation", "test"]
+
 
 class DataConfiguration:
     def __init__(self, data_configuration: Dict):
@@ -16,59 +18,13 @@ class DataConfiguration:
         ----------
         data_configuration : dict
             Data configuration dictionary containing :
-            features_configuration, label_configuration, and experiment_configuration.
+            features_configuration, label_configuration, and split_coverages.
         """
         self.features_configuration = data_configuration.get(
             "features_configuration", None
         )
         self.label_configuration = data_configuration.get("label_configuration", None)
-        self.experiment_configuration = data_configuration.get(
-            "experiment_configuration", None
-        )
-
-    def _get_data_splits(self):
-        """
-        Calculate the validation and test split sizes based on given configuration.
-
-        Returns
-        -------
-        Tuple[float, float]
-            A tuple containing the validation and test split sizes.
-
-        Raises
-        ------
-        None
-
-        Notes
-        -----
-        The method extracts data splitting information from the `experiment_configuration`
-        attribute, which should be a dictionary containing the following keys:
-            - "data_split" : A dictionary with keys "test" and "validation" (optional)
-                             specifying the desired proportions for the test and
-                             validation sets, respectively.
-
-        The method returns a tuple (val_split_size, test_split_size) where:
-            - val_split_size : float
-                The calculated validation split size, or 0 if no validation set
-                is defined.
-            - test_split_size : float
-                The calculated test split size, or 0 if no test set is defined.
-
-        If `experiment_configuration` is not provided, the method returns default split
-        sizes (0.0, 0.0). If the test split size is set to 1.0, it means there is no
-        training or validation set, only a test set.
-        """
-        if self.experiment_configuration is None:
-            return 0.0, 0.0
-
-        data_split = self.experiment_configuration["data_split"]
-        test_split_size = data_split.get("test", 0.0)
-        val_split_size = (
-            data_split.get("validation", 0.0) / (1 - test_split_size)
-            if test_split_size != 1
-            else 0
-        )
-        return val_split_size, test_split_size
+        self.split_coverages = data_configuration.get("split_coverages", None)
 
     @staticmethod
     def get_dates(temporal_coverage: dict) -> List[str]:
@@ -114,16 +70,13 @@ class DataConfiguration:
         if self.features_configuration is None:
             return None, None, None
 
-        experiment_collections = {}
-        for experiment_type in ["train", "validation", "test"]:
-            # If not dates are provided, return None
-            if self.experiment_configuration[experiment_type] is None:
-                experiment_collections[experiment_type] = None
+        data_splits = {}
+        for split_name in DATA_SPLIT_NAMES:
+            if split_name not in self.split_coverages.keys():
+                data_splits[split_name] = DataFileCollection(collection=[])
+                continue
 
-            # Get the dates for the features
-            features_dates = self.get_dates(
-                self.experiment_configuration[experiment_type]
-            )
+            features_dates = self.get_dates(self.split_coverages[split_name])
 
             # Initialize the list of features
             features_files = DataFileCollection(collection=[])
@@ -152,13 +105,9 @@ class DataConfiguration:
                     "No file was found for the defined features_configuration."
                 )
 
-            experiment_collections[experiment_type] = features_files
+            data_splits[split_name] = features_files
 
-        return (
-            experiment_collections["train"],
-            experiment_collections["validation"],
-            experiment_collections["test"],
-        )
+        return tuple([data_splits[split] for split in DATA_SPLIT_NAMES])
 
     def get_static_features(self):
         """
@@ -240,14 +189,15 @@ class DataConfiguration:
         if self.label_configuration is None:
             return None, None, None
 
-        experiment_collections = {}
-        for experiment_type in ["train", "validation", "test"]:
-            # If not dates are provided, return None
-            if self.experiment_configuration[experiment_type] is None:
-                experiment_collections[experiment_type] = None
+        data_splits = {}
+        for split_name in DATA_SPLIT_NAMES:
+            # If split is not specified, it is considered to be empty.
+            if split_name not in self.split_coverages.keys():
+                data_splits[split_name] = DataFileCollection(collection=[])
+                continue
 
             # Get the dates for the labels
-            label_dates = self.get_dates(self.experiment_configuration[experiment_type])
+            label_dates = self.get_dates(self.split_coverages[split_name])
 
             # Initialize the list of labels
             label_files = DataFileCollection(collection=[])
@@ -270,13 +220,9 @@ class DataConfiguration:
                     "No file was found for the defined label_configuration."
                 )
 
-            experiment_collections[experiment_type] = label_files
+            data_splits[split_name] = label_files
 
-        return (
-            experiment_collections["train"],
-            experiment_collections["validation"],
-            experiment_collections["test"],
-        )
+        return tuple([data_splits[split] for split in DATA_SPLIT_NAMES])
 
     def get_static_label(self):
         """
@@ -336,3 +282,53 @@ class DataConfiguration:
         else:
             orog = None
         return lsm, orog
+
+    def get_plain_dict(self) -> dict:
+        """
+        Prepare and log the data configuration.
+
+        Returns
+        -------
+        config : Dict
+            The prepared data configuration.
+        """
+        if self.features_configuration["standardization"].get("to_do", False):
+            input_sc = self.features_configuration["standardization"]["method"]
+        else:
+            input_sc = "No"
+        if self.label_configuration["standardization"].get("to_do", False):
+            output_sc = self.label_configuration["standardization"]["method"]
+        else:
+            output_sc = "No"
+
+        input_area = ",".join(
+            [
+                f"{k}={v}"
+                for k, v in self.features_configuration["spatial_coverage"].items()
+            ]
+        )
+        output_area = ",".join(
+            [
+                f"{k}={v}"
+                for k, v in self.label_configuration["spatial_coverage"].items()
+            ]
+        )
+
+        hparams = {
+            "input-dataset": self.features_configuration["data_name"],
+            "input-variables": ",".join(self.features_configuration["variables"]),
+            "input-area": input_area,
+            "input-scaling": input_sc,
+            "input-resolution": self.features_configuration["spatial_resolution"],
+            "output-dataset": self.label_configuration["data_name"],
+            "output-variable": self.label_configuration["variable"],
+            "output-area": output_area,
+            "output-scaling": output_sc,
+            "output-resolution": self.label_configuration["spatial_resolution"],
+        }
+        for s, period in self.split_coverages.items():
+            start_date = period["start"].replace("-", "/")
+            end_date = period["end"].replace("-", "/")
+            hparams[f"{s}-coverage"] = f"{start_date}-{end_date}"
+
+        return hparams
