@@ -126,6 +126,8 @@ def train_nn(
             if static_covar in train_dataset.add_auxiliary_features.keys():
                 data = train_dataset.add_auxiliary_features[static_covar]
                 data = torch.from_numpy(data[list(data.data_vars)[0]].values)
+                if "orog" in static_covar:
+                    data = (data - data.mean()) / data.std()
                 covars.append(data[np.newaxis, np.newaxis, ...])
             elif static_covar == "orog-diff":
                 orog_lr = train_dataset.add_auxiliary_features["orog-low"]["orog"]
@@ -133,9 +135,11 @@ def train_nn(
                 orog_hr = train_dataset.add_auxiliary_features["orog-high"]["orog"]
                 orog_hr = torch.from_numpy(orog_hr.values)[np.newaxis, np.newaxis, ...]
                 pred_orog_hr = torch.nn.functional.interpolate(
-                    orog_lr[..., 6:-6, 6:-6], scale_factor=5, mode="bicubic"
+                    orog_lr[..., 6:-6, 6:-6], scale_factor=5, modeq="bicubic"
                 )
-                covars.append(pred_orog_hr - pred_orog_hr)
+                diff = pred_orog_hr - pred_orog_hr
+                diff = (diff - diff.mean()) / diff.std()                
+                covars.append(diff)
             else:
                 logger.info(f"Skipping covariable {static_covar}. Not recognized.")
         covars = torch.cat(covars, dim=1).to(config.device) if len(covars) > 0 else None
