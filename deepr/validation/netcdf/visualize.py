@@ -38,13 +38,11 @@ class Location:
         Returns
         -------
         str
-            The string representation of the location in the format "name_lat_lon".
+            The string representation of the location in the format "name".
             The latitude and longitude values are converted to strings and any decimal
             points are replaced with hyphens.
         """
-        str_lat = str(self.lat).replace(".", "-")
-        str_lon = str(self.lon).replace(".", "-")
-        return f"{self.name}_{str_lat}_{str_lon}"
+        return f"{self.name.lower()}"
 
 
 class Visualization:
@@ -84,9 +82,9 @@ class Visualization:
         visualization_dict_to_funct = {
             "metrics_global_map": self.visualize_metrics_global_maps,
             "sample_observation_vs_prediction": self.visualize_sample_observation_vs_prediction,
-            "time_series_plot_for_a_single_site": self.visualize_time_series_plot_for_a_single_site,
-            "error_time_series_plot_for_a_single_site": self.visualize_error_time_series_plot_for_a_single_site,
-            "error_distribution_plot_for_a_single_site": self.visualize_error_distribution_plot_for_a_single_site,
+            "time_series_for_a_single_site": self.visualize_time_series_for_a_single_site,
+            "error_time_series_for_a_single_site": self.visualize_error_time_series_for_a_single_site,
+            "error_distribution_for_a_single_site": self.visualize_error_distribution_for_a_single_site,
             "boxplot_for_a_single_site": self.visualize_boxplot_for_a_single_site,
         }
         for (
@@ -356,7 +354,7 @@ class Visualization:
             plt.savefig(output_path, bbox_inches="tight")
             plt.close()
 
-    def visualize_time_series_plot_for_a_single_site(
+    def visualize_time_series_for_a_single_site(
         self,
         locations: list,
         temporal_subset=None,
@@ -413,7 +411,7 @@ class Visualization:
                     agg_label = "Weekly"
                     location_data_agg = location_data.resample(time="1W").mean()
                 elif agg_period == "15D":
-                    agg_label = "15 Days"
+                    agg_label = "Biweekly"
                     location_data_agg = location_data.resample(time="15D").mean()
                 elif agg_period == "1M":
                     agg_label = "Monthly"
@@ -454,19 +452,24 @@ class Visualization:
                     f"{agg_label} time series at "
                     f"{location['name'].replace('_', ' ').replace('-', ' - ')}."
                 )
-                plt.xlabel("Time")  # Add an appropriate x-axis label
-                plt.ylabel("Temperature (ºC)")  # Add an appropriate y-axis label
-                plt.xticks(rotation=45)  # Rotate x-axis labels to avoid overlapping
+                plt.xlabel("Time", fontsize=14)  # Add an appropriate x-axis label
+                plt.ylabel(
+                    "Temperature (ºC)", fontsize=14
+                )  # Add an appropriate y-axis label
+                plt.xticks(
+                    rotation=45, fontsize=12
+                )  # Rotate x-axis labels to avoid overlapping
+                plt.xticks(fontsize=12)
                 plt.legend()
 
                 output_path = self.get_output_path(
-                    f"time_series_plot_for_a_single_site_aggregate_by_{agg_period}",
+                    f"{agg_label.lower()}_time_series_for_a_single_site_aggregate",
                     location_obj,
                 )
                 plt.savefig(output_path, bbox_inches="tight")
                 plt.close()
 
-    def visualize_error_time_series_plot_for_a_single_site(
+    def visualize_error_time_series_for_a_single_site(
         self,
         locations: list,
         temporal_subset=None,
@@ -569,13 +572,13 @@ class Visualization:
                 plt.legend()
 
                 output_path = self.get_output_path(
-                    f"error_time_series_plot_for_a_single_site_aggregate_by_{agg_period}",
+                    f"error_time_series_for_a_single_site_aggregate_by_{agg_period}",
                     location_obj,
                 )
                 plt.savefig(output_path, bbox_inches="tight")
                 plt.close()
 
-    def visualize_error_distribution_plot_for_a_single_site(
+    def visualize_error_distribution_for_a_single_site(
         self,
         locations: list,
         temporal_subset=None,
@@ -679,7 +682,7 @@ class Visualization:
             plt.legend()
 
             output_path = self.get_output_path(
-                "error_distribution_plot_for_a_single_site",
+                "error_distribution_for_a_single_site",
                 location_obj,
             )
             plt.savefig(output_path, bbox_inches="tight")
