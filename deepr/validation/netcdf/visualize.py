@@ -9,6 +9,7 @@ import numpy as np
 import pandas as pd
 import seaborn as sns
 import xarray as xr
+from scipy.stats import norm
 
 
 class Location:
@@ -84,6 +85,8 @@ class Visualization:
             "metrics_global_map": self.visualize_metrics_global_maps,
             "sample_observation_vs_prediction": self.visualize_sample_observation_vs_prediction,
             "time_series_plot_for_a_single_site": self.visualize_time_series_plot_for_a_single_site,
+            "error_time_series_plot_for_a_single_site": self.visualize_error_time_series_plot_for_a_single_site,
+            "error_distribution_plot_for_a_single_site": self.visualize_error_distribution_plot_for_a_single_site,
             "boxplot_for_a_single_site": self.visualize_boxplot_for_a_single_site,
         }
         for (
@@ -338,7 +341,7 @@ class Visualization:
                     vmin=min_value,
                     vmax=max_value,
                     cmap=cmap,
-                    add_colorbar=False
+                    add_colorbar=False,
                 )
                 ax.set_title(title)
 
@@ -463,8 +466,230 @@ class Visualization:
                 plt.savefig(output_path, bbox_inches="tight")
                 plt.close()
 
+    def visualize_error_time_series_plot_for_a_single_site(
+        self,
+        locations: list,
+        temporal_subset=None,
+        color_palette=None,
+        aggregate_by=None,
+    ):
+        """
+        Create error time series plots for a single site.
+
+        Parameters
+        ----------
+        locations : list
+            List of locations to visualize.
+        temporal_subset : slice or tuple of slice, optional
+            Temporal subset to plot. If None, plot the entire time series.
+            Example: To plot data from '2023-01-01' to '2023-03-31',
+                     use slice('2023-01-01', '2023-04-01').
+        color_palette : list, optional
+            List of colors for the visualizations. If None, default colors will be used.
+        aggregate_by : list, optional
+            List of time periods to aggregate the data.
+            Examples: ["1D", "7D", "15D", "1M"].
+
+        Returns
+        -------
+        None
+        """
+        if color_palette is None:
+            color_palette = ["#ee9b00", "#9b2226"]
+
+        data_merged = xr.merge(
+            [
+                self.observations.rename_vars({"variable": "obs"}),
+                self.predictions.rename_vars({"variable": "preds"}),
+                self.baselines.rename_vars({"variable": "baseline"}),
+            ]
+        )
+
+        for location in locations:
+            location_obj = Location(**location)
+            location_data = data_merged.sel(
+                longitude=location_obj.lon, latitude=location_obj.lat, method="nearest"
+            )
+
+            if temporal_subset:
+                location_data = location_data.sel(time=temporal_subset)
+
+            for agg_period in aggregate_by:
+                if agg_period == "1D":
+                    agg_label = "Daily"
+                    location_data_agg = location_data.resample(time="1D").mean()
+                elif agg_period == "7D":
+                    agg_label = "Weekly"
+                    location_data_agg = location_data.resample(time="1W").mean()
+                elif agg_period == "15D":
+                    agg_label = "15 Days"
+                    location_data_agg = location_data.resample(time="15D").mean()
+                elif agg_period == "1M":
+                    agg_label = "Monthly"
+                    location_data_agg = location_data.resample(time="1M").mean()
+                else:
+                    raise ValueError("Invalid value for aggregate_by")
+
+                error_preds = location_data_agg["preds"] - location_data_agg["obs"]
+                error_baseline = (
+                    location_data_agg["baseline"] - location_data_agg["obs"]
+                )
+
+                plt.figure(figsize=(15, 10))
+                plt.plot(
+                    location_data_agg.time.values,
+                    error_preds.values,
+                    label=f"{self.model_name.upper()}",
+                    color=color_palette[0],
+                )
+                plt.plot(
+                    location_data_agg.time.values,
+                    error_baseline.values,
+                    label=f"{self.baseline_name.upper()}",
+                    color=color_palette[1],
+                )
+
+                plt.axhline(y=0, color="black", linestyle="dashed")
+
+                plt.ylim(
+                    [
+                        min(np.min(error_preds), np.min(error_baseline)),
+                        max(np.max(error_preds), np.max(error_baseline)),
+                    ]
+                )
+
+                plt.title(
+                    f"{agg_label} error time series at "
+                    f"{location['name'].replace('_', ' ').replace('-', ' - ')}."
+                )
+                plt.xlabel("Time", fontsize=14)
+                plt.ylabel("Error (ºC)", fontsize=14)
+                plt.xticks(rotation=45, fontsize=12)
+                plt.yticks(fontsize=12)
+                plt.legend()
+
+                output_path = self.get_output_path(
+                    f"error_time_series_plot_for_a_single_site_aggregate_by_{agg_period}",
+                    location_obj,
+                )
+                plt.savefig(output_path, bbox_inches="tight")
+                plt.close()
+
+    def visualize_error_distribution_plot_for_a_single_site(
+        self,
+        locations: list,
+        temporal_subset=None,
+        color_palette=None,
+    ):
+        """
+        Create error distribution plots for a single site.
+
+        Parameters
+        ----------
+        locations : list
+            List of locations to visualize.
+        temporal_subset : slice or tuple of slice, optional
+            Temporal subset to plot. If None, plot the entire time series.
+            Example: To plot data from '2023-01-01' to '2023-03-31',
+                     use slice('2023-01-01', '2023-04-01').
+        color_palette : list, optional
+            List of colors for the visualizations. If None, default colors will be used.
+
+        Returns
+        -------
+        None
+        """
+        if color_palette is None:
+            color_palette = ["#ee9b00", "#9b2226"]
+
+        data_merged = xr.merge(
+            [
+                self.observations.rename_vars({"variable": "obs"}),
+                self.predictions.rename_vars({"variable": "preds"}),
+                self.baselines.rename_vars({"variable": "baseline"}),
+            ]
+        )
+
+        for location in locations:
+            location_obj = Location(**location)
+            location_data = data_merged.sel(
+                longitude=location_obj.lon, latitude=location_obj.lat, method="nearest"
+            )
+
+            if temporal_subset:
+                location_data = location_data.sel(time=temporal_subset)
+
+            error_preds = location_data["preds"] - location_data["obs"]
+            error_baseline = location_data["baseline"] - location_data["obs"]
+
+            # Create a larger figure
+            plt.figure(figsize=(15, 10))
+
+            # Plot the PDF of error values for predictions
+            plt.hist(
+                error_preds.values,
+                bins=30,
+                density=True,
+                alpha=0.5,
+                color=color_palette[0],
+                label=f"{self.model_name.upper()}",
+            )
+
+            # Plot the PDF of error values for baselines
+            plt.hist(
+                error_baseline.values,
+                bins=30,
+                density=True,
+                alpha=0.5,
+                color=color_palette[1],
+                label=f"{self.baseline_name.upper()}",
+            )
+
+            # Add a normal distribution fit to the predictions error
+            mu_preds, std_preds = norm.fit(error_preds)
+            x = np.linspace(min(error_preds), max(error_preds), 100)
+            p = norm.pdf(x, mu_preds, std_preds)
+            plt.plot(x, p, color=color_palette[0])
+
+            # Add a normal distribution fit to the baselines error
+            mu_baseline, std_baseline = norm.fit(error_baseline)
+            x = np.linspace(min(error_baseline), max(error_baseline), 100)
+            p = norm.pdf(x, mu_baseline, std_baseline)
+            plt.plot(x, p, color=color_palette[1])
+
+            plt.axvline(x=0, color="black", linestyle="dashed")
+
+            # Add vertical lines at the mean value of the error distribution
+            plt.axvline(
+                x=mu_preds, color=color_palette[0], linestyle="solid", alpha=0.6
+            )
+            plt.axvline(
+                x=mu_baseline, color=color_palette[1], linestyle="solid", alpha=0.6
+            )
+
+            plt.title(
+                f"Error Distribution at "
+                f"{location['name'].replace('_', ' ').replace('-', ' - ')}."
+            )
+            plt.xlabel("Error (ºC)", fontsize=14)  # Increase font size
+            plt.ylabel("Probability Density", fontsize=14)  # Increase font size
+            plt.xticks(fontsize=12)  # Increase x-axis tick font size
+            plt.yticks(fontsize=12)  # Increase y-axis tick font size
+
+            plt.legend()
+
+            output_path = self.get_output_path(
+                "error_distribution_plot_for_a_single_site",
+                location_obj,
+            )
+            plt.savefig(output_path, bbox_inches="tight")
+            plt.close()
+
     def visualize_boxplot_for_a_single_site(
-        self, locations: list, group_by="season", color_palette=None
+        self,
+        locations: list,
+        group_by=None,
+        color_palette=None,
     ):
         """
         Create a box plot for a single site.
@@ -485,6 +710,9 @@ class Visualization:
         -------
         None
         """
+        if group_by is None:
+            group_by = ["hour", "month", "season"]
+
         original_variable = "Temperature (ºC)"
         data_merged = xr.merge(
             [
