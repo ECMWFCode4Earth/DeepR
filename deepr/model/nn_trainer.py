@@ -138,7 +138,7 @@ def train_nn(
                     orog_lr[..., 6:-6, 6:-6], scale_factor=5, modeq="bicubic"
                 )
                 diff = pred_orog_hr - pred_orog_hr
-                diff = (diff - diff.mean()) / diff.std()                
+                diff = (diff - diff.mean()) / diff.std()
                 covars.append(diff)
             else:
                 logger.info(f"Skipping covariable {static_covar}. Not recognized.")

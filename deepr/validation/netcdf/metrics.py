@@ -46,7 +46,6 @@ class Metrics:
         regression_metrics = {
             "r2": xs.r2,
             "mae": xs.mae,
-            "mape": xs.mape,
             "me": xs.me,
             "mse": xs.mse,
             "rmse": xs.rmse,
