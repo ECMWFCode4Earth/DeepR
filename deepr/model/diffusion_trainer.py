@@ -77,6 +77,9 @@ def train_diffusion(
     ) = accelerator.prepare(
         model, optimizer, train_dataloader, val_dataloader, lr_scheduler
     )
+    if obs_model is not None:
+        obs_model = accelerator.prepare(obs_model)
+        obs_model.eval()
 
     # Get fixed samples
     val_era5, val_cerra, val_times = next(iter(val_dataloader))
