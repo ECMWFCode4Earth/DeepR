@@ -121,7 +121,8 @@ def train_diffusion(
 
             # Get ERA5 of the same shape as CERRA: A) trained model, B) baseline interp.
             if obs_model is not None:
-                up_era5 = obs_model(era5)
+                with torch.no_grad():
+                    up_era5 = obs_model(era5)[0]
             else:
                 up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
                 l_lat, l_lon = (np.array(up_era5.shape[-2:]) - cerra.shape[-2:]) // 2
@@ -188,7 +189,7 @@ def train_diffusion(
             # Predict the noise residual
             with torch.no_grad():
                 if obs_model is not None:
-                    up_era5 = obs_model(era5)
+                    up_era5 = obs_model(era5)[0]
                 else:
                     up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
                     l_lat, l_lon = (
