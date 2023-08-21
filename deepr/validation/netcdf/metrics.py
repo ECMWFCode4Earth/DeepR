@@ -7,6 +7,7 @@ import xskillscore as xs
 class Metrics:
     def __init__(
         self,
+        model_name: str,
         observations: xr.Dataset,
         predictions: xr.Dataset,
         output_directory: pathlib.Path,
@@ -16,6 +17,8 @@ class Metrics:
 
         Parameters
         ----------
+        model_name: str
+            The model name used to store the metrics
         observations : xr.Dataset
             The dataset containing the observations.
         predictions : xr.Dataset
@@ -24,6 +27,7 @@ class Metrics:
             The output directory for storing the metrics.
 
         """
+        self.model_name = model_name
         self.predictions, self.observations = predictions, observations
         self.output_directory = output_directory
 
@@ -70,4 +74,19 @@ class Metrics:
             {"variable": "pred_std"}
         )["pred_std"]
 
+        metrics_ds.to_netcdf(self.get_output_path())
+
         return metrics_ds
+
+    def get_output_path(self):
+        """
+        Retrieve the output path for the metrics dataset.
+
+        Returns
+        -------
+        Path
+            Output path for the metrics dataset in netcdf format.
+        """
+        output_path = self.output_directory / f"{self.model_name}.nc"
+        output_path.parent.mkdir(parents=True, exist_ok=True, mode=0o777)
+        return output_path

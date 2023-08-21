@@ -73,7 +73,7 @@ training_configuration:
         beta_end: 0.02
         beta_schedule: linear
         prediction_type: epsilon
-        rescale_betas_zero_snr: True
+        rescale_betas_zero_snr: true
         timestep_spacing: trailing
   training_parameters:
     num_epochs: 30

@@ -96,17 +96,19 @@ class ValidationConfig:
         """
         # Metrics datasets for the different sample types
         model_metrics_dataset = Metrics(
+            model_name=self.validation_configuration["model_name"],
             observations=observations.rename_vars({"observation": "variable"}),
             predictions=predictions.rename_vars({"prediction": "variable"}),
             output_directory=Path(
-                f'{self.validation_configuration["validation_dir"]}/metrics/model/'
+                f'{self.validation_configuration["validation_dir"]}/metrics'
             ),
         ).get_metrics()
         baseline_metrics_dataset = Metrics(
+            model_name=self.validation_configuration["baseline_name"],
             observations=observations.rename_vars({"observation": "variable"}),
             predictions=baselines.rename_vars({"prediction": "variable"}),
             output_directory=Path(
-                f'{self.validation_configuration["validation_dir"]}/metrics/baseline/'
+                f'{self.validation_configuration["validation_dir"]}/metrics'
             ),
         ).get_metrics()
 
@@ -121,8 +123,7 @@ class ValidationConfig:
             baseline_metrics=baseline_metrics_dataset,
             visualization_types=self.validation_configuration["visualization_types"],
             output_directory=Path(
-                f'{self.validation_configuration["validation_dir"]}/figures/'
-                f'{self.validation_configuration["model_name"]}'
+                f'{self.validation_configuration["validation_dir"]}/figures'
             ),
         ).get_visualizations()
 
