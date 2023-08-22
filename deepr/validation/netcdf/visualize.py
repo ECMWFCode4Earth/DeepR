@@ -255,7 +255,7 @@ class Visualization:
                 )
                 ax2.set_label(f"{metric_var.upper()}")
                 plt.tight_layout()
-                output_path = self.get_output_path("metrics_global_maps", metric_var)
+                output_path = self.get_output_path("metric_global_map", metric_var)
                 plt.savefig(output_path, bbox_inches="tight")
                 plt.close()
 
@@ -463,7 +463,7 @@ class Visualization:
                 plt.legend()
 
                 output_path = self.get_output_path(
-                    f"{agg_label.lower()}_time_series_for_a_single_site_aggregate",
+                    f"{agg_label.lower()}_time_series_for",
                     location_obj,
                 )
                 plt.savefig(output_path, bbox_inches="tight")
@@ -525,7 +525,7 @@ class Visualization:
                     agg_label = "Weekly"
                     location_data_agg = location_data.resample(time="1W").mean()
                 elif agg_period == "15D":
-                    agg_label = "15 Days"
+                    agg_label = "Biweekly"
                     location_data_agg = location_data.resample(time="15D").mean()
                 elif agg_period == "1M":
                     agg_label = "Monthly"
@@ -572,7 +572,7 @@ class Visualization:
                 plt.legend()
 
                 output_path = self.get_output_path(
-                    f"error_time_series_for_a_single_site_aggregate_by_{agg_period}",
+                    f"{agg_label.lower()}_error_time_series_for",
                     location_obj,
                 )
                 plt.savefig(output_path, bbox_inches="tight")
@@ -682,7 +682,7 @@ class Visualization:
             plt.legend()
 
             output_path = self.get_output_path(
-                "error_distribution_for_a_single_site",
+                "error_distribution_for",
                 location_obj,
             )
             plt.savefig(output_path, bbox_inches="tight")
@@ -844,7 +844,7 @@ class Visualization:
                     f"{time_cov_str}."
                 )
                 output_path = self.get_output_path(
-                    f"boxplot_for_a_single_site_group_by_{group_by_option}",
+                    f"{group_by_option}_boxplot_for",
                     location_obj,
                 )
                 plt.savefig(output_path, bbox_inches="tight")
