@@ -66,7 +66,8 @@ class cDDPMPipeline(DiffusionPipeline):
             )
 
         if self.obs_model is not None:
-            up_images = self.obs_model(images).to(self.device)
+            self.obs_model = self.obs_model.to(self.device)
+            up_images = self.obs_model(images)[0].to(self.device)
         else:
             up_images = F.interpolate(images, scale_factor=5, mode="bicubic")
             l_lat, l_lon = (np.array(up_images.shape[-2:]) - image_shape[-2:]) // 2

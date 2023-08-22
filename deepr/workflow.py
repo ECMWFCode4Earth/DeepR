@@ -386,8 +386,10 @@ class MainPipeline:
 
         self.inference_config["repo_name"] = repo_name
         if self.pipeline_type == "diffusion":
+            obs_model_cfg = self.model_config.pop("trained_obs_model", {})
+            obs_model = load_trained_model(**obs_model_cfg)
             scheduler = get_hf_scheduler(**self.model_config.pop("scheduler"))
-            pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=None)
+            pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=obs_model)
             pipe.to(self.inference_config["device"])
             generate_data.generate_validation_dataset(
                 dl_test, scaler, pipe, self.inference_config
