@@ -54,13 +54,13 @@ def get_figure_model_samples(
         float(torch.max(fine_image)),
         float(torch.max(prediction)),
         -9999.0 if input_image is None else float(torch.max(input_image)),
-        -9999.0 if input_image is None else float(torch.max(baseline)),
+        -9999.0 if baseline is None else float(torch.max(baseline)),
     )
     vmin = min(
         float(torch.min(fine_image)),
         float(torch.min(prediction)),
         9999.0 if input_image is None else float(torch.min(input_image)),
-        9999.0 if input_image is None else float(torch.min(baseline)),
+        9999.0 if baseline is None else float(torch.min(baseline)),
     )
     v_kwargs = {"vmax": vmax, "vmin": vmin}
 

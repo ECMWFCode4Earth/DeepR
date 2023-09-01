@@ -230,6 +230,7 @@ class MainPipeline:
             dataset_val,
             obs_model=obs_model,
             dataset_info=self.data_config.get_plain_dict(),
+            label_scaler=self.label_scaler,
         )
 
     def train_end2end_nn(

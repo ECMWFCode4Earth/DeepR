@@ -183,3 +183,46 @@ def sample_gif(
         )
         scaled_interm -= K_to_C
         generate_giff(scaled_interm.squeeze(), fname, label="Temperature (ºC)", fps=fps)
+
+
+def diffusion_callback(
+    model,
+    scheduler,
+    era5,
+    cerra,
+    times,
+    scaler_func: Callable = None,
+    output_dir: str = None,
+    freq_timesteps_frame: int = 1,
+    inference_steps: int = 1000,
+    fps: int = 50,
+    eta: float = 1,
+    obs_model=None,
+    epoch: int = 0,
+):
+    pipeline = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=obs_model)
+    pipeline.to(era5.device)
+    hr_im, interm = pipeline(
+        images=era5[:1],
+        class_labels=times[:1, :1],
+        generator=torch.manual_seed(2023),
+        eta=eta,
+        num_inference_steps=inference_steps,
+        return_dict=False,
+        saving_freq_interm=freq_timesteps_frame,
+        output_type="tensor",
+    )
+    date = f"{times[0, 0]:d}H_{times[0, 1]:02d}-{times[0, 2]:02d}-{times[0, 3]:04d}"
+    logger.info(f"Generating GIF for time: {date}")
+    fname = output_dir + f"/diffusion_{date}_{inference_steps}steps"
+    if epoch is not None:
+        fname += f"_{epoch}epoch"
+    generate_giff(interm[0], f"{fname}_scaled", fps=fps)
+
+    scaled_interm = scaler_func( # UNDO scaling of latents
+        interm[0].unsqueeze(1), times[0, 2].repeat(interm.shape[1])
+    )
+    scaled_interm -= K_to_C
+    generate_giff(scaled_interm.squeeze(), fname, label="Temperature (ºC)", fps=fps)
+
+    get_figure_model_samples(cerra, hr_im, era5, filename=fname+"_comparison.png")

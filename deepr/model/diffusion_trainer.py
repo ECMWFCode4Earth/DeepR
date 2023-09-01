@@ -12,6 +12,7 @@ from transformers import get_cosine_schedule_with_warmup
 
 from deepr.model.configs import TrainingConfig
 from deepr.model.utils import get_hour_embedding
+from deepr.validation.sample_predictions import diffusion_callback
 
 logger = logging.get_logger(__name__, log_level="INFO")
 
@@ -24,6 +25,7 @@ def train_diffusion(
     dataset_val: torch.utils.data.IterableDataset,
     obs_model: Type[torch.nn.Module] = None,
     dataset_info: dict = None,
+    label_scaler = None
 ):
     hparams = config.__dict__ | dataset_info
     hparams.pop("__pydantic_initialised__", None)
@@ -238,6 +240,17 @@ def train_diffusion(
                 )
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
+                diffusion_callback(
+                    model, 
+                    noise_scheduler, 
+                    val_era5, 
+                    val_cerra, 
+                    val_times, 
+                    scaler_func=label_scaler.apply_inverse_scaler,
+                    output_dir=config.output_dir,
+                    obs_model=obs_model,
+                    epoch=epoch
+                )
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
