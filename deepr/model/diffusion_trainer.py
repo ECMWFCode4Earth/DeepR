@@ -83,11 +83,6 @@ def train_diffusion(
         obs_model = accelerator.prepare(obs_model)
         obs_model.eval()
 
-    # Get fixed samples
-    val_era5, val_cerra, val_times = next(iter(val_dataloader))
-    if config.batch_size > 4:
-        val_era5, val_cerra, val_times = val_era5[:4], val_cerra[:4], val_times[:4]
-
     tf_writter = accelerator.get_tracker("tensorboard").writer
     logger.info(f"Number of parameters: {number_model_params}")
     global_step = 0
@@ -240,6 +235,10 @@ def train_diffusion(
                 )
 
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
+                val_era5, val_cerra, val_times = next(iter(val_dataloader))
+                if config.batch_size > 4:
+                    val_era5, val_cerra = val_era5[:4], val_cerra[:4]
+                    val_times = val_times[:4]
                 diffusion_callback(
                     model, 
                     noise_scheduler, 
@@ -251,6 +250,7 @@ def train_diffusion(
                     obs_model=obs_model,
                     epoch=epoch
                 )
+                del val_cerra, val_cerra, val_times
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
