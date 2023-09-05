@@ -122,21 +122,19 @@ def train_diffusion(
             # Get ERA5 of the same shape as CERRA: A) trained model, B) baseline interp.
             if obs_model is not None:
                 with torch.no_grad():
-                    up_era5 = obs_model(era5)[0]
+                    era5 = obs_model(era5)[0]
             else:
-                up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
-                l_lat, l_lon = (np.array(up_era5.shape[-2:]) - cerra.shape[-2:]) // 2
+                era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
+                l_lat, l_lon = (np.array(era5.shape[-2:]) - cerra.shape[-2:]) // 2
                 r_lat = None if l_lat == 0 else -l_lat
                 r_lon = None if l_lon == 0 else -l_lon
-                up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
+                era5 = era5[..., l_lat:r_lat, l_lon:r_lon]
 
             # Predict the noise residual
             with accelerator.accumulate(model):
-                model_inputs = torch.cat([noisy_images, up_era5], dim=1)
-
                 # Predict the noise residual
                 noise_pred = model(
-                    model_inputs,
+                    torch.cat([noisy_images, era5], dim=1),
                     timesteps,
                     return_dict=False,
                     class_labels=hour_emb,
@@ -189,21 +187,19 @@ def train_diffusion(
             # Predict the noise residual
             with torch.no_grad():
                 if obs_model is not None:
-                    up_era5 = obs_model(era5)[0]
+                    era5 = obs_model(era5)[0]
                 else:
-                    up_era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
+                    era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
                     l_lat, l_lon = (
-                        np.array(up_era5.shape[-2:]) - cerra.shape[-2:]
+                        np.array(era5.shape[-2:]) - cerra.shape[-2:]
                     ) // 2
                     r_lat = None if l_lat == 0 else -l_lat
                     r_lon = None if l_lon == 0 else -l_lon
-                    up_era5 = up_era5[..., l_lat:r_lat, l_lon:r_lon]
-
-                model_inputs = torch.cat([noisy_images, up_era5], dim=1)
+                    era5 = era5[..., l_lat:r_lat, l_lon:r_lon]
 
                 # Predict the noise residual
                 noise_pred = model(
-                    model_inputs,
+                    torch.cat([noisy_images, era5], dim=1),
                     timesteps,
                     return_dict=False,
                     class_labels=hour_emb,
