@@ -12,9 +12,10 @@ from transformers import get_cosine_schedule_with_warmup
 
 from deepr.model.configs import TrainingConfig
 from deepr.model.utils import get_hour_embedding
+from deepr.utilities.logger import get_logger
 from deepr.validation.sample_predictions import diffusion_callback
 
-logger = logging.get_logger(__name__, log_level="INFO")
+logger = get_logger(__name__)
 
 
 def train_diffusion(
@@ -51,6 +52,7 @@ def train_diffusion(
     val_dataloader = torch.utils.data.DataLoader(
         dataset_val, config.batch_size, pin_memory=True
     )
+    logger.info("DataLoaders created successfuly!")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     lr_scheduler = get_cosine_schedule_with_warmup(
