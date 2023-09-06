@@ -11,6 +11,7 @@ logger = logging.getLogger(__name__)
 class TrainingConfig:
     num_epochs: int = 50
     batch_size: int = 2
+    num_workers: int = 0
     num_samples: int = 3
     gradient_accumulation_steps = 1
     learning_rate: float = 1e-4

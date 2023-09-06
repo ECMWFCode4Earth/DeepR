@@ -47,10 +47,10 @@ def train_diffusion(
 
     # Define important objects
     train_dataloader = torch.utils.data.DataLoader(
-        dataset, config.batch_size, pin_memory=True
+        dataset, config.batch_size, pin_memory=True, num_workers=config.num_workers
     )
     val_dataloader = torch.utils.data.DataLoader(
-        dataset_val, config.batch_size, pin_memory=True
+        dataset_val, config.batch_size, pin_memory=True, num_workers=config.num_workers
     )
     logger.info("DataLoaders created successfuly!")
 
@@ -135,8 +135,9 @@ def train_diffusion(
             # Predict the noise residual
             with accelerator.accumulate(model):
                 # Predict the noise residual
+                model_input = torch.cat([noisy_images, era5], dim=1)
                 noise_pred = model(
-                    torch.cat([noisy_images, era5], dim=1),
+                    model_input,
                     timesteps,
                     return_dict=False,
                     class_labels=hour_emb,
@@ -200,8 +201,9 @@ def train_diffusion(
                     era5 = era5[..., l_lat:r_lat, l_lon:r_lon]
 
                 # Predict the noise residual
+                model_input = torch.cat([noisy_images, era5], dim=1)
                 noise_pred = model(
-                    torch.cat([noisy_images, era5], dim=1),
+                    model_input,
                     timesteps,
                     return_dict=False,
                     class_labels=hour_emb,
