@@ -3,6 +3,7 @@ import pathlib
 import pickle
 from typing import Tuple
 
+import numpy as np
 import pandas
 import torch
 import xarray
@@ -125,21 +126,18 @@ class XarrayStandardScaler:
             The dataset with standard scaling inverted.
 
         """
-        data_indexes = []
-        for index in range(data.shape[0]):
-            data_index = data[index, :, :, :]
-            std_index = (
-                self.standard_deviation.sel(month=month[index], method="nearest")
-                .to_array()
-                .values
-            )
-            mean_index = (
-                self.average.sel(month=month[index], method="nearest").to_array().values
-            )
-            data_index_inverse = (data_index * std_index) + mean_index
-            data_indexes.append(data_index_inverse.unsqueeze(1))
-        data_inverse = torch.cat(data_indexes, dim=0)
-        return data_inverse
+        std_tensor = self.standard_deviation.sel(
+            month=month, method="nearest"
+        ).to_array()
+        std_tensor = torch.from_numpy(
+            std_tensor.squeeze().values[..., np.newaxis, np.newaxis, np.newaxis]
+        )
+        mean_tensor = self.average.sel(month=month, method="nearest").to_array()
+        mean_tensor = torch.from_numpy(
+            mean_tensor.squeeze().values[..., np.newaxis, np.newaxis, np.newaxis]
+        )
+
+        return data * std_tensor + mean_tensor
 
     def load(self):
         """Load an XarrayStandardScaler object from a pickle file."""

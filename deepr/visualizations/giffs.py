@@ -3,6 +3,7 @@ from pathlib import Path
 
 import torch
 from PIL import Image
+from tqdm import tqdm
 
 from deepr.visualizations.plot_maps import plot_simple_map
 
@@ -15,7 +16,7 @@ def generate_giff(
 
     with tempfile.TemporaryDirectory(suffix="-giff-diffusion") as f:
         fig_paths = []
-        for t in range(latents.shape[0]):
+        for t in tqdm(range(latents.shape[0]), desc="Plotting frames for GIFF"):
             fname = Path(f) / f"latents_{t}.png"
             plot_simple_map(latents[t], vmin, vmax, label=label, out_file=fname)
             fig_paths.append(fname)

@@ -1,4 +1,3 @@
-import logging
 import random
 from pathlib import Path
 from typing import Callable
@@ -7,12 +6,13 @@ import torch
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
 from deepr.model.utils import get_hour_embedding
+from deepr.utilities.logger import get_logger
 from deepr.visualizations.giffs import generate_giff
 from deepr.visualizations.plot_maps import plot_2_model_comparison
 from deepr.visualizations.plot_samples import get_figure_model_samples
 
 K_to_C = 273.15
-logger = logging.getLogger(__name__)
+logger = get_logger(__name__)
 
 
 def sample_observation_vs_prediction(
@@ -212,17 +212,27 @@ def diffusion_callback(
         saving_freq_interm=freq_timesteps_frame,
         output_type="tensor",
     )
+    del era5
+    times = times.cpu()
     date = f"{times[0, 0]:d}H_{times[0, 1]:02d}-{times[0, 2]:02d}-{times[0, 3]:04d}"
-    logger.info(f"Generating GIF for time: {date}")
+    logger.info(f"Generating GIFFs for time: {date}")
     fname = output_dir + f"/diffusion_{date}_{inference_steps}steps"
     if epoch is not None:
         fname += f"_{epoch}epoch"
+
+    get_figure_model_samples(
+        scaler_func(cerra[:1].cpu(), times[0, 2]),
+        scaler_func(hr_im[:1].cpu(), times[0, 2]),
+        filename=fname + "_comparison.png",
+    )
+    del cerra, hr_im
+
+    # GIFFs
+    interm = interm.cpu()
     generate_giff(interm[0], f"{fname}_scaled", fps=fps)
 
-    scaled_interm = scaler_func( # UNDO scaling of latents
+    interm = scaler_func(  # UNDO scaling of latents
         interm[0].unsqueeze(1), times[0, 2].repeat(interm.shape[1])
     )
-    scaled_interm -= K_to_C
-    generate_giff(scaled_interm.squeeze(), fname, label="Temperature (ºC)", fps=fps)
-
-    get_figure_model_samples(cerra, hr_im, era5, filename=fname+"_comparison.png")
+    interm -= K_to_C
+    generate_giff(interm.squeeze(), fname, label="Temperature (ºC)", fps=fps)

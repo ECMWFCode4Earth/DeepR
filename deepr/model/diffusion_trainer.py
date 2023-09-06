@@ -5,7 +5,7 @@ import diffusers
 import numpy as np
 import torch
 import torch.nn.functional as F
-from accelerate import Accelerator, logging
+from accelerate import Accelerator
 from huggingface_hub import Repository
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
@@ -26,7 +26,7 @@ def train_diffusion(
     dataset_val: torch.utils.data.IterableDataset,
     obs_model: Type[torch.nn.Module] = None,
     dataset_info: dict = None,
-    label_scaler = None
+    label_scaler=None,
 ):
     hparams = config.__dict__ | dataset_info
     hparams.pop("__pydantic_initialised__", None)
@@ -85,7 +85,7 @@ def train_diffusion(
         obs_model = accelerator.prepare(obs_model)
         obs_model.eval()
 
-    tf_writter = accelerator.get_tracker("tensorboard").writer
+    accelerator.get_tracker("tensorboard").writer
     logger.info(f"Number of parameters: {number_model_params}")
     global_step = 0
     # Now you train the model
@@ -135,9 +135,8 @@ def train_diffusion(
             # Predict the noise residual
             with accelerator.accumulate(model):
                 # Predict the noise residual
-                model_input = torch.cat([noisy_images, era5], dim=1)
                 noise_pred = model(
-                    model_input,
+                    torch.cat([noisy_images, era5], dim=1),
                     timesteps,
                     return_dict=False,
                     class_labels=hour_emb,
@@ -193,17 +192,14 @@ def train_diffusion(
                     era5 = obs_model(era5)[0]
                 else:
                     era5 = F.interpolate(era5, scale_factor=5, mode="bicubic")
-                    l_lat, l_lon = (
-                        np.array(era5.shape[-2:]) - cerra.shape[-2:]
-                    ) // 2
+                    l_lat, l_lon = (np.array(era5.shape[-2:]) - cerra.shape[-2:]) // 2
                     r_lat = None if l_lat == 0 else -l_lat
                     r_lon = None if l_lon == 0 else -l_lon
                     era5 = era5[..., l_lat:r_lat, l_lon:r_lon]
 
                 # Predict the noise residual
-                model_input = torch.cat([noisy_images, era5], dim=1)
                 noise_pred = model(
-                    model_input,
+                    torch.cat([noisy_images, era5], dim=1),
                     timesteps,
                     return_dict=False,
                     class_labels=hour_emb,
@@ -229,28 +225,24 @@ def train_diffusion(
         if accelerator.is_main_process:
             is_last_epoch = epoch == config.num_epochs - 1
 
-            if epoch < 0:  # Never
-                tf_writter.add_graph(
-                    accelerator.unwrap_model(model), (model_inputs, timesteps)
-                )
-
             if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
-                val_era5, val_cerra, val_times = next(iter(val_dataloader))
-                if config.batch_size > 4:
-                    val_era5, val_cerra = val_era5[:4], val_cerra[:4]
-                    val_times = val_times[:4]
+                era5, cerra, times = next(iter(val_dataloader))
+                if config.batch_size > 1:
+                    era5, cerra, times = era5[:1], cerra[:1], times[:1]
                 diffusion_callback(
-                    model, 
-                    noise_scheduler, 
-                    val_era5, 
-                    val_cerra, 
-                    val_times, 
+                    model,
+                    noise_scheduler,
+                    era5,
+                    cerra,
+                    times,
+                    inference_steps=1000,
+                    freq_timesteps_frame=4,
                     scaler_func=label_scaler.apply_inverse_scaler,
                     output_dir=config.output_dir,
                     obs_model=obs_model,
-                    epoch=epoch
+                    epoch=epoch+1,
                 )
-                del val_cerra, val_cerra, val_times
+                del era, cerra, times
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)

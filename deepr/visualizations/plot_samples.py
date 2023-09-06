@@ -1,6 +1,6 @@
 from typing import List, Optional, Tuple
 
-import matplotlib
+import matplotlib.pyplot as plt
 import numpy
 import torch
 
@@ -17,7 +17,7 @@ def get_figure_model_samples(
     column_names: List[str] = None,
     filename: Optional[str] = None,
     fig_size: Optional[Tuple[int, int]] = None,
-) -> matplotlib.pyplot.Figure:
+) -> plt.Figure:
     """
     Generate a figure displaying model samples.
 
@@ -40,7 +40,7 @@ def get_figure_model_samples(
 
     Returns
     -------
-    matplotlib.pyplot.Figure
+    plt.Figure
         The generated figure.
     """
     # Concatenating baseline to predictions, if baseline exists
@@ -78,12 +78,14 @@ def get_figure_model_samples(
         fig_size = (4.5 * (n_realizations + n_extras), 4.8 * n_samples)
 
     # Defining the figure and axes
-    fig, axs = matplotlib.pyplot.subplots(
-        n_realizations + n_extras, n_samples, figsize=fig_size
-    )
-    if n_samples == 1:  # if only one row, it is necessary to include in the axes
+    if n_samples > 1:
+        fig, axs = plt.subplots(n_realizations + n_extras, n_samples, figsize=fig_size)
+        func_name = "set_ylabel"
+    elif n_samples == 1:  # if only one row, it is necessary to include in the axes
+        fig, axs = plt.subplots(1, n_realizations + n_extras, figsize=fig_size)
         axs = axs[..., numpy.newaxis]
-    matplotlib.pyplot.tight_layout()
+        func_name = "set_title"
+    plt.tight_layout()
 
     # Loop over the number of columns, which is the same as the number of samples
     for i in range(n_samples):
@@ -112,17 +114,17 @@ def get_figure_model_samples(
         # Title of the rows
         if i == 0:
             if input_image is not None:
-                axs[0, i].set_ylabel("ERA5 (Low-res)", fontsize=14)
-                axs[1, i].set_ylabel("CERRA (High-res)", fontsize=14)
+                getattr(axs[0, i], func_name)("ERA5 (Low-res)", fontsize=14)
+                getattr(axs[1, i], func_name)("CERRA (High-res)", fontsize=14)
             else:
-                axs[0, i].set_ylabel("CERRA (High-res)", fontsize=14)
+                getattr(axs[0, i], func_name)("CERRA (High-res)", fontsize=14)
 
             for r in range(n_realizations):
                 if baseline is not None and r == n_realizations - 1:
                     label = "Bicubic Int."
                 else:
                     label = "Prediction (High-res)"
-                axs[n_extras + r, i].set_ylabel(label, fontsize=14)
+                getattr(axs[n_extras + r, i], func_name)(label, fontsize=14)
 
     # Title of the columns
     if column_names is not None:
@@ -130,9 +132,9 @@ def get_figure_model_samples(
             axs[0, c].set_title(col_name, fontsize=14)
 
     # Include the color bar in the depiction
-    if n_samples != 1:
+    if n_samples == 1:
         fig.subplots_adjust(bottom=0.05)
-        cbar_ax = fig.add_axes([0.15, 0.05, 0.7, 0.05])
+        cbar_ax = fig.add_axes([0.15, 0.02, 0.7, 0.05])
         fig.colorbar(im, cax=cbar_ax, orientation="horizontal")
     else:
         fig.subplots_adjust(right=0.95)
@@ -142,7 +144,7 @@ def get_figure_model_samples(
     # Save figure if the name of a file is provided
     if filename is not None:
         logger.info(f"Samples from model have been saved to {filename}")
-        matplotlib.pyplot.savefig(filename, bbox_inches="tight", transparent=True)
-        matplotlib.pyplot.close()
+        plt.savefig(filename, bbox_inches="tight", transparent=True)
+        plt.close()
 
     return fig
