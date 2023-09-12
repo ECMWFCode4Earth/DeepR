@@ -240,9 +240,9 @@ def train_diffusion(
                     scaler_func=label_scaler.apply_inverse_scaler,
                     output_dir=config.output_dir,
                     obs_model=obs_model,
-                    epoch=epoch+1,
+                    epoch=epoch + 1,
                 )
-                del era, cerra, times
+                del era5, cerra, times
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
