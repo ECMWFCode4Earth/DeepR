@@ -1,4 +1,5 @@
 import logging
+import os
 from typing import List
 
 import torch
@@ -36,3 +37,6 @@ class TrainingConfig:
     def __post_init__(self):
         if self.device == "cuda" and not torch.cuda.is_available():
             logger.info("CUDA device requested but not available :(")
+
+        if self.output_dir is not None:
+            os.makedirs(self.output_dir, exist_ok=True)

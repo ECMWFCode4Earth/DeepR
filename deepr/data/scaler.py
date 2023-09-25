@@ -42,6 +42,31 @@ class XarrayStandardScaler:
             self.standard_deviation.load()
             self.save()
 
+    def to_dict(self) -> str:
+        average = self.average[list(self.average.data_vars)[0]].values
+        std = self.standard_deviation[list(self.standard_deviation.data_vars)[0]].values
+
+        if len(average) == 1:
+            average = float(average)
+        elif average.ndim in [1, 2]:
+            average = average.tolist()
+        else:
+            raise NotImplementedError("Average of scaler must be 1D or 2D.")
+
+        if len(std) == 1:
+            std = float(std)
+        elif std.ndim in [1, 2]:
+            std = std.tolist()
+        else:
+            raise NotImplementedError("Standard deviation of scaler must be 1D or 2D.")
+
+        return {
+            "method": self.scaling_method,
+            "time-agg": "monthly",
+            "average": average,
+            "standard_deviation": std,
+        }
+
     def get_parameters(self) -> Tuple[xarray.Dataset, xarray.Dataset]:
         """
         Calculate the mean and standard deviation of the dataset parameters.

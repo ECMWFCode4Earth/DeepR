@@ -296,7 +296,7 @@ class DataConfiguration:
             input_sc = self.features_configuration["standardization"]["method"]
         else:
             input_sc = "No"
-        if self.label_configuration["standardization"].get("to_do", False):
+        if self.label_configuration.get("standardization", {}).get("to_do", False):
             output_sc = self.label_configuration["standardization"]["method"]
         else:
             output_sc = "No"

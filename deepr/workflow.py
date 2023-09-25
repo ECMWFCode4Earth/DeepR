@@ -1,3 +1,5 @@
+import copy
+import json
 import os
 from pathlib import Path
 from typing import Tuple
@@ -75,9 +77,27 @@ class MainPipeline:
                 scaling_cfg["method"],
                 scaler_filename,
             )
+        elif (
+            self.features_scaler is not None
+            and self.features_scaler.scaling_method == "domain-wise"
+        ):
+            logger.info(
+                "No label standardization. The labels are scaled with the features scaler."
+            )
+            self.label_scaler = copy.deepcopy(self.features_scaler)
+            self.label_scaler.scaling_files = train_label
         else:
             logger.info("No label standardization.")
             self.label_scaler = None
+
+        if self.train_config.output_dir is not None:
+            output_dir = Path(self.train_config.output_dir)
+            scales = {
+                "features": self.features_scaler.to_dict(),
+                "label": self.label_scaler.to_dict(),
+            }
+            with open(output_dir / "training_scale.json", "w") as f:
+                json.dumps(scales, f, indent=4)
 
     def get_dataset(self) -> Tuple[DataGenerator, DataGenerator, DataGenerator]:
         """
