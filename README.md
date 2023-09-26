@@ -78,7 +78,6 @@ This section is divided into three main parts: `features_configuration`,
 This part focuses on the configuration of features used in the project.
 
 ```yaml
-# Features Configuration
 features_configuration:
   variables:
   - t2m
@@ -124,7 +123,6 @@ features_configuration:
 This part focuses on the configuration of labels used in the project.
 
 ```yaml
-
 label_configuration:
   variable: t2m
   data_name: cerra
