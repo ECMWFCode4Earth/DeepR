@@ -220,23 +220,79 @@ capture intricate climate patterns, and converge efficiently during training. It
 a pivotal role in enhancing the model's performance and its ability to provide
 valuable insights into climatic phenomena.
 
-The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
+## Modeling
 
-The objectives of this challenge focus on:
+The two main modeling approaches covered are:
 
-- Explore the capabilities of Deep Diffusion models to represent high resolution reanalysis datasets.
+### Diffusion model
 
-- Evaluate the impact of including several covariables in the model.
+The probabilistic generative model employed in this context is a sophisticated
+framework designed to denoise images. It leverages a diffusion process, which is a
+mathematical concept representing the gradual spread of information or change across
+data. In the context of image denoising, the diffusion process helps in gradually
+removing noise from an image while preserving the underlying structure and content.
 
-  - Conditioning on time stamps
-  - Conditioning on meteorological covariables
-  - Conditioning on in-site observations
+Advantages of the Model:
 
-### Super Resolution Diffusion model
+- Learning Capacity: The probabilistic generative model is endowed with significant
+  learning capacity. It has the ability to learn intricate structures and patterns
+  from data. This means it can effectively capture complex features, textures, and
+  nuances present in images. By learning from a diverse range of images, it becomes
+  proficient in identifying and preserving the underlying information even in noisy
+  or low-resolution inputs.
 
-Explanation of Diffusion processes...
+- Extrapolation: The model exhibits a remarkable generalization capability known as
+  extrapolation. It means that once the model has learned from a set of training data,
+  it can extend its knowledge to new and unseen scenarios. This ability is invaluable
+  in real-world applications where the model encounters image inputs it hasn't
+  explicitly seen during training. Despite this, it can produce high-quality denoised
+  outputs.
 
-Here, DL is considered to model the $\\epsilon_t$ sampled at each step given $x\_{t+1}$ and conditioned on the LR image.
+- Realism: A key strength of the probabilistic generative model is its capacity to
+  produce denoised images that maintain a high level of realism. This realism extends
+  to preserving fine details, textures, and nuances in the upscaled images.
+  Additionally, the model is adept at handling artifacts that may be present in the
+  input images, resulting in outputs that closely resemble natural, artifact-free images.
+
+The scheme of the Diffusion process:
+
+![img.png](docs/_static/dp_scheme.png)
+
+### Convolutional Swin2SR
+
+The Convolutional Swin2SR is a state-of-the-art (SOTA) neural network designed for
+super-resolution tasks in computer vision. It stands out for several key features
+that make it a powerful tool for enhancing image resolution:
+
+- Efficient Scaling: The model's primary component is based on Swin v2 attention layers,
+  which are known for their efficiency and effectiveness. These layers enable the network
+  to efficiently process and generate high-resolution images while maintaining
+  performance.
+
+- Easy Experiment Setting: Setting up experiments with the Convolutional Swin2SR is
+  straightforward, making it accessible for researchers and practitioners. The model's
+  architecture and parameters are designed for ease of use and experimentation.
+
+- Fast Training and Inference: Thanks to its efficient design, the Convolutional
+  Swin2SR offers fast training and inference times. This efficiency is particularly
+  valuable when dealing with large datasets or real-time applications.
+
+![img.png](docs/_static/convswin2sr_scheme.png)
+
+Loss Terms: The model employs various loss terms to guide the training process
+effectively:
+
+- L1 Loss of Predictions and References: This loss term measures the difference
+  between the model's predictions and the high-resolution reference images. It encourages
+  the model to generate outputs that closely match the ground truth.
+
+- L1 Loss of Downsampled Predictions and References: To further refine the training
+  process, the model also considers downsampled versions of both predictions and
+  references. This helps in capturing details at multiple scales.
+
+- L1 Loss of Blurred Predictions and References: Blurring is introduced as an
+  additional loss term, allowing the model to learn and recover fine details while
+  handling different levels of image degradation.
 
 #### Training
 
