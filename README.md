@@ -258,60 +258,6 @@ The scheme of the Diffusion process:
 
 ![img.png](docs/_static/dp_scheme.png)
 
-### Convolutional Swin2SR
-
-The Convolutional Swin2SR is a state-of-the-art (SOTA) neural network designed for
-super-resolution tasks in computer vision. It stands out for several key features
-that make it a powerful tool for enhancing image resolution:
-
-- Efficient Scaling: The model's primary component is based on Swin v2 attention layers,
-  which are known for their efficiency and effectiveness. These layers enable the network
-  to efficiently process and generate high-resolution images while maintaining
-  performance.
-
-- Easy Experiment Setting: Setting up experiments with the Convolutional Swin2SR is
-  straightforward, making it accessible for researchers and practitioners. The model's
-  architecture and parameters are designed for ease of use and experimentation.
-
-- Fast Training and Inference: Thanks to its efficient design, the Convolutional
-  Swin2SR offers fast training and inference times. This efficiency is particularly
-  valuable when dealing with large datasets or real-time applications.
-
-![img.png](docs/_static/convswin2sr_scheme.png)
-
-Loss Terms: The model employs various loss terms to guide the training process
-effectively:
-
-- L1 Loss of Predictions and References: This loss term measures the difference
-  between the model's predictions and the high-resolution reference images. It encourages
-  the model to generate outputs that closely match the ground truth.
-
-- L1 Loss of Downsampled Predictions and References: To further refine the training
-  process, the model also considers downsampled versions of both predictions and
-  references. This helps in capturing details at multiple scales.
-
-- L1 Loss of Blurred Predictions and References: Blurring is introduced as an
-  additional loss term, allowing the model to learn and recover fine details while
-  handling different levels of image degradation.
-
-#### Training
-
-During training, for each batch of data, we sample random timesteps $t$ and noise $\\epsilon\_{t}$ and derive the corresponding values $x_t$. Then, we train our DL model to minimize the following loss function:
-
-$$ \\mathcal{L} (x) = || \\epsilon\_{t} - \\Phi \\left(x\_{t+1}, t \\right) ||^2$$
-
-which is the mean squared error (MSE) between:
-
-- the noise, $\\epsilon\_{t}$, added at timestep $t$
-
-- the prediction of the DL model, $\\Phi$, taking as input the timestep $t$ and the noisy matrix $x\_{t+1}$.
-
-#### Inference
-
-During inference, we can sample random noise and run the reverse process conditioned on input ERA5 grids, to obtain high resolution reanalysis grids. Another major benefit from this approach is the possibility of generation an ensemble of grids to represent its uncertainty avoiding the mode collapse (common in GANs).
-
-### $\\epsilon\_{t}$-model
-
 The library [diffusers](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models) brings several options to include in Diffusion Models. Here, we present several of the options included there that may fit our use case as well as our own tailored implementations.
 
 #### diffusers.UNet2DModel
@@ -453,6 +399,95 @@ The class [Up block](deepr/model/unet_blocks.py#LL73)
 ##### Residual Block
 
 ##### Final Block
+
+### Convolutional Swin2SR
+
+The Convolutional Swin2SR is a state-of-the-art (SOTA) neural network designed for
+super-resolution tasks in computer vision. It stands out for several key features
+that make it a powerful tool for enhancing image resolution:
+
+- Efficient Scaling: The model's primary component is based on Swin v2 attention layers,
+  which are known for their efficiency and effectiveness. These layers enable the network
+  to efficiently process and generate high-resolution images while maintaining
+  performance.
+
+- Easy Experiment Setting: Setting up experiments with the Convolutional Swin2SR is
+  straightforward, making it accessible for researchers and practitioners. The model's
+  architecture and parameters are designed for ease of use and experimentation.
+
+- Fast Training and Inference: Thanks to its efficient design, the Convolutional
+  Swin2SR offers fast training and inference times. This efficiency is particularly
+  valuable when dealing with large datasets or real-time applications.
+
+![img.png](docs/_static/convswin2sr_scheme.png)
+
+Loss Terms: The model employs various loss terms to guide the training process
+effectively:
+
+- L1 Loss of Predictions and References: This loss term measures the difference
+  between the model's predictions and the high-resolution reference images. It encourages
+  the model to generate outputs that closely match the ground truth.
+
+- L1 Loss of Downsampled Predictions and References: To further refine the training
+  process, the model also considers downsampled versions of both predictions and
+  references. This helps in capturing details at multiple scales.
+
+- L1 Loss of Blurred Predictions and References: Blurring is introduced as an
+  additional loss term, allowing the model to learn and recover fine details while
+  handling different levels of image degradation.
+
+### Training configuration: commons
+
+There are training parameters that are common to all the models:
+
+- `num_epochs`: The number of training epochs.
+- `batch_size`: The batch size for training.
+- `gradient_accumulation_steps`: The number of gradient accumulation steps.
+- `learning_rate`: The initial learning rate.
+- `lr_warmup_steps`: The number of warm-up steps for learning rate scheduling.
+- `mixed_precision`: Mixed-precision training, e.g., `"fp16"`.
+- `hour_embed_type`: Type of hour embedding, e.g., `"class"`.
+- `hf_repo_name`: The Hugging Face repository name for model storage.
+- `output_dir`: The directory for saving training outputs.
+- `device`: The device for training, e.g., `"cuda"` for GPU.
+- `push_to_hub`: Whether to push the trained model to the Hugging Face model hub.
+- `seed`: Random seed for reproducibility.
+- `save_model_epochs`: Frequency of saving the model during training.
+- `save_image_epochs`: Frequency of saving images during training.
+
+An example of how they should be defined in the configuration file is provided:
+
+```yaml
+training_parameters:
+    num_epochs: 50
+    batch_size: 8
+    gradient_accumulation_steps: 2
+    learning_rate: 0.001
+    lr_warmup_steps: 500
+    mixed_precision: "fp16"
+    hour_embed_type: class # none, timestep, positional, cyclical, class
+    output_dir: "/PATH/TO/WRITE/ARTIFACTS"
+    device: cuda
+    seed: 2023
+    save_model_epochs: 5
+    save_image_epochs: 5
+```
+
+#### Training
+
+During training, for each batch of data, we sample random timesteps $t$ and noise $\\epsilon\_{t}$ and derive the corresponding values $x_t$. Then, we train our DL model to minimize the following loss function:
+
+$$ \\mathcal{L} (x) = || \\epsilon\_{t} - \\Phi \\left(x\_{t+1}, t \\right) ||^2$$
+
+which is the mean squared error (MSE) between:
+
+- the noise, $\\epsilon\_{t}$, added at timestep $t$
+
+- the prediction of the DL model, $\\Phi$, taking as input the timestep $t$ and the noisy matrix $x\_{t+1}$.
+
+#### Inference
+
+During inference, we can sample random noise and run the reverse process conditioned on input ERA5 grids, to obtain high resolution reanalysis grids. Another major benefit from this approach is the possibility of generation an ensemble of grids to represent its uncertainty avoiding the mode collapse (common in GANs).
 
 ## Project Outputs
 
