@@ -2,92 +2,186 @@
 
 Global reanalysis downscaling to regional scales by means of deep learning techniques.
 
-## Description
+## Introduction
 
-![project-photo-description.png](docs%2F_static%2Fproject-photo-description.png)
+In the rapidly evolving landscape of climate science and data analysis, the need for
+high-resolution data has become increasingly evident. Climate researchers and
+professionals in various fields, from agriculture to disaster management, rely
+heavily on accurate and detailed data to make informed decisions. However, the existing
+global reanalysis data, such as ERA5, with its coarse spatial resolution, often falls
+short in meeting these requirements. In response to this pressing challenge, the DeepR
+project, led by Antonio Pérez, Mario Santa Cruz, and Javier Diez, was conceived and
+executed with the aim of downscaling ERA5 data to a finer resolution, thus enabling
+enhanced accuracy and applicability across a wide range of industries and research
+domains.
 
-## Project Outputs
+## Project Motivation
 
-Models trained on Mediterranean area with t2m data from ERA5 and CERRA.
+The ERA5 Global reanalysis data, with its spatial resolution of approximately 0.25
+degrees, has proven to be a valuable resource for multiple sectors. Still, its
+limitations in resolution can hinder precise decision-making and analysis across
+diverse domains. The primary motivation behind the DeepR project was to bridge this gap
+by downscaling ERA5 data to a finer resolution of
+approximately 0.05 degrees, termed as CERRA resolution. This enhancement aimed to
+unlock the full potential of climate data for improved decision support.
 
-- [Baseline Neural Network](https://huggingface.co/predictia/europe_reanalysis_downscaler_convbaseline): An Up Convolutional Neural Network (CNN) to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
-- [Conv2D + Swin2SR](https://huggingface.co/predictia/europe_reanalysis_downscaler_convswin2sr): A combination of CNN and a Swin2SR transformers to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
-- [CERRA VQ-VAE 2](https://huggingface.co/predictia/cerra_tas_vqvae): A Vector Quantized Variational AutoEncoder (VQ-VAE) 2 to be used for latent diffusion models (LDM) and reduce the dimensionality of diffusion processes.
-- [Denoising Diffusion Probabilistic Model](https://huggingface.co/predictia/europe_reanalysis_downscaler_diffuser): A diffusion model to denoise the ERA5 image using any of the previous methods to guide the generation process.
+## Super-Resolution in Climate Science
 
-## Workflow for developers/contributors
+The project drew inspiration from the field of image processing and computer vision,
+specifically the concept of super-resolution. In image processing, super-resolution
+involves augmenting the resolution or quality of an image, typically generating a
+high-resolution image from one or more low-resolution iterations. DeepR adapted this
+concept to climate science, making it a super-resolution task tailored to atmospheric
+fields.
 
-For best experience create a new conda environment (e.g. DEVELOP) with Python 3.10:
+## Data: The Foundation of DeepR
 
+In any data-intensive project, data plays a pivotal role, and DeepR is no exception.
+The project relies on extensive datasets sourced from the publicly accessible Climate
+Data Store (CDS), ensuring transparency and open access to valuable climate information.
+
+The data used in this project has been generously provided by our mentors and is used
+in its raw form without any processing. To download the data from the repository,
+you can access the
+[`european_weather_cloud.py`](scripts/download/european_weather_cloud.py) script.
+
+Additionally, we have developed a script to directly download data from the Climate
+Data Store. You can find this script at
+[`climate_data_store.py`](scripts/download/climate_data_store.py).
+
+The project focuses on a specific subdomain within the original domain. In our case,
+this domain encompasses diverse ecosystems, including mountains, rivers, coastal areas,
+and more. This simplification helps reduce the dimensionality of the problem while
+maintaining the diversity necessary for comprehensive research.
+
+The selected domain is shown here:
+
+![img.png](docs/_static/spatial-domain-small.png)
+
+To achieve this spatial selection of the data, we utilize the
+[`data_spatial_selection.py`](scripts/processing/data_spatial_selection.py) script,
+which transforms the data into the desired domain.
+
+The process of rewriting the data for the smaller domain aims to expedite data access,
+enhancing both memory and time efficiency for smoother and faster data handling.
+Furthermore, this approach empowers users to define their own specific domains and
+seamlessly retrain the model according to their unique research requirements.
+
+## Data Configuration
+
+The data configuration section outlines how the project manages and processes the data.
+This section is divided into three main parts: `features_configuration`,
+`label_configuration`, and `split_coverages`.
+
+### Features Configuration
+
+This part focuses on the configuration of features used in the project.
+
+```yaml
+# Features Configuration
+features_configuration:
+  variables:
+  - t2m
+  data_name: era5
+  spatial_resolution: "025deg"
+  add_auxiliary:
+    time: true
+    lsm-low: true
+    orog-low: true
+    lsm-high: true
+    orog-high: true
+  spatial_coverage:
+    longitude: [-8.35, 6.6]
+    latitude: [46.45, 35.50]
+  standardization:
+    to_do: true
+    cache_folder: /PATH/TO/.cache_reanalysis_scales
+    method: domain-wise
+  data_location: /PATH/TO/features/
+  land_mask_location: /PATH/TO/static/land-mask_ERA5.nc
+  orography_location: /PATH/TO/static/orography_ERA5.nc
 ```
-conda create -n DEVELOP -c conda-forge python=3.10
-conda activate DEVELOP
+
+- **Variables**: The variables to be included, such as `t2m` (2-meter temperature data).
+- **Data Name**: The source of the feature data, which is `era5`.
+- **Spatial Resolution**: The spatial resolution used for feature data is
+  `0.25 degrees`.
+- **Add Auxiliary Data**: Specifies whether auxiliary data is added. In this case,
+  `time`, `lsm-low` (low-resolution land-sea mask), `orog-low` (low-resolution
+  orography), `lsm-high` (high-resolution land-sea mask), and `orog-high`
+  (high-resolution orography) are added.
+- **Spatial Coverage**: The selected spatial coverage, defined by longitude and
+  latitude ranges.
+- **Standardization**: Indicates whether standardization is performed. The
+  `to_do` flag is set to `true`, and the standardization method is `domain-wise`.
+  Other possible methods include `pixel-wise` and `landmask-wise`.
+- **Data Location**: The directory where feature data is stored.
+- **Land Mask Location**: The location of the land-sea mask data for ERA5.
+- **Orography Location**: The location of the orography data for ERA5.
+
+### Label Configuration
+
+This part focuses on the configuration of labels used in the project.
+
+```yaml
+
+label_configuration:
+  variable: t2m
+  data_name: cerra
+  spatial_resolution: "005deg"
+  spatial_coverage:
+    longitude: [-6.85, 5.1]
+    latitude: [44.95, 37]
+  standardization:
+    to_do: true
+    cache_folder: /PATH/TO/.cache_reanalysis_scales
+    method: domain-wise # pixel-wise, domain-wise, landmask-wise
+  data_location: /PATH/TO/labels/
+  land_mask_location: /PATH/TO/static/land-mask_CERRA.nc
+  orography_location: /PATH/TO/static/orography_CERRA.nc
 ```
 
-A data directory for the testing data must be created:
+- **Variable**: The variable used as labels, which is `t2m` (2-meter temperature data).
+- **Data Name**: The source of the label data, which is `cerra`.
+- **Spatial Resolution**: The spatial resolution used for label data is `0.05 degrees`.
+- **Spatial Coverage**: The selected spatial coverage, defined by longitude and
+  latitude ranges.
+- **Standardization**: Indicates whether standardization is performed. The
+  `to_do` flag is set to `true`, and the standardization method is `domain-wise`.
+  Other possible methods include `pixel-wise` and `landmask-wise`.
+- **Data Location**: The directory where label data is stored.
+- **Land Mask Location**: The location of the land-sea mask data for CERRA.
+- **Orography Location**: The location of the orography data for CERRA.
 
-```
-cd tests
-mkdir data
-cd data
-mkdir features
-mkdir labels
-```
+### Split Coverages
 
-Once the directories have been created, testing data can be downloaded:
+Splitting the data into different time periods for training and validation.
 
-```
-cd tests
-wget -O data.zip https://cloud.predictia.es/s/zen8PGwJbi7mTCB/download
-unzip data.zip
-rm data.zip
-```
-
-Before pushing to GitHub, run the following commands:
-
-1. Update conda environment: `make conda-env-update`
-1. Install this package: `pip install -e .`
-1. Sync with the latest [template](https://github.com/ecmwf-projects/cookiecutter-conda-package) (optional): `make template-update`
-1. Run quality assurance checks: `make qa`
-1. Run tests: `make unit-tests`
-1. Run the static type checker: `make type-check`
-1. Build the documentation (see [Sphinx tutorial](https://www.sphinx-doc.org/en/master/tutorial/)): `make docs-build`
-
-## Data
-
-### Data specifications
-
-The spatial coverage of the datasets provided is described below:
-
-Features: (240, 150) ------- Label: (800, 480)
-
-```complete-spatial-coverage.yml
-data_configuration:
-  features_configuration:
-    spatial_coverage:
-      longitude: [ -20.5, 39.25 ]
-      latitude: [ 66.25, 29 ]
-  label_configuration:
-    spatial_coverage:
-      longitude: [ -10, 29.95]
-      latitude: [ 59.6, 35.65 ]
+```yaml
+split_coverages:
+  train:
+    start: 1981-01
+    end: 2013-12
+    frequency: MS
+  validation:
+    start: 2014-01
+    end: 2017-12
+    frequency: MS
+  test:
+    start: 2018-01
+    end: 2020-12
+    frequency: MS
 ```
 
-During the development stage, a subset of the data is used to validate the implementation of the model:
+- **Train**: Data split for training begins from `1981-01` and ends at `2013-12`,
+  with a frequency of `Monthly (MS)`.
+- **Validation**: Data split for validation starts from `2014-01` and ends at
+  `2017-12`, with a frequency of `Monthly (MS)`.
+- **Test**: Data split for validation starts from `2018-01` and ends at
+  `2020-12`, with a frequency of `Monthly (MS)`.
 
-Features: (32, 24)------- Label: (32, 24)
-
-```reduce-spatial-coverage.yml
-data_configuration:
-  features_configuration:
-    spatial_coverage:
-      longitude: [ 6.0, 13.75 ]
-      latitude: [ 50.25, 44.5 ]
-  label_configuration:
-    spatial_coverage:
-      longitude: [ 9.2, 10.75]
-      latitude: [ 48.1, 46.95 ]
-```
+These configuration settings are crucial for organizing, processing, and standardizing
+the data used in the project.
 
 ## Methodology
 
@@ -271,6 +365,13 @@ The class [Up block](deepr/model/unet_blocks.py#LL73)
 
 ## Project Outputs
 
+Models trained on Mediterranean area with t2m data from ERA5 and CERRA.
+
+- [Baseline Neural Network](https://huggingface.co/predictia/europe_reanalysis_downscaler_convbaseline): An Up Convolutional Neural Network (CNN) to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
+- [Conv2D + Swin2SR](https://huggingface.co/predictia/europe_reanalysis_downscaler_convswin2sr): A combination of CNN and a Swin2SR transformers to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
+- [CERRA VQ-VAE 2](https://huggingface.co/predictia/cerra_tas_vqvae): A Vector Quantized Variational AutoEncoder (VQ-VAE) 2 to be used for latent diffusion models (LDM) and reduce the dimensionality of diffusion processes.
+- [Denoising Diffusion Probabilistic Model](https://huggingface.co/predictia/europe_reanalysis_downscaler_diffuser): A diffusion model to denoise the ERA5 image using any of the previous methods to guide the generation process.
+
 ### Models (HuggingFace)
 
 - [**Swin2SR (x4)**](https://huggingface.co/predictia/europe_reanalysis_downscaler_swin2sr): A novel transformed-based method for image super-resolution trained with meteorological datasets.
@@ -316,3 +417,41 @@ WITHOUT WARRANTIES OR CONDITIONS OF ANY KIND, either express or implied.
 See the License for the specific language governing permissions and
 limitations under the License.
 ```
+
+## Workflow for developers/contributors
+
+For best experience create a new conda environment (e.g. DEVELOP) with Python 3.10:
+
+```
+conda create -n deepr-cuda -c conda-forge python=3.10
+conda activate deepr-cuda
+```
+
+A data directory for the testing data must be created:
+
+```
+cd tests
+mkdir data
+cd data
+mkdir features
+mkdir labels
+```
+
+Once the directories have been created, testing data can be downloaded:
+
+```
+cd tests
+wget -O data.zip https://cloud.predictia.es/s/zen8PGwJbi7mTCB/download
+unzip data.zip
+rm data.zip
+```
+
+Before pushing to GitHub, run the following commands:
+
+1. Update conda environment: `make conda-env-update`
+1. Install this package: `pip install -e .`
+1. Sync with the latest [template](https://github.com/ecmwf-projects/cookiecutter-conda-package) (optional): `make template-update`
+1. Run quality assurance checks: `make qa`
+1. Run tests: `make unit-tests`
+1. Run the static type checker: `make type-check`
+1. Build the documentation (see [Sphinx tutorial](https://www.sphinx-doc.org/en/master/tutorial/)): `make docs-build`
