@@ -25,6 +25,8 @@ by downscaling ERA5 data to a finer resolution of
 approximately 0.05 degrees, termed as CERRA resolution. This enhancement aimed to
 unlock the full potential of climate data for improved decision support.
 
+![img.png](docs/_static/project_motivation.png)
+
 ## Super-Resolution in Climate Science
 
 The project drew inspiration from the field of image processing and computer vision,
@@ -67,7 +69,7 @@ enhancing both memory and time efficiency for smoother and faster data handling.
 Furthermore, this approach empowers users to define their own specific domains and
 seamlessly retrain the model according to their unique research requirements.
 
-## Data Configuration
+## Definition in configuration file
 
 The data configuration section outlines how the project manages and processes the data.
 This section is divided into three main parts: `features_configuration`,
@@ -153,7 +155,7 @@ label_configuration:
 
 ### Split Coverages
 
-Splitting the data into different time periods for training and validation.
+Splitting the data into different time periods for training, validation and test.
 
 ```yaml
 split_coverages:
@@ -182,6 +184,41 @@ These configuration settings are crucial for organizing, processing, and standar
 the data used in the project.
 
 ## Methodology
+
+### Standardization
+
+In the context of deep learning for climatology, standardizing climatological data is a
+crucial step. Standardization refers to the process of transforming the data to have a
+mean of zero and a standard deviation of one. This process is vital for several reasons:
+
+- **Preventing Dominance**: Standardization prevents one variable from dominating the
+  learning process. In climate data, variables can have vastly different scales and
+  magnitudes. Without standardization, variables with larger scales could overshadow
+  others, leading to biased model training.
+
+- **Capturing Complex Patterns**: Standardized data allows the deep learning model to
+  effectively capture complex climate patterns across diverse geographical regions.
+  By removing scale differences, the model can focus on extracting meaningful patterns
+  and relationships within the data.
+
+- **Facilitating Convergence**: Deep neural networks benefit from standardized input
+  data. It helps in the convergence of the network during training. When the input
+  data has consistent scales and distributions, the optimization process becomes more
+  stable, and the model is more likely to converge to a meaningful solution.
+
+#### Application
+
+To apply standardization to climatological data, we use the script located in
+[`scaler.py`](%60deepr/data/scaler.py%60). This script automates the process of
+standardization, making it easy to preprocess large datasets efficiently.
+
+![img.png](docs/_static/standardization_types.png)
+
+In summary, standardizing climatological data is a fundamental preprocessing step
+that ensures the deep learning model can learn effectively, prevent variable dominance,
+capture intricate climate patterns, and converge efficiently during training. It plays
+a pivotal role in enhancing the model's performance and its ability to provide
+valuable insights into climatic phenomena.
 
 The main purpose of this library is to test the capabilities of deep diffusion models for reanalysis super-resolution tasks.
 
