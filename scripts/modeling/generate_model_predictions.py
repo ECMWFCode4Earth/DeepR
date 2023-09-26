@@ -11,7 +11,7 @@ def main(cfg_path: Path):
 
 if __name__ == "__main__":
     parser = ArgumentParser(
-        prog="dump_model_predictions.py",
+        prog="generate_model_predictions.py",
         description="Dump predictions from Super Resolution model",
     )
     parser.add_argument(

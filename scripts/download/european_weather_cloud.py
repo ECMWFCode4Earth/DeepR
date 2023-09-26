@@ -1,23 +1,13 @@
 import os
 from datetime import datetime
 
-import pandas
+import click
+import pandas as pd
 import requests
 
-output_directory = "/predictia-nas2/Data/DeepR/labels/"
-variable = "t2m"
-project = "cerra"
-spatial_resolution = "005deg"
+from deepr.utilities.logger import get_logger
 
-start_date = datetime(1985, 1, 1)
-end_date = datetime(2020, 12, 31)
-dates = pandas.date_range(start_date, end_date, freq="MS")
-
-print(
-    f"Downloading data to {output_directory} for variable {variable}, "
-    f"project {project}, spatial resolution {spatial_resolution} from "
-    f"{start_date} to {end_date}"
-)
+logger = get_logger(__name__)
 
 
 def download_data(
@@ -80,18 +70,44 @@ def download_data(
     output_path = os.path.join(output_directory, filename)
 
     if os.path.exists(output_path):
-        print(f"File {output_path} already exists!")
+        logger.info(f"File {output_path} already exists!")
     else:
         response = requests.get(f"{cloud_url}/{project_dir}/{filename}")
         if response.status_code == 200:
             with open(output_path, "wb") as file:
                 file.write(response.content)
-            print(f"Data downloaded successfully to: {output_path}")
+            logger.info(f"Data downloaded successfully to: {output_path}")
         else:
-            print(f"Failed to download data. Status code: {response.status_code}")
+            logger.info(f"Failed to download data. Status code: {response.status_code}")
 
 
-for date in dates:
-    print(f"Downloading data for date: {date}")
-    date_str = date.strftime("%Y%m")
-    download_data(variable, date_str, project, spatial_resolution, output_directory)
+@click.command()
+@click.argument(
+    "output_directory", type=click.Path(exists=True, file_okay=False, resolve_path=True)
+)
+@click.argument("variable")
+@click.argument("project")
+@click.argument("spatial_resolution")
+@click.argument("start_date")
+@click.argument("end_date")
+def main(output_directory, variable, project, spatial_resolution, start_date, end_date):
+    # Convert start_date and end_date to datetime objects
+    start_date = datetime.strptime(start_date, "%Y-%m-%d")
+    end_date = datetime.strptime(end_date, "%Y-%m-%d")
+
+    dates = pd.date_range(start_date, end_date, freq="MS")
+
+    logger.info(
+        f"Downloading data to {output_directory} for variable {variable}, "
+        f"project {project}, spatial resolution {spatial_resolution} from "
+        f"{start_date} to {end_date}"
+    )
+
+    for date in dates:
+        logger.info(f"Downloading data for date: {date}")
+        date_str = date.strftime("%Y%m")
+        download_data(variable, date_str, project, spatial_resolution, output_directory)
+
+
+if __name__ == "__main__":
+    main()
