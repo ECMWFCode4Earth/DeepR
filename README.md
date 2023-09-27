@@ -15,6 +15,8 @@ executed with the aim of downscaling ERA5 data to a finer resolution, thus enabl
 enhanced accuracy and applicability across a wide range of industries and research
 domains.
 
+______________________________________________________________________
+
 ## Project Motivation
 
 The ERA5 Global reanalysis data, with its spatial resolution of approximately 0.25
@@ -27,6 +29,8 @@ unlock the full potential of climate data for improved decision support.
 
 ![img.png](docs/_static/project_motivation.png)
 
+______________________________________________________________________
+
 ## Super-Resolution in Climate Science
 
 The project drew inspiration from the field of image processing and computer vision,
@@ -35,6 +39,8 @@ involves augmenting the resolution or quality of an image, typically generating 
 high-resolution image from one or more low-resolution iterations. DeepR adapted this
 concept to climate science, making it a super-resolution task tailored to atmospheric
 fields.
+
+______________________________________________________________________
 
 ## Data: The Foundation of DeepR
 
@@ -68,6 +74,8 @@ The process of rewriting the data for the smaller domain aims to expedite data a
 enhancing both memory and time efficiency for smoother and faster data handling.
 Furthermore, this approach empowers users to define their own specific domains and
 seamlessly retrain the model according to their unique research requirements.
+
+______________________________________________________________________
 
 ## Definition in configuration file
 
@@ -120,6 +128,8 @@ features_configuration:
 - **Land Mask Location**: The location of the land-sea mask data for ERA5.
 - **Orography Location**: The location of the orography data for ERA5.
 
+______________________________________________________________________
+
 ### Label Configuration
 
 This part focuses on the configuration of labels used in the project.
@@ -153,6 +163,8 @@ label_configuration:
 - **Land Mask Location**: The location of the land-sea mask data for CERRA.
 - **Orography Location**: The location of the orography data for CERRA.
 
+______________________________________________________________________
+
 ### Split Coverages
 
 Splitting the data into different time periods for training, validation and test.
@@ -183,9 +195,13 @@ split_coverages:
 These configuration settings are crucial for organizing, processing, and standardizing
 the data used in the project.
 
+______________________________________________________________________
+
 ## Methodology
 
 ### Standardization
+
+#### Why is it important?
 
 In the context of deep learning for climatology, standardizing climatological data is a
 crucial step. Standardization refers to the process of transforming the data to have a
@@ -219,6 +235,8 @@ that ensures the deep learning model can learn effectively, prevent variable dom
 capture intricate climate patterns, and converge efficiently during training. It plays
 a pivotal role in enhancing the model's performance and its ability to provide
 valuable insights into climatic phenomena.
+
+______________________________________________________________________
 
 ## Modeling
 
@@ -258,52 +276,111 @@ The scheme of the Diffusion process:
 
 ![img.png](docs/_static/dp_scheme.png)
 
-The library [diffusers](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models) brings several options to include in Diffusion Models. Here, we present several of the options included there that may fit our use case as well as our own tailored implementations.
+## The diffusers library
 
-#### diffusers.UNet2DModel
+The [Diffusers](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models) library
+provides a comprehensive set of options for working with Diffusion Models.
+In this documentation, we explore various options and functionalities available in the
+library that can be tailored to specific use cases or extended with custom
+implementations.
 
-The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) is the most similar class to our implementation, which is a U-net architecture with several options for down and up blocks.
+______________________________________________________________________
 
-- **Down blocks**: DownBlock2D, ResnetDownsampleBlock2D, AttnDownBlock2D, CrossAttnDownBlock2D, SimpleCrossAttnDownBlock2D, SkipDownBlock2D, AttnSkipDownBlock2D, DownEncoderBlock2D, AttnDownEncoderBlock2D, KDownBlock2D and KCrossAttnDownBlock2D.
+### diffusers.UNet2DModel
 
-- **Up block**: UpBlock2D, ResnetUpsampleBlock2D, CrossAttnUpBlock2D, SimpleCrossAttnUpBlock2D, AttnUpBlock2D, SkipUpBlock2D, AttnSkipUpBlock2D, UpDecoderBlock2D, AttnUpDecoderBlock2D, KUpBlock2D and KCrossAttnUpBlock2D.
+The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel)
+class closely resembles our U-net architecture. It offers flexibility in designing the
+down and up blocks, making it a versatile choice for various tasks.
 
-One example configuration to use [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) is included below:
+#### Down Blocks
 
-```
+You can choose from a variety of down block types, including:
+
+- DownBlock2D
+- ResnetDownsampleBlock2D
+- AttnDownBlock2D
+- CrossAttnDownBlock2D
+- SimpleCrossAttnDownBlock2D
+- SkipDownBlock2D
+- AttnSkipDownBlock2D
+- DownEncoderBlock2D
+- AttnDownEncoderBlock2D
+- KDownBlock2D
+- KCrossAttnDownBlock2D
+
+#### Up Blocks
+
+The available up block types include:
+
+- UpBlock2D
+- ResnetUpsampleBlock2D
+- CrossAttnUpBlock2D
+- SimpleCrossAttnUpBlock2D
+- AttnUpBlock2D
+- SkipUpBlock2D
+- AttnSkipUpBlock2D
+- UpDecoderBlock2D
+- AttnUpDecoderBlock2D
+- KUpBlock2D
+- KCrossAttnUpBlock2D
+
+Here's an example configuration for
+[diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel):
+
+```yaml
 training_configuration:
-  ...
+  type: diffusion
   model_configuration:
     eps_model:
       class_name: diffusers.UNet2DModel
       kwargs:
-        block_out_channels: [32, 64, 128]
-        down_block_types: [DownBlock2D, AttnDownBlock2D, AttnDownBlock2D]
-        up_block_types: [AttnUpBlock2D, AttnUpBlock2D, UpBlock2D]
+        block_out_channels: [112, 224, 336, 448]
+        down_block_types: [DownBlock2D, AttnDownBlock2D, AttnDownBlock2D, AttnDownBlock2D]
+        up_block_types: [AttnUpBlock2D, AttnUpBlock2D, AttnUpBlock2D, UpBlock2D]
         layers_per_block: 2
         time_embedding_type: positional
+        num_class_embeds: 24
         in_channels: 2
-        out_channels: 1
-        sample_size: [20, 32]
-  ...
+        norm_num_groups: 4
+    scheduler:
+      class_name: LMSDiscreteScheduler
+      kwargs:
+        num_train_timesteps: 1000
+        beta_start: 0.0001
+        beta_end: 0.02
+        beta_schedule: linear
+        prediction_type: epsilon
+        timestep_spacing: trailing
 ```
 
-The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) also accepts conditioning on labels through its argument `class_labels`. First, the embedding type must be specified in the [`__init__`](https://github.com/huggingface/diffusers/blob/v0.16.0/src/diffusers/models/unet_2d.py#L83) method trough:
+The [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel)
+also accepts conditioning on labels through its argument `class_labels`. First,
+the embedding type must be specified in the [`__init__`](https://github.com/huggingface/diffusers/blob/v0.16.0/src/diffusers/models/unet_2d.py#L83) method trough:
 
 - Passing `class_embed_type` (Options are 'timestep', 'identity' or None).
 - Passing `num_class_embeds` with the size of the dictionary of embeddings to use.
 
-For example, to consider the hour of the data as covariate in this model we have two options:
+For example, to consider the hour of the data as covariate in this model we have
+two options:
 
-**Option A:** Set `num_class_embeds = 24` in the model creation and `hour_embed_type = class` in training configuration. This way the model learns a Embedding table for each hour.
+**Option A:** Set `num_class_embeds = 24` in the model creation and
+`hour_embed_type = class` in training configuration. This way the model learns
+an Embedding table for each hour.
 
-**Option B:** Set `class_embed_type = identity` in the model configuration and `hour_embed_type = positional` in training configuration.
+**Option B:** Set `class_embed_type = identity` in the model configuration and
+`hour_embed_type = positional` in training configuration.
 
-**Option C:** Set `class_embed_type = timestep` in the model configuration and `hour_embed_type` = `timestep` in training configuration. This configuration applies the same cos & sin transformation as in Option B maintaining the same `max_duration=10000`. Unlike Option B, we fit 2 `nn.Linear` after the embedding before feeding it to the NN.
+**Option C:** Set `class_embed_type = timestep` in the model configuration and
+`hour_embed_type` = `timestep` in training configuration. This configuration applies
+the same cos & sin transformation as in Option B maintaining the same
+`max_duration=10000`. Unlike Option B, we fit 2 `nn.Linear` after the embedding
+before feeding it to the NN.
 
-#### diffusers.UNet2DConditionModel
+______________________________________________________________________
 
-The[diffusers.UNet2DConditionModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DConditionModel) is an extension of the previous [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) to consider conditions during the reverse process such as time stamps, or other covariables.
+### diffusers.UNet2DConditionModel
+
+The [diffusers.UNet2DConditionModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DConditionModel) is an extension of the previous [diffusers.UNet2DModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DModel) to consider conditions during the reverse process such as time stamps, or other covariables.
 
 One interesting parameter to tune is the activation funcion used in the time embedding which can be: Swish, Mish, SiLU or GELU.
 
@@ -311,17 +388,29 @@ But the most remarkable difference is the possibility of conditioning the revers
 
 One example configuration to use [diffusers.UNet2DConditionModel](https://huggingface.co/docs/diffusers/v0.16.0/en/api/models#diffusers.UNet2DConditionModel) is included below:
 
-```
+```yaml
 training_configuration:
-  ...
+  type: diffusion
   model_configuration:
     eps_model:
       class_name: diffusers.UNet2DConditionModel
       kwargs:
-        block_out_channels: [124, 256, 512]
-        down_block_types: [CrossAttnDownBlock2D, CrossAttnDownBlock2D, DownBlock2D]
+        block_out_channels: [
+          124,
+          256,
+          512
+        ]
+        down_block_types: [
+          CrossAttnDownBlock2D,
+          CrossAttnDownBlock2D,
+          DownBlock2D
+        ]
         mid_block_type: UNetMidBlock2DCrossAttn
-        up_block_types: [UpBlock2D, CrossAttnUpBlock2D, CrossAttnUpBlock2D]
+        up_block_types: [
+          UpBlock2D,
+          CrossAttnUpBlock2D,
+          CrossAttnUpBlock2D
+        ]
         layers_per_block: 2
         time_embedding_type: positional
         in_channels: 2
@@ -330,10 +419,11 @@ training_configuration:
         only_cross_attention: False
         cross_attention_dim: 256
         addition_embed_type: other
-  ...
 ```
 
-#### Tailored UNet
+______________________________________________________________________
+
+### Tailored UNet
 
 In particular, a tailored U-Net architecture with 2D convolutions, residual connections and attetion layers is used.
 
@@ -359,9 +449,9 @@ The parameteres of these model implemented in [deepr/model/unet.py](deepr/model/
 
 An example configuration for this model is specified in training_configuration > model_configuration > eps_model,
 
-```
+```yaml
 training_configuration:
-  ...
+  type: diffusion
   model_configuration:
     eps_model:
       class_name: UNet
@@ -373,32 +463,88 @@ training_configuration:
         in_channels: 2
         out_channels: 1
         sample_size: [20, 32]
-  ...
 ```
 
 ##### Downsampling
 
-The class [Downsample](deepr/model/unet_blocks.py#LL20) ...
+The class [Downsample](deepr/model/unet_blocks.py#LL20) represents a downsampling
+block. It uses a convolutional layer to reduce the spatial dimensions of the input
+tensor. Here are the key details:
+
+- Constructor: Initializes a nn.ConvTranspose2d layer with specified input and output
+  channels, kernel size, stride, and padding.
+
+- Forward Method: Takes an input tensor x and a time tensor t (though t is not used in
+  this case) and applies the convolution operation to downsample x.
 
 ##### Upsampling
 
-The class [Upsample](deepr/model/unet_blocks.py#LL8) ...
+The class [Upsample](deepr/model/unet_blocks.py#LL8) represents an upsampling block.
+It uses a transposed convolutional layer to increase the spatial dimensions of the
+input tensor. Here are the key details:
+
+- Constructor: Initializes a nn.ConvTranspose2d layer with specified input and output
+  channels, kernel size, stride, and padding.
+
+- Forward Method: Takes an input tensor x and a time tensor t (though t is not used in
+  this case) and applies the transposed convolution operation to upsample x.
 
 ##### Down Block
 
-The class [Down block](deepr/model/unet_blocks.py#LL30)
+The class [Down block](deepr/model/unet_blocks.py#LL30) represents a block used in the
+first half of a U-Net architecture for encoding input features. It consists of a
+residual block followed by an optional attention block. Here are the key details:
+
+- Constructor: Initializes a ResidualBlock and, if has_attn is True, an AttentionBlock.
+  These blocks are used for feature extraction during downsampling.
+
+- Forward Method: Takes an input tensor x and a time tensor t and passes x through the
+  residual block and, if applicable, the attention block.
 
 ##### Middle Block
 
-The class [Middle block](deepr/model/unet_blocks.py#LL123)
+The class [Middle block](deepr/model/unet_blocks.py#LL123) represents a block used in
+the middle section of a U-Net architecture. It contains two residual blocks with
+an attention block in between. Here are the key details:
+
+- Constructor: Initializes two ResidualBlock instances and an AttentionBlock. This
+  block is typically used for processing features in the middle layers of the U-Net.
+
+- Forward Method: Takes an input tensor x and a time tensor t and passes x through
+  the first residual block, the attention block, and then the second residual block.
 
 ##### Up Block
 
-The class [Up block](deepr/model/unet_blocks.py#LL73)
+The class [Up block](deepr/model/unet_blocks.py#LL73) represents a block used in the
+second half of a U-Net architecture for decoding features. It consists of a residual
+block followed by an optional attention block. Here are the key details:
+
+- Constructor: Initializes a ResidualBlock and, if has_attn is True, an AttentionBlock.
+  These blocks are used for feature decoding during upsampling.
+
+- Forward Method: Takes an input tensor x and a time tensor t and passes x through
+
+- the residual block and, if applicable, the attention block.
 
 ##### Residual Block
 
-##### Final Block
+The class [Residual Block](deepr/model/resnet.py#LL7) is a component commonly used in
+neural networks. It enhances feature extraction and information flow within the
+network. Key details include:
+
+- Constructor: Initializes the block with input and output channel specifications,
+  time channels, group normalization settings, and optional dropout.
+
+- Components:
+
+  - Two convolutional layers with group normalization and Swish activation.
+  - Time embeddings for temporal information.
+  - Optional dropout.
+
+- Forward Method: Takes an input tensor and time tensor, applies convolution,
+  adds time embeddings, and produces the output tensor.
+
+______________________________________________________________________
 
 ### Convolutional Swin2SR
 
@@ -435,6 +581,32 @@ effectively:
 - L1 Loss of Blurred Predictions and References: Blurring is introduced as an
   additional loss term, allowing the model to learn and recover fine details while
   handling different levels of image degradation.
+
+For training the Convolutional-Swin2SR, a configuration similar to the one provided
+needs to be given:
+
+```yaml
+training_configuration:
+  type: end2end
+  model_configuration:
+    neural_network:
+      class_name: ConvSwin2SR
+      kwargs:
+        embed_dim: 180
+        depths: [6, 6, 6, 6, 6, 6]
+        num_heads: [6, 6, 6, 6, 6, 6]
+        patch_size: 1
+        window_size: 5
+        num_channels: 1
+        img_range: 1
+        resi_connection: "1conv"
+        upsampler: "pixelshuffle"
+        interpolation_method: "bicubic"
+        hidden_dropout_prob: 0.0
+        upscale: 5
+```
+
+______________________________________________________________________
 
 ### Training configuration: commons
 
@@ -473,36 +645,36 @@ training_parameters:
     save_image_epochs: 5
 ```
 
-#### Training
+______________________________________________________________________
 
-During training, for each batch of data, we sample random timesteps $t$ and noise $\\epsilon\_{t}$ and derive the corresponding values $x_t$. Then, we train our DL model to minimize the following loss function:
+## Training a model
 
-$$ \\mathcal{L} (x) = || \\epsilon\_{t} - \\Phi \\left(x\_{t+1}, t \\right) ||^2$$
+To train your model, follow these steps:
 
-which is the mean squared error (MSE) between:
+1. Prepare your dataset: Ensure that your dataset is properly formatted with all the
+   different netCDF files inside the same folder structure.
 
-- the noise, $\\epsilon\_{t}$, added at timestep $t$
+1. Configure your training parameters: Create a configuration file (usually in YAML
+   format) that specifies various training hyperparameters, such as learning rate, batch
+   size, number of epochs, etc. You can use the provided configuration examples as a
+   starting point.
 
-- the prediction of the DL model, $\\Phi$, taking as input the timestep $t$ and the noisy matrix $x\_{t+1}$.
+1. Start training: Run the training script, specifying the path to your configuration
+   file. The training script is located at
+   [`train_model.py`](scripts/modeling/train_model.py)
 
-#### Inference
+______________________________________________________________________
 
-During inference, we can sample random noise and run the reverse process conditioned on input ERA5 grids, to obtain high resolution reanalysis grids. Another major benefit from this approach is the possibility of generation an ensemble of grids to represent its uncertainty avoiding the mode collapse (common in GANs).
+## Generating model predictions
 
-## Project Outputs
+To make predictions using the model you've defined, you can use the provided script:
+[`generate_model_predictions.py`](scripts/modeling/generate_model_predictions.py)
 
-Models trained on Mediterranean area with t2m data from ERA5 and CERRA.
+This script is designed to generate predictions using your trained model. You can run
+it with the appropriate input data to obtain model predictions for your specific
+task or application.
 
-- [Baseline Neural Network](https://huggingface.co/predictia/europe_reanalysis_downscaler_convbaseline): An Up Convolutional Neural Network (CNN) to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
-- [Conv2D + Swin2SR](https://huggingface.co/predictia/europe_reanalysis_downscaler_convswin2sr): A combination of CNN and a Swin2SR transformers to predict the residuals of a deterministic interpolation method as bilinear, bicubic, nearest...
-- [CERRA VQ-VAE 2](https://huggingface.co/predictia/cerra_tas_vqvae): A Vector Quantized Variational AutoEncoder (VQ-VAE) 2 to be used for latent diffusion models (LDM) and reduce the dimensionality of diffusion processes.
-- [Denoising Diffusion Probabilistic Model](https://huggingface.co/predictia/europe_reanalysis_downscaler_diffuser): A diffusion model to denoise the ERA5 image using any of the previous methods to guide the generation process.
-
-### Models (HuggingFace)
-
-- [**Swin2SR (x4)**](https://huggingface.co/predictia/europe_reanalysis_downscaler_swin2sr): A novel transformed-based method for image super-resolution trained with meteorological datasets.
-
-- [**Conditioned Denoising Diffusion Probabilistic Model**](predictia/europe_reanalysis_downscaler_diffuser): A tailored DDPM that accepts temporal covariates as the hours of the day or the day of the years as input to the $\\epsilon$-model.
+______________________________________________________________________
 
 ## Appendix I: Positional Embeddings
 
@@ -549,8 +721,9 @@ limitations under the License.
 For best experience create a new conda environment (e.g. DEVELOP) with Python 3.10:
 
 ```
-conda create -n deepr-cuda -c conda-forge python=3.10
-conda activate deepr-cuda
+mamba create -n deepr-cuda -c conda-forge python=3.10
+mamba activate deepr-cuda
+make mamba-cuda_env-update
 ```
 
 A data directory for the testing data must be created:
