@@ -225,7 +225,7 @@ def train_diffusion(
         if accelerator.is_main_process:
             is_last_epoch = epoch == config.num_epochs - 1
 
-            if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
+            if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
                 era5, cerra, times = next(iter(val_dataloader))
                 if config.batch_size > 1:
                     era5, cerra, times = era5[:1], cerra[:1], times[:1]
@@ -243,6 +243,8 @@ def train_diffusion(
                     epoch=epoch + 1,
                 )
                 del era5, cerra, times
+
+            if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
                     repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
