@@ -57,6 +57,8 @@ Additionally, we have developed a script to directly download data from the Clim
 Data Store. You can find this script at
 [`climate_data_store.py`](scripts/download/climate_data_store.py).
 
+### Focus on a specific domain
+
 The project focuses on a specific subdomain within the original domain. In our case,
 this domain encompasses diverse ecosystems, including mountains, rivers, coastal areas,
 and more. This simplification helps reduce the dimensionality of the problem while
