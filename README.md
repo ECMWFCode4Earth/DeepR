@@ -656,12 +656,12 @@ To train your model, follow these steps:
 1. Prepare your dataset: Ensure that your dataset is properly formatted with all the
    different netCDF files inside the same folder structure.
 
-1. Configure your training parameters: Create a configuration file (usually in YAML
+2. Configure your training parameters: Create a configuration file (usually in YAML
    format) that specifies various training hyperparameters, such as learning rate, batch
    size, number of epochs, etc. You can use the provided configuration examples as a
    starting point.
 
-1. Start training: Run the training script, specifying the path to your configuration
+3. Start training: Run the training script, specifying the path to your configuration
    file. The training script is located at
    [`train_model.py`](scripts/modeling/train_model.py)
 
@@ -686,7 +686,7 @@ In our particular case, the timesteps $t$ is encoded with positional embeddings 
 
 ![Positional Embeddings](docs/_static/pos_embedding.png)
 
-Besides, we may encoded other important features as the hour of the day or the day of the year, which are cyclical. This is different from positional encodings because we want the encoding from hour 23 to be more similar to the one from 0 than from hour 18.
+Besides, we may encode other important features as the hour of the day or the day of the year, which are cyclical. This is different from positional encodings because we want the encoding from hour 23 to be more similar to the one from 0 than from hour 18.
 
 ## References
 
