@@ -1,6 +1,15 @@
+[![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/ "Go to Linux homepage")
+[![Made with Python](https://img.shields.io/badge/Python->=3.9-blue?logo=python&logoColor=white)](https://python.org "Go to Python homepage")
+[![DeepR](https://img.shields.io/static/v1?label=ECMWFCode4Earth&message=deepr&color=blue&logo=github)](https://github.com/MichaelCurrin/badge-generator)
+[![stars](https://img.shields.io/github/stars/ECMWFCode4Earth/DeepR?style=social)](https://github.com/ECMWFCode4Earth/DeepR)
+[![forks](https://img.shields.io/github/forks/ECMWFCode4Earth/DeepR?style=social)](https://github.com/ECMWFCode4Earth/DeepR)
+
 # DeepR: Deep Reanalysis.
 
 Global reanalysis downscaling to regional scales by means of deep learning techniques.
+
+[![view - Documentation](https://img.shields.io/badge/view-Documentation-blue?style=for-the-badge)](/docs/#readme "Go to project documentation")
+
 
 ## Introduction
 
