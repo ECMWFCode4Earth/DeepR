@@ -142,12 +142,13 @@ def train_diffusion(
                     class_labels=hour_emb,
                 )[0]
                 loss = F.mse_loss(noise_pred, noise)
-                accelerator.backward(loss)
-
-                accelerator.clip_grad_norm_(model.parameters(), 1.0)
-                optimizer.step()
-                lr_scheduler.step()
-                optimizer.zero_grad()
+                
+                if torch.isfinite(loss):
+                    accelerator.backward(loss)
+                    accelerator.clip_grad_norm_(model.parameters(), 1.0)
+                    optimizer.step()
+                    lr_scheduler.step()
+                    optimizer.zero_grad()
 
             progress_bar.update(1)
             pred_var = noise_pred.var(keepdim=True, dim=0).mean().item()
@@ -164,6 +165,43 @@ def train_diffusion(
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             global_step += 1
+            
+            if math.isnan(logs["loss_vs_step"]):
+                tensors_to_assess = {
+                    "low-res image": era5,
+                    "target noise": noise,
+                    "noisy sample": noisy_images, 
+                    "prediction": noise_pred, 
+                }
+                for name, t in tensors_to_assess.items():
+                    if t.isnan().any():
+                        nans = t.isnan()
+                        while nans.ndim > 1:
+                            nans = nans.any(dim=-1)
+                        nan_sample = nans.nonzero(as_tuple=True)[0].detach().tolist()
+                        nan_times = times[nan_sample].detach().tolist()
+                        nan_timesteps = timesteps[nan_sample].detach().tolist()
+                        raise ValueError(
+                            f"The training loss has collapsed to NaN values. The "
+                            f"{nan_sample}-th {name} of the batch has NaN's, which"
+                            f" corresponds to time={nan_times}, and timestep="
+                            f"{nan_timesteps}:\n{t}"
+                        )
+                    elif t.isinf().any():
+                        infs = t.isinf()
+                        while infs.ndim > 1:
+                            infs = infs.any(dim=-1)
+                        inf_sample = infs.nonzero(as_tuple=True)[0].detach().tolist()
+                        inf_times = times[inf_sample].detach().tolist()
+                        inf_timesteps = timesteps[inf_sample].detach().tolist()
+                        raise ValueError(
+                            f"The training loss has collapsed to NaN values. The "
+                            f"{inf_sample}-th {name} of the batch has Inf's, which"
+                            f" corresponds to time={inf_times}, and timestep="
+                            f"{inf_timesteps}:\n{t}"
+                        )
+                
+                raise ValueError("The training loss has collapsed to NaN values.")
 
         # Evaluate
         loss, true_var, pred_var, bias, mean_pred = [], [], [], [], []
