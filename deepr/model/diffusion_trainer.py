@@ -1,3 +1,4 @@
+import math
 import os
 from typing import Type
 
@@ -142,7 +143,7 @@ def train_diffusion(
                     class_labels=hour_emb,
                 )[0]
                 loss = F.mse_loss(noise_pred, noise)
-                
+
                 if torch.isfinite(loss):
                     accelerator.backward(loss)
                     accelerator.clip_grad_norm_(model.parameters(), 1.0)
@@ -165,13 +166,13 @@ def train_diffusion(
             progress_bar.set_postfix(**logs)
             accelerator.log(logs, step=global_step)
             global_step += 1
-            
+
             if math.isnan(logs["loss_vs_step"]):
                 tensors_to_assess = {
                     "low-res image": era5,
                     "target noise": noise,
-                    "noisy sample": noisy_images, 
-                    "prediction": noise_pred, 
+                    "noisy sample": noisy_images,
+                    "prediction": noise_pred,
                 }
                 for name, t in tensors_to_assess.items():
                     if t.isnan().any():
@@ -200,7 +201,7 @@ def train_diffusion(
                             f" corresponds to time={inf_times}, and timestep="
                             f"{inf_timesteps}:\n{t}"
                         )
-                
+
                 raise ValueError("The training loss has collapsed to NaN values.")
 
         # Evaluate

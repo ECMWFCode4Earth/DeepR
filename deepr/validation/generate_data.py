@@ -9,7 +9,6 @@ import xarray as xr
 from statsmodels.nonparametric.smoothers_lowess import lowess
 
 from deepr.model.conditional_ddpm import cDDPMPipeline
-from deepr.model.utils import get_hour_embedding
 
 
 def generate_validation_dataset(
