@@ -73,6 +73,8 @@ def train_diffusion(
             os.makedirs(config.output_dir, exist_ok=True)
         accelerator.init_trackers("Train Denoising Diffusion Model", config=hparams)
 
+    noise_scheduler.save_pretrained(config.output_dir)
+
     (
         model,
         optimizer,
@@ -262,31 +264,39 @@ def train_diffusion(
 
         # After each epoch you optionally sample some demo images
         if accelerator.is_main_process:
-            is_last_epoch = epoch == config.num_epochs - 1
+            epoch == config.num_epochs - 1
 
-            if (epoch + 1) % config.save_image_epochs == 0 or is_last_epoch:
-                era5, cerra, times = next(iter(val_dataloader))
-                if config.batch_size > 1:
-                    era5, cerra, times = era5[:1], cerra[:1], times[:1]
-                diffusion_callback(
-                    model,
-                    noise_scheduler,
-                    era5,
-                    cerra,
-                    times,
-                    inference_steps=1000,
-                    freq_timesteps_frame=4,
-                    scaler_func=label_scaler.apply_inverse_scaler,
-                    output_dir=config.output_dir,
-                    obs_model=obs_model,
-                    epoch=epoch + 1,
-                )
-                del era5, cerra, times
+            if config.is_save_images_time(epoch):
+                try:
+                    era5, cerra, times = next(iter(val_dataloader))
+                    if config.batch_size > 1:
+                        era5, cerra, times = era5[:1], cerra[:1], times[:1]
+                    diffusion_callback(
+                        model,
+                        noise_scheduler,
+                        era5,
+                        cerra,
+                        times,
+                        inference_steps=1000,
+                        freq_timesteps_frame=4,
+                        scaler_func=label_scaler.apply_inverse_scaler,
+                        output_dir=config.output_dir,
+                        obs_model=obs_model,
+                        epoch=epoch + 1,
+                    )
+                    del era5, cerra, times
+                except Exception as e:
+                    logger.error(f"Error when saving images at epoch {epoch}: \n{e}")
 
-            if (epoch + 1) % config.save_model_epochs == 0 or is_last_epoch:
+            if config.is_save_model_time(epoch):
                 model.save_pretrained(config.output_dir)
                 if config.push_to_hub:
-                    repo.push_to_hub(commit_message=f"Epoch {epoch+1}", blocking=True)
+                    try:
+                        repo.push_to_hub(
+                            commit_message=f"Epoch {epoch+1}", blocking=True
+                        )
+                    except Exception as e:
+                        logger.error(f"Error when pushing model to hub: \n{e}")
 
     accelerator.end_training()
     return model, config.hf_repo_name

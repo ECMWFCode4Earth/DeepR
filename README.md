@@ -1,5 +1,5 @@
 [![OS - Linux](https://img.shields.io/badge/OS-Linux-blue?logo=linux&logoColor=white)](https://www.linux.org/ "Go to Linux homepage")
-[![Made with Python](https://img.shields.io/badge/Python->=3.9-blue?logo=python&logoColor=white)](https://python.org "Go to Python homepage")
+[![Made with Python](https://img.shields.io/badge/Python-%3E=3.9-blue?logo=python&logoColor=white)](https://python.org "Go to Python homepage")
 [![DeepR](https://img.shields.io/static/v1?label=ECMWFCode4Earth&message=deepr&color=blue&logo=github)](https://github.com/MichaelCurrin/badge-generator)
 [![stars](https://img.shields.io/github/stars/ECMWFCode4Earth/DeepR?style=social)](https://github.com/ECMWFCode4Earth/DeepR)
 [![forks](https://img.shields.io/github/forks/ECMWFCode4Earth/DeepR?style=social)](https://github.com/ECMWFCode4Earth/DeepR)
@@ -9,7 +9,6 @@
 Global reanalysis downscaling to regional scales by means of deep learning techniques.
 
 [![view - Documentation](https://img.shields.io/badge/view-Documentation-blue?style=for-the-badge)](/docs/#readme "Go to project documentation")
-
 
 ## Introduction
 
@@ -665,12 +664,12 @@ To train your model, follow these steps:
 1. Prepare your dataset: Ensure that your dataset is properly formatted with all the
    different netCDF files inside the same folder structure.
 
-2. Configure your training parameters: Create a configuration file (usually in YAML
+1. Configure your training parameters: Create a configuration file (usually in YAML
    format) that specifies various training hyperparameters, such as learning rate, batch
    size, number of epochs, etc. You can use the provided configuration examples as a
    starting point.
 
-3. Start training: Run the training script, specifying the path to your configuration
+1. Start training: Run the training script, specifying the path to your configuration
    file. The training script is located at
    [`train_model.py`](scripts/modeling/train_model.py)
 

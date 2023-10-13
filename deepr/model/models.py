@@ -35,9 +35,7 @@ def load_trained_model(class_name: str = None, model_dir: str = None) -> nn.Modu
 
         model = cDDPMPipeline.from_pretrained(model_dir)
     elif class_name.split(".")[0].lower() == "diffusers":
-        import diffusers
-
-        return diffusers.__dict__[class_name.split(".")[1]].from_pretrained(model_dir)
+        return getattr(diffusers, class_name.split(".")[1]).from_pretrained(model_dir)
     else:
         logger.warning(
             f"The class_name {class_name} is not implemented. "
@@ -119,9 +117,7 @@ def get_neural_network(
         cfg = ConvBaselineConfig(**kwargs)
         return ConvBaseline(cfg)
     elif class_name.split(".")[0].lower() == "diffusers":
-        import diffusers
-
-        return diffusers.__dict__[class_name.split(".")[1]](**kwargs)
+        return getattr(diffusers, class_name.split(".")[1])(**kwargs)
     elif class_name.split(".")[0].lower() == "transformers":
         import transformers
 

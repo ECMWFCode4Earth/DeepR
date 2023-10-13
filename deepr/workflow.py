@@ -90,7 +90,7 @@ class MainPipeline:
             logger.info("No label standardization.")
             self.label_scaler = None
 
-        if self.train_config.output_dir is not None:
+        if self.train_config is not None and self.train_config.output_dir is not None:
             output_dir = Path(self.train_config.output_dir)
             scales = {
                 "features": self.features_scaler.to_dict(),

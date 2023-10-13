@@ -1,6 +1,6 @@
 import logging
 import os
-from typing import List
+from typing import List, Optional
 
 import torch
 from pydantic.dataclasses import dataclass
@@ -17,8 +17,8 @@ class TrainingConfig:
     gradient_accumulation_steps = 1
     learning_rate: float = 1e-4
     lr_warmup_steps: int = 500
-    save_image_epochs: int = 10
-    save_model_epochs: int = 30
+    save_image_epochs: Optional[int] = None
+    save_model_epochs: Optional[int] = None
     hour_embed_type: str = "none"
     device: str = "cuda"
     mixed_precision: str = (
@@ -40,3 +40,20 @@ class TrainingConfig:
 
         if self.output_dir is not None:
             os.makedirs(self.output_dir, exist_ok=True)
+
+    def _is_last_epoch(self, epoch: int):
+        return epoch == self.num_epochs - 1
+
+    def is_save_model_time(self, epoch: int):
+        if self.save_model_epochs is None:
+            return False or self._is_last_epoch(epoch)
+
+        _epoch_save = (epoch + 1) % self.save_model_epochs == 0
+        return _epoch_save or self._is_last_epoch(epoch)
+
+    def is_save_images_time(self, epoch: int):
+        if self.save_image_epochs is None:
+            return False or self._is_last_epoch(epoch)
+
+        _epoch_save = (epoch + 1) % self.save_image_epochs == 0
+        return _epoch_save or self._is_last_epoch(epoch)
