@@ -5,7 +5,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from diffusers.pipelines.pipeline_utils import DiffusionPipeline, ImagePipelineOutput
-from diffusers.utils import randn_tensor
+from diffusers.utils.torch_utils import randn_tensor
 
 from deepr.model.utils import get_hour_embedding
 
