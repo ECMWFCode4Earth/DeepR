@@ -53,7 +53,7 @@ def train_diffusion(
     val_dataloader = torch.utils.data.DataLoader(
         dataset_val, config.batch_size, pin_memory=True, num_workers=config.num_workers
     )
-    logger.info("DataLoaders created successfuly!")
+    logger.info("DataLoaders created successfully!")
 
     optimizer = torch.optim.Adam(model.parameters(), lr=config.learning_rate)
     lr_scheduler = get_cosine_schedule_with_warmup(
@@ -113,13 +113,9 @@ def train_diffusion(
                 device=config.device,
             ).long()
 
-            # Add noise to the clean images according to the noise magnitude at each t
-            noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
-
             # Encode hour
-            emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
             hour_emb = get_hour_embedding(
-                times[:, :1], config.hour_embed_type, emb_size
+                times[:, :1], config.hour_embed_type, config.hour_embed_size
             )
             if hour_emb is not None:
                 hour_emb = hour_emb.to(config.device).squeeze()
@@ -134,6 +130,15 @@ def train_diffusion(
                 r_lat = None if l_lat == 0 else -l_lat
                 r_lon = None if l_lon == 0 else -l_lon
                 era5 = era5[..., l_lat:r_lat, l_lon:r_lon]
+
+            if config.instance_norm:
+                m = era5.mean((1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+                s = era5.std((1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+                era5 = (era5 - m) / s
+                cerra = (cerra - m) / s
+
+            # Add noise to the clean images according to the noise magnitude at each t
+            noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
             # Predict the noise residual
             with accelerator.accumulate(model):
@@ -217,7 +222,6 @@ def train_diffusion(
                 (bs,),
                 device=config.device,
             ).long()
-            noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
             # Validation: Encode hour
             emb_size = model.down_blocks[0].resnets[0].conv1.in_channels * 4
@@ -237,6 +241,15 @@ def train_diffusion(
                     r_lat = None if l_lat == 0 else -l_lat
                     r_lon = None if l_lon == 0 else -l_lon
                     era5 = era5[..., l_lat:r_lat, l_lon:r_lon]
+
+                # Instance normalization
+                if config.instance_norm:
+                    m = era5.mean((1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+                    s = era5.std((1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+                    era5 = (era5 - m) / s
+                    cerra = (cerra - m) / s
+
+                noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
                 # Predict the noise residual
                 noise_pred = model(
@@ -281,8 +294,11 @@ def train_diffusion(
                         freq_timesteps_frame=4,
                         scaler_func=label_scaler.apply_inverse_scaler,
                         output_dir=config.output_dir,
-                        obs_model=obs_model,
                         epoch=epoch + 1,
+                        obs_model=obs_model,
+                        instance_norm=config.instance_norm,
+                        hour_embed_type=config.hour_embed_type,
+                        hour_embed_dim=config.hour_embed_dim,
                     )
                     del era5, cerra, times
                 except Exception as e:

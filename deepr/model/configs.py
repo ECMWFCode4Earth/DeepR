@@ -19,7 +19,9 @@ class TrainingConfig:
     lr_warmup_steps: int = 500
     save_image_epochs: Optional[int] = None
     save_model_epochs: Optional[int] = None
+    instance_norm: Optional[bool] = False
     hour_embed_type: str = "none"
+    hour_embed_size: int = 64
     device: str = "cuda"
     mixed_precision: str = (
         "fp16"  # `no` for float32, `fp16` for automatic mixed precision

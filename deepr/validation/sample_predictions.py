@@ -197,10 +197,10 @@ def diffusion_callback(
     inference_steps: int = 1000,
     fps: int = 50,
     eta: float = 1,
-    obs_model=None,
     epoch: int = 0,
+    **ddpm_kwargs,
 ):
-    pipeline = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=obs_model)
+    pipeline = cDDPMPipeline(unet=model, scheduler=scheduler, **ddpm_kwargs)
     pipeline.to(era5.device)
     hr_im, interm = pipeline(
         images=era5[:1],

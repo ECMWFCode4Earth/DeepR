@@ -26,8 +26,21 @@ class cDDPMPipeline(DiffusionPipeline):
         image. Can be one of [`DDPMScheduler`], or [`DDIMScheduler`].
     """
 
-    def __init__(self, unet, scheduler, obs_model=None):
+    def __init__(
+        self,
+        unet,
+        scheduler,
+        obs_model=None,
+        baseline_interpolation_method: Optional[str] = "bicubic",
+        hour_embed_type: [Optional] = "class",
+        hour_embed_dim: Optional[int] = 64,
+        instance_norm: Optional[bool] = False,
+    ):
         super().__init__()
+        self.baseline_interpolation_method = baseline_interpolation_method
+        self.hour_embed_type = hour_embed_type
+        self.hour_embed_dim = hour_embed_dim
+        self.instance_norm = instance_norm
         self.register_modules(unet=unet, scheduler=scheduler, obs_model=obs_model)
 
     @torch.no_grad()
@@ -69,11 +82,18 @@ class cDDPMPipeline(DiffusionPipeline):
             self.obs_model = self.obs_model.to(self.device)
             up_images = self.obs_model(images.to(self.device))[0].to(self.device)
         else:
-            up_images = F.interpolate(images, scale_factor=5, mode="bicubic")
+            up_images = F.interpolate(
+                images, scale_factor=5, mode=self.baseline_interpolation_method
+            )
             l_lat, l_lon = (np.array(up_images.shape[-2:]) - image_shape[-2:]) // 2
             r_lat = None if l_lat == 0 else -l_lat
             r_lon = None if l_lon == 0 else -l_lon
             up_images = up_images[..., l_lat:r_lat, l_lon:r_lon].to(self.device)
+
+        if self.instance_norm:
+            m = up_images.mean((1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+            s = up_images.std((1, 2, 3))[:, np.newaxis, np.newaxis, np.newaxis]
+            up_images = (up_images - m) / s
 
         if self.device.type == "mps":
             # randn does not work reproducibly on mps
@@ -94,7 +114,9 @@ class cDDPMPipeline(DiffusionPipeline):
 
         # Hour encoding. Passed to NN as class labels
         if class_labels is not None:
-            class_labels = get_hour_embedding(class_labels, "class", 24)
+            class_labels = get_hour_embedding(
+                class_labels, self.hour_embed_type, self.hour_embed_dim
+            )
             class_labels = class_labels.to(self.device).squeeze()
 
         # set step values
@@ -120,6 +142,9 @@ class cDDPMPipeline(DiffusionPipeline):
         if saving_freq_interm > 0:
             intermediate_images.append(latents.cpu())
             intermediate_images = torch.cat(intermediate_images, dim=1)
+
+        if self.instance_norm:
+            latents = latents * s + m
 
         image = latents.cpu().numpy()
         if output_type == "pil":

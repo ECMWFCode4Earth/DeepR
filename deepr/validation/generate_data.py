@@ -160,8 +160,8 @@ def predict_xr(
             prediction = model(era5, return_dict=False)[0]
         attrs = {}
     attrs["repo"] = config["repo_name"]
-    attrs["input_inference_scaling"] = config["inference_scaling"]["input"]
-    attrs["output_inference_scaling"] = config["inference_scaling"]["output"]
+    attrs["input_inference_scaling"] = config["inference_scaling"].get("input", "")
+    attrs["output_inference_scaling"] = config["inference_scaling"].get("output", "")
 
     if data_scaler_func is not None:
         prediction = data_scaler_func(prediction, times[:, 2])
