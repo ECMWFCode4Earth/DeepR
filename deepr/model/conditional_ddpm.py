@@ -32,6 +32,7 @@ class cDDPMPipeline(DiffusionPipeline):
         scheduler,
         obs_model=None,
         baseline_interpolation_method: Optional[str] = "bicubic",
+        learn_residuals: Optional[bool] = False,
         hour_embed_type: [Optional] = "class",
         hour_embed_dim: Optional[int] = 64,
         instance_norm: Optional[bool] = False,
@@ -41,6 +42,7 @@ class cDDPMPipeline(DiffusionPipeline):
         self.hour_embed_type = hour_embed_type
         self.hour_embed_dim = hour_embed_dim
         self.instance_norm = instance_norm
+        self.learn_residuals = learn_residuals
         self.register_modules(unet=unet, scheduler=scheduler, obs_model=obs_model)
 
     @torch.no_grad()
@@ -142,6 +144,9 @@ class cDDPMPipeline(DiffusionPipeline):
         if saving_freq_interm > 0:
             intermediate_images.append(latents.cpu())
             intermediate_images = torch.cat(intermediate_images, dim=1)
+
+        if self.learn_residuals:
+            latents = latents + up_images
 
         if self.instance_norm:
             latents = latents * s + m

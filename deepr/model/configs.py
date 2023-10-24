@@ -20,6 +20,7 @@ class TrainingConfig:
     save_image_epochs: Optional[int] = None
     save_model_epochs: Optional[int] = None
     instance_norm: Optional[bool] = False
+    learn_residuals: Optional[bool] = False
     hour_embed_type: str = "none"
     hour_embed_size: int = 64
     device: str = "cuda"

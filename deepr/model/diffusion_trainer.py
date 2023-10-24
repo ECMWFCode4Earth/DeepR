@@ -140,6 +140,9 @@ def train_diffusion(
                 era5 = (era5 - m) / s
                 cerra = (cerra - m) / s
 
+            if config.learn_residuals:
+                cerra = cerra - era5
+
             # Add noise to the clean images according to the noise magnitude at each t
             noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
@@ -252,6 +255,9 @@ def train_diffusion(
                     era5 = (era5 - m) / s
                     cerra = (cerra - m) / s
 
+                if config.learn_residuals:
+                    cerra = cerra - era5
+
                 noisy_images = noise_scheduler.add_noise(cerra, noise, timesteps)
 
                 # Predict the noise residual
@@ -299,6 +305,7 @@ def train_diffusion(
                         output_dir=config.output_dir,
                         epoch=epoch + 1,
                         obs_model=obs_model,
+                        learn_residuals=config.learn_residuals,
                         instance_norm=config.instance_norm,
                         hour_embed_type=config.hour_embed_type,
                         hour_embed_dim=config.hour_embed_dim,
