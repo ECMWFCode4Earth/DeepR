@@ -7,6 +7,7 @@ import numpy as np
 import torch
 import torch.nn.functional as F
 from accelerate import Accelerator
+from dotenv import find_dotenv, load_dotenv
 from huggingface_hub import Repository
 from tqdm import tqdm
 from transformers import get_cosine_schedule_with_warmup
@@ -17,6 +18,8 @@ from deepr.utilities.logger import get_logger
 from deepr.validation.sample_predictions import diffusion_callback
 
 logger = get_logger(__name__)
+
+load_dotenv(find_dotenv())
 
 
 def train_diffusion(
