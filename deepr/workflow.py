@@ -421,6 +421,7 @@ class MainPipeline:
                 hour_embed_type=self.inference_config.get("hour_embed_type", "class"),
                 hour_embed_dim=self.inference_config.get("hour_embed_dim", 64),
                 instance_norm=self.inference_config.get("instance_norm", False),
+                learn_residuals=self.inference_config.get("learn_residuals", False),
             )
             pipe.to(self.inference_config["device"])
             generate_data.generate_validation_dataset(
