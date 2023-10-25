@@ -250,6 +250,7 @@ class MainPipeline:
             dataset_val,
             obs_model=obs_model,
             dataset_info=self.data_config.get_plain_dict(),
+            input_scaler=self.features_scaler,
             label_scaler=self.label_scaler,
         )
 
@@ -410,7 +411,17 @@ class MainPipeline:
             obs_model_cfg = self.model_config.pop("trained_obs_model", {})
             obs_model = load_trained_model(**obs_model_cfg)
             scheduler = get_hf_scheduler(**self.model_config.pop("scheduler"))
-            pipe = cDDPMPipeline(unet=model, scheduler=scheduler, obs_model=obs_model)
+            pipe = cDDPMPipeline(
+                unet=model,
+                scheduler=scheduler,
+                obs_model=obs_model,
+                baseline_interpolation_method=self.inference_config.get(
+                    "baseline", "bicubic"
+                ),
+                hour_embed_type=self.inference_config.get("hour_embed_type", "class"),
+                hour_embed_dim=self.inference_config.get("hour_embed_dim", 64),
+                instance_norm=self.inference_config.get("instance_norm", False),
+            )
             pipe.to(self.inference_config["device"])
             generate_data.generate_validation_dataset(
                 dl_test, scaler, pipe, self.inference_config

@@ -30,6 +30,7 @@ def train_diffusion(
     dataset_val: torch.utils.data.IterableDataset,
     obs_model: Type[torch.nn.Module] = None,
     dataset_info: dict = None,
+    input_scaler=None,
     label_scaler=None,
 ):
     hparams = config.__dict__ | dataset_info
